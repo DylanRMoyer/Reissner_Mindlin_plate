@@ -8,6 +8,7 @@ import numpy as np
 import basix
 from slepc4py import SLEPc
 from petsc4py import PETSc
+from scipy.sparse import csr_matrix, coo_matrix
 
 
 length = 1.1
@@ -265,12 +266,76 @@ print(f"Reissner-Mindlin FE deflection: {max(abs(w.x.array)):.5f}")
 
 # --- Solve EVP ---
 
-
 K = fem.petsc.assemble_matrix(fem.form(a), bcs = bcs, diag=1e10)
 K.assemble()
 
 M = fem.petsc.assemble_matrix(fem.form(m), bcs = bcs)
 M.assemble()
+
+
+# --- helpers: PETSc <-> scipy round-trip ---
+
+def petsc_to_scipy(A):
+    indptr, indices, data = A.getValuesCSR()
+    return csr_matrix((data, indices, indptr), shape=A.getSize())
+
+def scipy_to_petsc(A_sp):
+    A_sp = A_sp.tocsr()
+    A_petsc = PETSc.Mat().createAIJ(size=A_sp.shape,
+                                     csr=(A_sp.indptr, A_sp.indices, A_sp.data))
+    A_petsc.assemble()
+    return A_petsc
+
+# --- Build the augmented (n+1) x (n+1) system ---
+
+K_sp = petsc_to_scipy(K)      # your existing Day-8 K (plate only, diag=1e10 fix included)
+M_sp = petsc_to_scipy(M)      # your existing Day-8 M (plate only)
+n = K_sp.shape[0]
+
+# extended coefficient vector, length n+1, mostly zero
+phi_ext = np.zeros(n + 1)
+phi_ext[global_dofs_parent] = phi
+phi_ext[n] = -1.0             # q_r's own coordinate, index n (0-indexed -> the (n+1)-th dof)
+
+# nonzero indices only, for a sparse outer product (phi_ext is almost entirely zero)
+nz = np.nonzero(phi_ext)[0]
+rows = np.repeat(nz, len(nz))
+cols = np.tile(nz, len(nz))
+vals = point_stiffness * np.outer(phi_ext[nz], phi_ext[nz]).flatten()
+
+K_spring = coo_matrix((vals, (rows, cols)), shape=(n + 1, n + 1)).tocsr()
+
+# embed original K, M into (n+1)x(n+1), then add the spring stiffness and point mass
+from scipy.sparse import bmat
+
+K_aug = bmat([[K_sp, None],
+              [None, csr_matrix([[0.0]])]], format="csr") + K_spring
+
+M_aug = bmat([[M_sp, None],
+              [None, csr_matrix([[point_mass]])]], format="csr")
+
+"""""
+# 1. q_r's own diagonal should be exactly k_r (mass m_r), nothing else touches it
+print("K_aug[n,n] =", K_aug[n, n], " expected:", point_stiffness)
+print("M_aug[n,n] =", M_aug[n, n], " expected:", point_mass)
+
+# 2. coupling entries should be -k_r * phi_i, symmetric
+i0 = global_dofs_parent[0]
+print("K_aug[i0, n] =", K_aug[i0, n], " expected:", -point_stiffness * phi[0])
+print("K_aug[n, i0] =", K_aug[n, i0], " should match the line above")
+
+# 3. plate-plate block should equal original K plus the outer product, e.g. at (i0, i0)
+print("K_aug[i0, i0] =", K_aug[i0, i0], " expected:", K_sp[i0, i0] + point_stiffness * phi[0]**2)
+
+# 4. mass matrix has zero coupling anywhere in the last row/column except the diagonal
+print("M_aug row n (should be all zero except last entry):",
+      M_aug[n, :].toarray())
+"""
+
+K = scipy_to_petsc(K_aug)
+M = scipy_to_petsc(M_aug)
+
+
 eps = SLEPc.EPS().create(domain.comm)
 eps.setOperators(K, M)
 eps.setProblemType(SLEPc.EPS.ProblemType.GHEP)
@@ -295,12 +360,16 @@ for i in range(eps.getConverged()):
     freq_hz = np.sqrt(omega_sq) / (2*np.pi)
     print(f"mode {i}: {freq_hz:.4f} Hz")
 
-    mode_function = fem.Function(function_space)
-    mode_function.x.petsc_vec.setArray(vr.getArray())
-    mode_function.x.scatter_forward()  # sync ghost values (matters in parallel)
-    eigenmodes.append(mode_function)
+    plate_part = vr.getArray()[:n]
+    q_r_value = vr.getArray()[n]
 
-mode_to_plot = eigenmodes[3]
+    mode_function = fem.Function(function_space)
+    mode_function.x.petsc_vec.setArray(plate_part)
+    mode_function.x.scatter_forward()  # sync ghost values (matters in parallel)
+
+    eigenmodes.append((mode_function, q_r_value))
+
+mode_to_plot, q_r_to_plot = eigenmodes[3]
 w_mode = mode_to_plot.sub(0).collapse()   # scalar w-part of this eigenmode, still on Serendipity space
 
 V_plot = fem.functionspace(domain, ("Lagrange", deg))
@@ -341,6 +410,25 @@ glyphs = warped.glyph(orient="theta", scale="theta", factor=factor_scale * 0.1)
 # adjust the *5 multiplier to taste if arrows are too small/large
 
 p = pyvista.Plotter()
+
+attachment_xy = np.array([target_point_mass_x, target_point_mass_y])
+plate_w_at_target = np.dot(phi, w_mode.x.array[local_to_global_w])  # w_h at target, this mode
+
+mass_marker = pyvista.PolyData(np.array([[
+    attachment_xy[0],
+    attachment_xy[1],
+    factor_scale * q_r_value
+]]))
+
+p.add_mesh(mass_marker, color="blue", point_size=15, render_points_as_spheres=True)
+
+# a line from the plate surface to the mass, i.e. the spring itself
+spring_line = pyvista.Line(
+    pointa=[attachment_xy[0], attachment_xy[1], factor_scale * plate_w_at_target],
+    pointb=[attachment_xy[0], attachment_xy[1], factor_scale * q_r_value]
+)
+p.add_mesh(spring_line, color="blue", line_width=3)
+
 p.add_mesh(warped, scalars="w", show_edges=True)
 p.add_mesh(glyphs, color="red")
 p.show_axes()
