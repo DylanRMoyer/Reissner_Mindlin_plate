@@ -36,16 +36,14 @@ domain = mesh.create_rectangle(MPI.COMM_WORLD, [np.array([0,0]), np.array([lengt
 nu = fem.Constant(domain, lambda_/(2*(lambda_ + mu)))
 E = fem.Constant(domain, mu*(3*lambda_ + 2*mu)/(mu + lambda_))
 
-# Plate bending stiffness $\textsf{D}=\dfrac{Eh^3}{12(1-\nu^2)}$ and shear stiffness $\textsf{F} = \kappa G h$ with a shear correction factor $\kappa = 5/6$ for a homogeneous plate of thickness $h$:
+# Plate bending stiffness $\textsf{D}=\dfrac{Eh^3}{12(1-\nu^2)}$ and shear stiffness $\textsf{F} = \kappa G h$
+# with a shear correction factor $\kappa = 5/6$ for a homogeneous plate of thickness $h$:
 
 thick = fem.Constant(domain, thickness)
 D = E * thick**3 / (1 - nu**2) / 12.0
 F = E / 2 / (1 + nu) * thick * 5.0 / 6.0
 
-if norm_to_one == True:
-    f = -D / 1.265319087e-3  # with this we have w_Love-Kirchhoff = 1.0
-else:
-    f = fem.Constant(domain, 1.0)
+f = fem.Constant(domain, 1.0)
 
 deg = 2
 el_type = "S"  # or "Q"
@@ -55,6 +53,9 @@ Te = basix.ufl.element(el_type, domain.basix_cell(), deg, shape=(2,))
 #function_space_w = fem.functionspace(domain, el_type, deg)
 
 function_space = fem.functionspace(domain, basix.ufl.mixed_element([We, Te]))
+
+# degree = print(function_space.ufl_element().degree)  # gives you the degree of the function space
+
 
 function_space_w, w_to_parent = function_space.sub(0).collapse()   # w-subspace, with its own dof map
 w_to_parent = np.asarray(w_to_parent).reshape(-1)
@@ -71,7 +72,7 @@ target_point_mass_y = 0.912
 target_point_vector = np.array([[target_point_mass_x, target_point_mass_y, 0.0]])
 
 point_stiffness = 100 # Newton per meter, keeping it SI
-point_mass = 1 # kilogram, also keeping it SI
+point_mass = 1e4 # kilogram, also keeping it SI
 
 point_eigenfrequency = np.sqrt(point_stiffness/point_mass)/(2*np.pi)
 #print(f"Eigenfrequency of point mass is: {point_eigenfrequency:.2e} Hz")
@@ -86,7 +87,7 @@ target_cells = dolfinx.geometry.compute_colliding_cells(domain, possible_boxes, 
 
 # Step A — take one definite cell
 cell = target_cells.links(0)[0]
-#print(cell)
+#print("Found cell number:", cell)
 
 # Step B — pull the physical target point back into this cell's reference coordinates
 cmap = domain.geometry.cmaps[0]
@@ -208,7 +209,7 @@ a = (
 
 # Static problem for point load
 
-point_force = -1.0e3   # N, sign per your convention
+spring_end_displacement = 1.0e3   # starting displacement of the point mass
 
 bilinear_form = fem.form(a)
 A = fem.petsc.assemble_matrix(bilinear_form, bcs=bcs)
@@ -227,7 +228,7 @@ b = A.createVecRight()
 b.zeroEntries()
 
 for phi_i, parent_dof in zip(phi, global_dofs_parent):
-    b.setValue(parent_dof, phi_i * point_force, addv=PETSc.InsertMode.ADD_VALUES)
+    b.setValue(parent_dof, phi_i * point_stiffness * spring_end_displacement, addv=PETSc.InsertMode.ADD_VALUES)
 b.assemblyBegin()
 b.assemblyEnd()
 
@@ -432,4 +433,4 @@ p.add_mesh(spring_line, color="blue", line_width=3)
 p.add_mesh(warped, scalars="w", show_edges=True)
 p.add_mesh(glyphs, color="red")
 p.show_axes()
-p.show()
+#p.show()
