@@ -1,4 +1,4 @@
-from dolfinx import mesh, fem
+from dolfinx import mesh
 from mpi4py import MPI
 import numpy as np
 

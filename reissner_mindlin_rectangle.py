@@ -116,7 +116,7 @@ print("parent dofs receiving the point load:", global_dofs_parent)
 
 # +
 # Boundary of the plate
-def border(x):
+def border(x, length, width):
     return np.logical_or(
         np.logical_or(np.isclose(x[0], 0), np.isclose(x[0], length)),
         np.logical_or(np.isclose(x[1], 0), np.isclose(x[1], width)),
@@ -126,7 +126,7 @@ def border(x):
 facet_dim = 1
 clamped_facets = mesh.locate_entities_boundary(domain, facet_dim, border)
 clamped_dofs = fem.locate_dofs_topological(function_space, facet_dim, clamped_facets)
-
+print(clamped_facets)
 
 u0_w = fem.Function(function_space_w)   # zero by default — clamped displacement
 u0_t = fem.Function(function_space_theta)   # zero by default — clamped rotation

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 class PlateProblemConstants:
     domain: object
     thick: fem.Constant
+    rho: fem.Constant
     nu: fem.Constant
     E: fem.Constant
     D: ufl.core.expr.Expr
@@ -19,12 +20,14 @@ class PlateProblemConstants:
 
 def reissner_mindlin_constants(domain,
                                thickness: float,
+                               rho: float,
                                mu: float,
                                lambda_: float,
                                constant_force: float = 1.0,
                                ):
 
     thick = fem.Constant(domain, thickness)
+    rho_const = fem.Constant(domain, rho)
     nu = fem.Constant(domain, lambda_ / (2 * (lambda_ + mu)))
     E = fem.Constant(domain, mu * (3 * lambda_ + 2 * mu) / (mu + lambda_))
 
@@ -32,7 +35,7 @@ def reissner_mindlin_constants(domain,
     F = E / 2 / (1 + nu) * thick * 5.0 / 6.0  # Shear stiffness
     f = fem.Constant(domain, constant_force)
 
-    return PlateProblemConstants(domain = domain, thick = thick, nu = nu, E = E, D = D, F = F, f = f,)
+    return PlateProblemConstants(domain = domain, thick = thick, rho = rho_const, nu = nu, E = E, D = D, F = F, f = f)
 
 
 # --- Create function spaces and get necessary indices ---
@@ -45,14 +48,12 @@ def create_function_spaces(domain, deg:int = 2, el_type:str = "S"):
 
     return function_space
 
-def extract_subspace(function_space, subspace_index:int = 0):
-    function_subspace, _ = function_space.sub(subspace_index).collapse()
-    return function_subspace
+def collapse_subspace(function_space, subspace_index:int):
+    subspace, to_parent = function_space.sub(subspace_index).collapse()
+    return subspace, np.asarray(to_parent).reshape(-1)
 
-def w_indices_to_parent_indices(function_space):
-    _, w_to_parent = function_space.sub(0).collapse()
-    w_to_parent = np.asarray(w_to_parent).reshape(-1)
-    return w_to_parent
+def collapse_w_subspace(function_space):
+    return collapse_subspace(function_space, subspace_index=0)
 
 
 # --- Preliminary equations for the weak form ---
