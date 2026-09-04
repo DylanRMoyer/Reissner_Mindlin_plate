@@ -72,7 +72,7 @@ target_point_mass_y = 0.912
 target_point_vector = np.array([[target_point_mass_x, target_point_mass_y, 0.0]])
 
 point_stiffness = 100 # Newton per meter, keeping it SI
-point_mass = 1e4 # kilogram, also keeping it SI
+point_mass = 1 # kilogram, also keeping it SI
 
 point_eigenfrequency = np.sqrt(point_stiffness/point_mass)/(2*np.pi)
 #print(f"Eigenfrequency of point mass is: {point_eigenfrequency:.2e} Hz")
@@ -116,7 +116,7 @@ print("parent dofs receiving the point load:", global_dofs_parent)
 
 # +
 # Boundary of the plate
-def border(x, length, width):
+def border(x):
     return np.logical_or(
         np.logical_or(np.isclose(x[0], 0), np.isclose(x[0], length)),
         np.logical_or(np.isclose(x[1], 0), np.isclose(x[1], width)),
@@ -126,7 +126,7 @@ def border(x, length, width):
 facet_dim = 1
 clamped_facets = mesh.locate_entities_boundary(domain, facet_dim, border)
 clamped_dofs = fem.locate_dofs_topological(function_space, facet_dim, clamped_facets)
-print(clamped_facets)
+#print(clamped_facets)
 
 u0_w = fem.Function(function_space_w)   # zero by default — clamped displacement
 u0_t = fem.Function(function_space_theta)   # zero by default — clamped rotation
@@ -254,7 +254,7 @@ print(f"Point-load deflection at target: {max(abs(w_point.x.array)):.6e}")
 
 # +
 problem = fem.petsc.LinearProblem(
-    a, L, u=u, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"}, petsc_options_prefix="Reissner-Mendlin"
+    a, L, u=u, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"}, petsc_options_prefix="Reissner-Mindlin"
 )
 problem.solve()
 
@@ -433,4 +433,10 @@ p.add_mesh(spring_line, color="blue", line_width=3)
 p.add_mesh(warped, scalars="w", show_edges=True)
 p.add_mesh(glyphs, color="red")
 p.show_axes()
-#p.show()
+import os
+#p.view_isometric()
+p.view_vector((2,2,-1))
+#p.show(auto_close=False)
+save_path = os.path.expanduser("~/PycharmProjects/Plots/rm_plate_onemass_bottom_view.pdf")
+#p.save_graphic(save_path)
+p.close()

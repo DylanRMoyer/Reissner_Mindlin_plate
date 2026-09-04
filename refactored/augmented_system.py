@@ -46,4 +46,22 @@ def augment_stiffness_matrix(K, point_stiffness, phi, global_dofs_parent):
                         [None, csr_matrix([[0.0]])]], format="csr")
     K_aug_sp = K_embedded + K_spring
 
-    return scipy_to_petsc(K_aug_sp)
+    return scipy_to_petsc(K_aug_sp), n
+
+# --- Add stiffness contribution directly onto plate's existing DOFs
+
+def add_condensed_spring_stiffness(A, phi, global_dofs_parent, point_stiffness):
+    """Add the spring's rank-1 stiffness contribution directly onto the
+    plate's existing DOFs (static condensation of the spring's own
+    coordinate — used for static solves where the spring's own
+    displacement isn't needed as an independent unknown).
+
+    Modifies A in place via PETSc ADD_VALUES; caller must still call
+    A.assemblyBegin()/A.assemblyEnd() (or A.assemble()) afterward.
+    """
+    for i, dof_i in enumerate(global_dofs_parent):
+        for j, dof_j in enumerate(global_dofs_parent):
+            A.setValue(dof_i, dof_j, point_stiffness * phi[i] * phi[j],
+                       addv=PETSc.InsertMode.ADD_VALUES)
+
+    return A

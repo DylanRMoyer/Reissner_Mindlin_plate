@@ -23,7 +23,7 @@ def reissner_mindlin_constants(domain,
                                rho: float,
                                mu: float,
                                lambda_: float,
-                               constant_force: float = 1.0,
+                               constant_force: float = 1.0
                                ):
 
     thick = fem.Constant(domain, thickness)
@@ -86,7 +86,7 @@ def shear_force(u, F):
 
 # --- Define weak form ---
 
-def define_weak_form(function_space, problem: PlateProblemConstants, rho: float):
+def define_weak_form(function_space, problem: PlateProblemConstants):
 
     u_ = ufl.TestFunction(function_space)
     du = ufl.TrialFunction(function_space)
@@ -96,8 +96,8 @@ def define_weak_form(function_space, problem: PlateProblemConstants, rho: float)
     dx = ufl.Measure("dx")
     dx_shear = ufl.Measure("dx", metadata={"quadrature_degree": 2 * deg - 2})
 
-    m = (rho * problem.thick * ufl.inner(u_[0], du[0]) * dx
-         + rho * problem.thick**3/12 * ufl.inner(extract_theta(u_), extract_theta(du)) * dx)
+    m = (problem.rho * problem.thick * ufl.inner(u_[0], du[0]) * dx
+         + problem.rho * problem.thick**3/12 * ufl.inner(extract_theta(u_), extract_theta(du)) * dx)
 
     L = problem.f * u_[0] * dx
     a = (

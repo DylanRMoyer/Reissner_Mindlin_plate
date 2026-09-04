@@ -1,4 +1,9 @@
+import numpy as np
 from dolfinx import fem
+from slepc4py import SLEPc
+from weak_form import define_weak_form
+from augmented_system import augment_stiffness_matrix, augment_mass_matrix
+
 
 def assemble_plate_matrix(a, bcs, diag_value=1.0):
     """Assemble a plate system matrix (K or M) with Dirichlet BCs applied.
@@ -13,3 +18,47 @@ def assemble_plate_matrix(a, bcs, diag_value=1.0):
     assembled_matrix.assemble()
 
     return assembled_matrix
+
+def solve_evp(domain, function_space, problem, bcs, vamm_config, phi, global_dofs_parent):
+    m, _, a = define_weak_form(function_space, problem)
+    K = assemble_plate_matrix(a, bcs, diag_value=1e10)
+    M = assemble_plate_matrix(m, bcs)
+
+    K_aug, n = augment_stiffness_matrix(K, vamm_config.point_stiffness, phi, global_dofs_parent)
+    M_aug = augment_mass_matrix(M, vamm_config.point_mass)
+
+    eps = SLEPc.EPS().create(domain.comm)
+    eps.setOperators(K_aug, M_aug)
+    eps.setProblemType(SLEPc.EPS.ProblemType.GHEP)
+
+    st = eps.getST()
+    st.setType(SLEPc.ST.Type.SINVERT)
+    st.setShift(0.0)  # target near zero -- lowest frequencies
+
+    eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_MAGNITUDE)
+    eps.setTarget(0.0)
+    eps.setDimensions(nev=6)  # how many eigenpairs to converge
+    eps.solve()
+
+    # create PETSc vectors matching K's layout (real and imaginary parts)
+    vr, vi = K_aug.createVecs()
+
+    eigenfrequencies = []
+    eigenmodes = []
+
+    for i in range(eps.getConverged()):
+        eigval = eps.getEigenpair(i, vr, vi)  # fills vr, vi; returns eigenvalue
+        omega_sq = eigval.real
+        freq_hz = np.sqrt(omega_sq) / (2 * np.pi)
+
+        plate_part = vr.getArray()[:n]
+        q_r_value = vr.getArray()[n]
+
+        mode_function = fem.Function(function_space)
+        mode_function.x.petsc_vec.setArray(plate_part)
+        mode_function.x.scatter_forward()  # sync ghost values (matters in parallel)
+
+        eigenfrequencies.append(freq_hz)
+        eigenmodes.append((mode_function, q_r_value))
+
+    return eigenfrequencies, eigenmodes
