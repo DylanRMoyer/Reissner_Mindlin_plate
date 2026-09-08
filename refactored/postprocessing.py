@@ -1,0 +1,140 @@
+import pyvista
+import numpy as np
+from dolfinx import fem, plot
+
+def create_w_plot(domain, function_space, eigenmodes, eigenmode_index, length):
+
+    deg = function_space.ufl_element().degree
+
+    mode_to_plot, q_r_to_plot = eigenmodes[eigenmode_index]
+    w_mode = mode_to_plot.sub(0).collapse()   # scalar w-part of this eigenmode, still on Serendipity space
+
+    V_plot = fem.functionspace(domain, ("Lagrange", deg))
+    w_plot = fem.Function(V_plot)
+    w_plot.interpolate(w_mode)
+
+    topology, cell_types, geometry = plot.vtk_mesh(V_plot)
+    grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
+    grid.point_data["w"] = w_plot.x.array
+
+    max_w = np.max(np.abs(w_plot.x.array))
+    target_visual_amplitude = 0.05 * length
+    factor_scale = target_visual_amplitude / max_w
+    # print(f"suggested warp factor: {factor_scale}")
+
+    warped = grid.warp_by_scalar("w", factor=factor_scale)
+
+    return warped, mode_to_plot, q_r_to_plot, w_mode, factor_scale, deg
+
+
+# --- Rotation field (theta) overlay, on top of the warped w-surface ---
+
+def add_theta_plot(function_space, mode_to_plot, warped, factor_scale, deg):
+
+    theta_mode = mode_to_plot.sub(1).collapse()   # vector theta-part of this eigenmode
+
+    V_plot_vec = fem.functionspace(function_space.mesh, ("Lagrange", deg, (2,)))
+    theta_plot = fem.Function(V_plot_vec)
+    theta_plot.interpolate(theta_mode)
+
+    # theta is a 2-component in-plane field; pad with a zero z-component so
+    # PyVista (which wants 3D vectors) can glyph it, and so we can lay the
+    # arrows flat/tangent at each warped surface point.
+    theta_vals = theta_plot.x.array.reshape((-1, 2))
+    theta_3d = np.zeros((theta_vals.shape[0], 3))
+    theta_3d[:, 0:2] = theta_vals
+
+    # attach to the *warped* grid so arrows sit at the already-deformed points
+    warped["theta"] = theta_3d
+
+    glyphs = warped.glyph(orient="theta", scale="theta", factor=factor_scale * 0.1)
+    # factor here is a separate visual scale from the w-warp factor —
+    # adjust the *.1 multiplier to taste if arrows are too small/large
+
+    return glyphs
+
+
+def add_point_mass_to_plot(vamm_config, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg):
+
+    attachment_xy = np.array([vamm_config.target_x, vamm_config.target_y])
+    plate_w_at_target = np.dot(phi, w_mode.x.array[local_to_global_w])  # w_h at target, this mode
+
+    mass_marker = pyvista.PolyData(np.array([[
+        attachment_xy[0],
+        attachment_xy[1],
+        factor_scale * q_r_to_plot
+
+
+    ]]))
+
+    # a line from the plate surface to the mass, i.e. the spring itself
+    spring_line = pyvista.Line(
+        pointa=[attachment_xy[0], attachment_xy[1], factor_scale * plate_w_at_target],
+        pointb=[attachment_xy[0], attachment_xy[1], factor_scale * q_r_to_plot]
+    )
+
+    return mass_marker, spring_line
+
+
+def build_plot(warped, glyphs = None, mass_marker = None, spring_line = None, view_vector = (2,2,-1), save_path = None):
+    """Assemble the full eigenmode plot from its sub-parts.
+
+        glyphs: theta-rotation glyphs (from add_theta_plot). Omit to skip.
+        mass_marker, spring_line: point-mass visualization (from
+            add_point_mass_to_plot). Omit either/both to skip.
+        view_vector: camera view direction. Defaults to (2, 2, -1), matching
+            the original script's fixed viewing angle.
+        save_path: if given, saves the plot to this path (as PDF) instead of
+            showing it interactively.
+        """
+    p = pyvista.Plotter()
+
+    p.add_mesh(warped, scalars="w", show_edges=True)
+
+    if glyphs is not None:
+        p.add_mesh(glyphs, color="red")
+
+    if mass_marker is not None:
+        p.add_mesh(mass_marker, color="blue", point_size=15, render_points_as_spheres=True)
+
+    if spring_line is not None:
+        p.add_mesh(spring_line, color="blue", line_width=3)
+
+    p.show_axes()
+    p.view_vector(view_vector)
+
+    if save_path is not None:
+        p.save_graphic(save_path)
+    else:
+        p.show(auto_close=False)
+
+    p.close()
+
+
+def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
+                    vamm_config=None, phi=None, local_to_global_w=None,
+                    include_theta=True, include_mass=True,
+                    view_vector=(2, 2, -1), save_path=None):
+    """Build and display/save the full eigenmode plot for one mode.
+    By default, all overlays (theta, mass) are included.
+
+    Set include_theta/include_mass=False to skip those overlays.
+    vamm_config/phi/global_dofs_parent/local_to_global_w are required
+    only if include_mass=True, which is the default setting.
+    """
+    warped, mode_to_plot, q_r_to_plot, w_mode, factor_scale, deg = create_w_plot(
+        domain, function_space, eigenmodes, eigenmode_index, length
+    )
+
+    glyphs = None
+    if include_theta:
+        glyphs = add_theta_plot(function_space, mode_to_plot, warped, factor_scale, deg)
+
+    mass_marker, spring_line = None, None
+    if include_mass:
+        mass_marker, spring_line = add_point_mass_to_plot(
+            vamm_config, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg
+        )
+
+    build_plot(warped, glyphs=glyphs, mass_marker=mass_marker, spring_line=spring_line,
+               view_vector=view_vector, save_path=save_path)

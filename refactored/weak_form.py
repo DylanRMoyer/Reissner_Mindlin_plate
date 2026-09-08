@@ -11,7 +11,7 @@ from dataclasses import dataclass
 class PlateProblemConstants:
     domain: object
     thick: fem.Constant
-    rho: fem.Constant
+    rho_const: fem.Constant
     nu: fem.Constant
     E: fem.Constant
     D: ufl.core.expr.Expr
@@ -26,16 +26,16 @@ def reissner_mindlin_constants(domain,
                                constant_force: float = 1.0
                                ):
 
-    thick = fem.Constant(domain, thickness)
-    rho_const = fem.Constant(domain, rho)
-    nu = fem.Constant(domain, lambda_ / (2 * (lambda_ + mu)))
-    E = fem.Constant(domain, mu * (3 * lambda_ + 2 * mu) / (mu + lambda_))
+    thick = fem.Constant(domain, float(thickness))
+    rho_const = fem.Constant(domain, float(rho))
+    nu = fem.Constant(domain, float(lambda_) / (2 * (float(lambda_) + float(mu))))
+    E = fem.Constant(domain, float(mu) * (3 * float(lambda_) + 2 * float(mu)) / (float(mu) + float(lambda_)))
 
     D = E * thick ** 3 / (1 - nu ** 2) / 12.0  # Plate bending rigidity
     F = E / 2 / (1 + nu) * thick * 5.0 / 6.0  # Shear stiffness
     f = fem.Constant(domain, constant_force)
 
-    return PlateProblemConstants(domain = domain, thick = thick, rho = rho_const, nu = nu, E = E, D = D, F = F, f = f)
+    return PlateProblemConstants(domain = domain, thick = thick, rho_const = rho_const, nu = nu, E = E, D = D, F = F, f = f)
 
 
 # --- Create function spaces and get necessary indices ---
@@ -96,8 +96,8 @@ def define_weak_form(function_space, problem: PlateProblemConstants):
     dx = ufl.Measure("dx")
     dx_shear = ufl.Measure("dx", metadata={"quadrature_degree": 2 * deg - 2})
 
-    m = (problem.rho * problem.thick * ufl.inner(u_[0], du[0]) * dx
-         + problem.rho * problem.thick**3/12 * ufl.inner(extract_theta(u_), extract_theta(du)) * dx)
+    m = (problem.rho_const * problem.thick * ufl.inner(u_[0], du[0]) * dx
+         + problem.rho_const * problem.thick**3/12 * ufl.inner(extract_theta(u_), extract_theta(du)) * dx)
 
     L = problem.f * u_[0] * dx
     a = (

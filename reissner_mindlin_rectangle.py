@@ -418,7 +418,7 @@ plate_w_at_target = np.dot(phi, w_mode.x.array[local_to_global_w])  # w_h at tar
 mass_marker = pyvista.PolyData(np.array([[
     attachment_xy[0],
     attachment_xy[1],
-    factor_scale * q_r_value
+    factor_scale * q_r_to_plot
 ]]))
 
 p.add_mesh(mass_marker, color="blue", point_size=15, render_points_as_spheres=True)
@@ -426,7 +426,7 @@ p.add_mesh(mass_marker, color="blue", point_size=15, render_points_as_spheres=Tr
 # a line from the plate surface to the mass, i.e. the spring itself
 spring_line = pyvista.Line(
     pointa=[attachment_xy[0], attachment_xy[1], factor_scale * plate_w_at_target],
-    pointb=[attachment_xy[0], attachment_xy[1], factor_scale * q_r_value]
+    pointb=[attachment_xy[0], attachment_xy[1], factor_scale * q_r_to_plot]
 )
 p.add_mesh(spring_line, color="blue", line_width=3)
 
@@ -436,7 +436,7 @@ p.show_axes()
 import os
 #p.view_isometric()
 p.view_vector((2,2,-1))
-#p.show(auto_close=False)
-save_path = os.path.expanduser("~/PycharmProjects/Plots/rm_plate_onemass_bottom_view.pdf")
+p.show(auto_close=False)
+#save_path = os.path.expanduser("~/PycharmProjects/Plots/rm_plate_onemass_bottom_view.pdf")
 #p.save_graphic(save_path)
 p.close()

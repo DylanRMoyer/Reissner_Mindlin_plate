@@ -54,13 +54,12 @@ def evaluate_basis_weights_and_dofs(function_space, cell, x_ref):
     local_to_global_w = function_space_w.dofmap.cell_dofs(cell)
     global_dofs_parent = w_to_parent[local_to_global_w]
 
-    return phi, global_dofs_parent
+    return phi, global_dofs_parent, local_to_global_w
 
-def locate_target_cell_degrees_of_freedom(domain, function_space,
-                                            target_point_x, target_point_y):
+def locate_target_cell_degrees_of_freedom(domain, function_space, vamm_config):
     """Combine cell location and basis evaluation into one call."""
-    cell, x_ref = locate_cell_and_reference_coords(domain, target_point_x, target_point_y)
-    phi, global_dofs_parent = evaluate_basis_weights_and_dofs(
+    cell, x_ref = locate_cell_and_reference_coords(domain, vamm_config.target_x, vamm_config.target_y)
+    phi, global_dofs_parent, local_to_global_w = evaluate_basis_weights_and_dofs(
         function_space, cell, x_ref
     )
-    return phi, global_dofs_parent
+    return phi, global_dofs_parent, local_to_global_w
