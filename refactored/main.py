@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # constant_force = 1 # Use if wanting to prescribe a custom constant force across the plate
     )
 
-    domain, function_space, bcs, plate_problem_constants = build_plate_problem(plate_config)
+    domain, function_space, bcs, plate_problem_constants = build_plate_problem(plate_config, deg=2)
     # Add degree custom degree (default: deg = 2) or function type (default: el_type = "S") if needed
 
     vamm_config = VAMMConfig(
@@ -31,10 +31,12 @@ if __name__ == "__main__":
     phi, global_dofs_parent, local_to_global_w\
         = locate_target_cell_degrees_of_freedom(domain, function_space, vamm_config)
 
-
     eigenfrequencies, eigenmodes = solve_evp(
         domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
         vamm_config = vamm_config, phi = phi, global_dofs_parent = global_dofs_parent)
+
+    for i, freq in enumerate(eigenfrequencies):
+        print(f"mode {i}: {freq:.4f} Hz")
 
     plot_eigenmode(
         domain = domain, function_space = function_space, eigenmodes = eigenmodes,

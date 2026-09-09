@@ -2,7 +2,8 @@ import numpy as np
 from dolfinx import fem
 from slepc4py import SLEPc
 from weak_form import define_weak_form
-from augmented_system import augment_stiffness_matrix, augment_mass_matrix
+from dolfinx.fem.petsc import LinearProblem
+from augmented_system import augment_stiffness_matrix, augment_mass_matrix, validate_augmented_system
 
 
 def assemble_plate_matrix(a, bcs, diag_value=1.0):
@@ -19,13 +20,20 @@ def assemble_plate_matrix(a, bcs, diag_value=1.0):
 
     return assembled_matrix
 
-def solve_evp(domain, function_space, problem, bcs, vamm_config, phi, global_dofs_parent):
+def solve_evp(
+        domain, function_space, problem, bcs, vamm_config,
+        phi, global_dofs_parent, validate_augmentation = True):
+    
     m, _, a = define_weak_form(function_space, problem)
     K = assemble_plate_matrix(a, bcs, diag_value=1e10)
     M = assemble_plate_matrix(m, bcs)
 
     K_aug, n = augment_stiffness_matrix(K, vamm_config.point_stiffness, phi, global_dofs_parent)
     M_aug = augment_mass_matrix(M, vamm_config.point_mass)
+
+    # Validate augmentation
+    if validate_augmentation:
+        validate_augmented_system(K_aug, M_aug, K, n, vamm_config, phi, global_dofs_parent)
 
     eps = SLEPc.EPS().create(domain.comm)
     eps.setOperators(K_aug, M_aug)

@@ -25,11 +25,15 @@ def reissner_mindlin_constants(domain,
                                lambda_: float,
                                constant_force: float = 1.0
                                ):
-
-    thick = fem.Constant(domain, float(thickness))
-    rho_const = fem.Constant(domain, float(rho))
-    nu = fem.Constant(domain, float(lambda_) / (2 * (float(lambda_) + float(mu))))
-    E = fem.Constant(domain, float(mu) * (3 * float(lambda_) + 2 * float(mu)) / (float(mu) + float(lambda_)))
+    thickness = float(thickness)
+    rho = float(rho)
+    mu = float(mu)
+    lambda_ = float(lambda_)
+    constant_force = float(constant_force)
+    thick = fem.Constant(domain, thickness)
+    rho_const = fem.Constant(domain, rho)
+    nu = fem.Constant(domain, lambda_ / (2 * (lambda_ + mu)))
+    E = fem.Constant(domain, mu * (3 * lambda_ + 2 * mu) / (mu + lambda_))
 
     D = E * thick ** 3 / (1 - nu ** 2) / 12.0  # Plate bending rigidity
     F = E / 2 / (1 + nu) * thick * 5.0 / 6.0  # Shear stiffness

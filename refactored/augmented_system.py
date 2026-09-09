@@ -65,3 +65,37 @@ def add_condensed_spring_stiffness(A, phi, global_dofs_parent, point_stiffness):
                        addv=PETSc.InsertMode.ADD_VALUES)
 
     return A
+
+
+def validate_augmented_system(
+        K_aug, M_aug, K, n, vamm_config,
+        phi, global_dofs_parent):
+
+    K_sp = petsc_to_scipy(K)
+    M_aug_sp = petsc_to_scipy(M_aug)
+
+    # 1. q_r's own diagonal should be exactly k_r (mass m_r), nothing else touches it
+    assert(np.isclose(K_aug[n, n], vamm_config.point_stiffness, rtol=1e-9)), \
+           f"K_aug[n,n] = {K_aug[n, n]}, expected: {vamm_config.point_stiffness}"
+    assert(np.isclose(M_aug[n, n], vamm_config.point_mass, rtol=1e-9)), \
+           f"M_aug[n,n] = {M_aug[n, n]} expected: {vamm_config.point_mass}"
+
+    # 2. coupling entries should be -k_r * phi_i, symmetric
+    for k, dof_i in enumerate(global_dofs_parent):
+        expected_coupling = -vamm_config.point_stiffness * phi[k]
+        assert(np.isclose(K_aug[dof_i, n], expected_coupling, rtol = 1e-9)), \
+               f"K_aug[i0, n] = {K_aug[dof_i, n]} expected: {expected_coupling}"
+        assert(np.isclose(K_aug[n, dof_i], expected_coupling, rtol = 1e-9)), \
+               f"K_aug[n, i0] = {K_aug[n, dof_i]} expected: {expected_coupling}" # symmetry requirement
+
+    # 3. plate-plate block should equal original K plus the outer product, e.g. at (i0, i0)
+    for k, dof_i in enumerate(global_dofs_parent):
+        assert(np.isclose(K_aug[dof_i, dof_i], K_sp[dof_i, dof_i] + vamm_config.point_stiffness * phi[k]**2, rtol = 1e-9)), \
+            f"K_aug[i0, i0] = {K_aug[dof_i, dof_i]} expected: {K_sp[dof_i, dof_i] + vamm_config.point_stiffness * phi[k]**2}"
+
+    # 4. mass matrix has zero coupling anywhere in the last row/column except the diagonal
+    row_n = M_aug_sp[n, :].toarray().flatten()
+    off_diag = np.delete(row_n, n)
+    assert np.allclose(off_diag, 0.0, rtol = 1e-9), f"M_aug row n has nonzero off-diagonal entries: {off_diag}"
+    assert np.isclose(row_n[n], vamm_config.point_mass, rtol = 1e-9),\
+        f"M_aug[n, n] = {M_aug[n, n]}, expected: {vamm_config.point_mass}"

@@ -315,7 +315,7 @@ K_aug = bmat([[K_sp, None],
 M_aug = bmat([[M_sp, None],
               [None, csr_matrix([[point_mass]])]], format="csr")
 
-"""""
+
 # 1. q_r's own diagonal should be exactly k_r (mass m_r), nothing else touches it
 print("K_aug[n,n] =", K_aug[n, n], " expected:", point_stiffness)
 print("M_aug[n,n] =", M_aug[n, n], " expected:", point_mass)
@@ -331,7 +331,7 @@ print("K_aug[i0, i0] =", K_aug[i0, i0], " expected:", K_sp[i0, i0] + point_stiff
 # 4. mass matrix has zero coupling anywhere in the last row/column except the diagonal
 print("M_aug row n (should be all zero except last entry):",
       M_aug[n, :].toarray())
-"""
+
 
 K = scipy_to_petsc(K_aug)
 M = scipy_to_petsc(M_aug)
