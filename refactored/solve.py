@@ -21,19 +21,25 @@ def assemble_plate_matrix(a, bcs, diag_value=1.0):
     return assembled_matrix
 
 def solve_evp(
-        domain, function_space, problem, bcs, vamm_config,
-        phi, global_dofs_parent, validate_augmentation = True):
+        domain, function_space, problem, bcs, vamm_config = None,
+        phi = None, global_dofs_parent = None, validate_augmentation = True):
     
     m, _, a = define_weak_form(function_space, problem)
     K = assemble_plate_matrix(a, bcs, diag_value=1e10)
     M = assemble_plate_matrix(m, bcs)
 
-    K_aug, n = augment_stiffness_matrix(K, vamm_config.point_stiffness, phi, global_dofs_parent)
-    M_aug = augment_mass_matrix(M, vamm_config.point_mass)
+    if vamm_config is not None:
+        if phi is None or global_dofs_parent is None:
+            raise TypeError("phi and global_dofs_parent are required when vamm_config is provided")
+        K_aug, n = augment_stiffness_matrix(K, vamm_config.point_stiffness, phi, global_dofs_parent)
+        M_aug = augment_mass_matrix(M, vamm_config.point_mass)
 
-    # Validate augmentation
-    if validate_augmentation:
-        validate_augmented_system(K_aug, M_aug, K, n, vamm_config, phi, global_dofs_parent)
+        # Validate augmentation
+        if validate_augmentation:
+            validate_augmented_system(K_aug, M_aug, K, n, vamm_config, phi, global_dofs_parent)
+
+    else:
+        K_aug, M_aug, n = K, M, K.getSize()[0]
 
     eps = SLEPc.EPS().create(domain.comm)
     eps.setOperators(K_aug, M_aug)
@@ -60,7 +66,7 @@ def solve_evp(
         freq_hz = np.sqrt(omega_sq) / (2 * np.pi)
 
         plate_part = vr.getArray()[:n]
-        q_r_value = vr.getArray()[n]
+        q_r_value = vr.getArray()[n] if vamm_config is not None else None
 
         mode_function = fem.Function(function_space)
         mode_function.x.petsc_vec.setArray(plate_part)

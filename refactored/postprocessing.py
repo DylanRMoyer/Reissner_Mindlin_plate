@@ -20,7 +20,6 @@ def create_w_plot(domain, function_space, eigenmodes, eigenmode_index, length):
     max_w = np.max(np.abs(w_plot.x.array))
     target_visual_amplitude = 0.05 * length
     factor_scale = target_visual_amplitude / max_w
-    # print(f"suggested warp factor: {factor_scale}")
 
     warped = grid.warp_by_scalar("w", factor=factor_scale)
 
@@ -63,8 +62,6 @@ def add_point_mass_to_plot(vamm_config, phi, w_mode, q_r_to_plot, local_to_globa
         attachment_xy[0],
         attachment_xy[1],
         factor_scale * q_r_to_plot
-
-
     ]]))
 
     # a line from the plate surface to the mass, i.e. the spring itself
@@ -121,6 +118,7 @@ def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
     Set include_theta/include_mass=False to skip those overlays.
     vamm_config/phi/global_dofs_parent/local_to_global_w are required
     only if include_mass=True, which is the default setting.
+    If the system is to be solved without masses to begin with, that step is skipped regardless.
     """
     warped, mode_to_plot, q_r_to_plot, w_mode, factor_scale, deg = create_w_plot(
         domain, function_space, eigenmodes, eigenmode_index, length
@@ -131,10 +129,12 @@ def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
         glyphs = add_theta_plot(function_space, mode_to_plot, warped, factor_scale, deg)
 
     mass_marker, spring_line = None, None
-    if include_mass:
-        mass_marker, spring_line = add_point_mass_to_plot(
-            vamm_config, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg
-        )
+
+    if q_r_to_plot is not None:
+        if include_mass:
+            mass_marker, spring_line = add_point_mass_to_plot(
+                vamm_config, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg
+            )
 
     build_plot(warped, glyphs=glyphs, mass_marker=mass_marker, spring_line=spring_line,
                view_vector=view_vector, save_path=save_path)

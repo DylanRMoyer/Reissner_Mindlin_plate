@@ -9,7 +9,6 @@ from dolfinx.fem.petsc import assemble_matrix
 
 # --- Solve static problem ---
 
-
 def assemble_condensed_stiffness_matrix(a, bcs, phi, global_dofs_parent, vamm_config):
     """Assemble the plate stiffness matrix with the spring's stiffness
     statically condensed onto the plate's existing DOFs."""
@@ -54,13 +53,18 @@ def solve_point_load(domain, function_space, A, b):
     w_point = u_point.sub(0).collapse()
     #print(f"Point-load deflection at target: {max(abs(w_point.x.array)):.6e}")
 
-    return w_point
+    return u_point, w_point
 
 
 if __name__ == "__main__":
 
-    mesh_sizes = [(5,4), (10, 8), (15, 12), (20, 17), (40, 33), (60, 50), (80, 67), (160, 134)]
+    initial_mesh = (6,5)
+    refinement_steps = 11
+
+    mesh_sizes = [(n * initial_mesh[0], n * initial_mesh[1]) for n in range(1, refinement_steps + 1)]
+
     deflections = []
+    strain_energies = []
 
     for nx, ny in mesh_sizes:
         plate_config = PlateConfig(
@@ -97,9 +101,28 @@ if __name__ == "__main__":
         A, bilinear_form = assemble_condensed_stiffness_matrix(a, bcs, phi, global_dofs_parent, vamm_config)
         b = assemble_spring_load_vector(A, bilinear_form, bcs, phi, global_dofs_parent, vamm_config, spring_end_displacement)
 
-        w_point = solve_point_load(domain, function_space, A, b)
+        u_point, w_point = solve_point_load(domain, function_space, A, b)
 
-        deflections.append(max(abs(w_point.x.array)))
-        print(f"nx={nx}, ny={ny}: deflection = {deflections[-1]:.6e}, cell = {cell}, x_ref = {x_ref}, phi = {phi}")
+        w_at_target = sum(phi_i * w_point.x.array[local_to_global_w[k]] for k, phi_i in enumerate(phi))
+
+        deflections.append(abs(w_at_target))
+
+        # Strain energy: 0.5 * u^T K u, using the same condensed matrix A and the solution vector
+        Au = A.createVecRight()
+        A.mult(u_point.x.petsc_vec, Au)
+        strain_energy = 0.5 * u_point.x.petsc_vec.dot(Au)
+        strain_energies.append(strain_energy)
+
+        print(f"nx={nx}, ny={ny}: deflection = {deflections[-1]:.6e}, "
+              f"strain_energy = {strain_energies[-1]:.6e}, cell = {cell}, x_ref = {x_ref}")
         if len(deflections) > 1:
-            print(f"relative increase = {100*(deflections[-1] - deflections[-2])/deflections[-2]:.3g} %")
+            rel_defl = 100 * (deflections[-1] - deflections[-2]) / deflections[-2]
+            rel_energy = 100 * (strain_energies[-1] - strain_energies[-2]) / strain_energies[-2]
+            print(f"  relative increase: deflection = {rel_defl:.3g} %, strain_energy = {rel_energy:.3g} %")
+
+    tail_defl = deflections[-3:]
+    tail_defl_spread = (max(tail_defl) - min(tail_defl)) / min(tail_defl)
+    assert tail_defl_spread < 0.02, (
+        f"Point-load deflection has not settled: last three mesh levels "
+        f"span {tail_defl_spread:.2%} (values: {tail_defl})"
+    )
