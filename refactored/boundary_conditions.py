@@ -16,7 +16,9 @@ def make_border_marker(length, width):
         )
     return border
 
-def dirichlet_boundary_conditions(domain, function_space, length: float, width: float):
+def dirichlet_boundary_conditions(
+        domain, function_space, length: float, width: float, phi_0: float = 0
+    ):
 
     topological_dimension_mesh = domain.topology.dim
     facet_dim = topological_dimension_mesh - 1
@@ -27,8 +29,9 @@ def dirichlet_boundary_conditions(domain, function_space, length: float, width: 
     function_space_w, _ = collapse_subspace(function_space, 0)
     function_space_theta, _ = collapse_subspace(function_space, 1)
 
-    u0_w = fem.Function(function_space_w)   # zero by default — clamped displacement
-    u0_t = fem.Function(function_space_theta)   # zero by default — clamped rotation
+    u0_w = fem.Function(function_space_w)
+    u0_w.x.array[:] = phi_0 # zero by default, clamped displacement; nonzero for shaker BC
+    u0_t = fem.Function(function_space_theta)   # rotation stays zero, no boundary rotation for rigid translation
 
     dofs_w = fem.locate_dofs_topological((function_space.sub(0), function_space_w), facet_dim, clamped_facets)
     dofs_t = fem.locate_dofs_topological((function_space.sub(1), function_space_theta), facet_dim, clamped_facets)

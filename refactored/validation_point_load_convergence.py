@@ -6,6 +6,7 @@ from point_coupling import locate_target_cell_degrees_of_freedom, VAMMConfig, lo
 from problem_setup import build_plate_problem
 from config import PlateConfig
 from dolfinx.fem.petsc import assemble_matrix
+from frequency_sweep import solve_linear_system
 
 # --- Solve static problem ---
 
@@ -37,23 +38,6 @@ def assemble_spring_load_vector(A, bilinear_form, bcs, phi, global_dofs_parent,
     b.ghostUpdate(addv=PETSc.InsertMode.ADD_VALUES, mode=PETSc.ScatterMode.REVERSE)
     fem.petsc.set_bc(b, bcs)
     return b
-
-
-def solve_point_load(domain, function_space, A, b):
-
-    solver = PETSc.KSP().create(domain.comm)
-    solver.setOperators(A)
-    solver.setType("preonly")
-    solver.getPC().setType("lu")
-
-    u_point = fem.Function(function_space)
-    solver.solve(b, u_point.x.petsc_vec)
-    u_point.x.scatter_forward()
-
-    w_point = u_point.sub(0).collapse()
-    #print(f"Point-load deflection at target: {max(abs(w_point.x.array)):.6e}")
-
-    return u_point, w_point
 
 
 if __name__ == "__main__":
@@ -101,7 +85,7 @@ if __name__ == "__main__":
         A, bilinear_form = assemble_condensed_stiffness_matrix(a, bcs, phi, global_dofs_parent, vamm_config)
         b = assemble_spring_load_vector(A, bilinear_form, bcs, phi, global_dofs_parent, vamm_config, spring_end_displacement)
 
-        u_point, w_point = solve_point_load(domain, function_space, A, b)
+        u_point, w_point = solve_linear_system(domain, function_space, A, b)
 
         w_at_target = sum(phi_i * w_point.x.array[local_to_global_w[k]] for k, phi_i in enumerate(phi))
 
