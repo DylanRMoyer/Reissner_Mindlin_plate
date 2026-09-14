@@ -1,4 +1,4 @@
-from dolfinx import fem
+from dolfinx import fem, default_scalar_type
 import basix
 import ufl
 import numpy as np
@@ -30,10 +30,10 @@ def reissner_mindlin_constants(domain,
     mu = float(mu)
     lambda_ = float(lambda_)
     constant_force = float(constant_force)
-    thick = fem.Constant(domain, thickness)
-    rho_const = fem.Constant(domain, rho)
-    nu = fem.Constant(domain, lambda_ / (2 * (lambda_ + mu)))
-    E = fem.Constant(domain, mu * (3 * lambda_ + 2 * mu) / (mu + lambda_))
+    thick = fem.Constant(domain, default_scalar_type(thickness))
+    rho_const = fem.Constant(domain, default_scalar_type(rho))
+    nu = fem.Constant(domain, default_scalar_type(lambda_ / (2 * (lambda_ + mu))))
+    E = fem.Constant(domain, default_scalar_type(mu * (3 * lambda_ + 2 * mu) / (mu + lambda_)))
 
     D = E * thick ** 3 / (1 - nu ** 2) / 12.0  # Plate bending rigidity
     F = E / 2 / (1 + nu) * thick * 5.0 / 6.0  # Shear stiffness
@@ -100,13 +100,13 @@ def define_weak_form(function_space, problem: PlateProblemConstants):
     dx = ufl.Measure("dx")
     dx_shear = ufl.Measure("dx", metadata={"quadrature_degree": 2 * deg - 2})
 
-    m = (problem.rho_const * problem.thick * ufl.inner(u_[0], du[0]) * dx
-         + problem.rho_const * problem.thick**3/12 * ufl.inner(extract_theta(u_), extract_theta(du)) * dx)
+    m = (problem.rho_const * problem.thick * ufl.inner(du[0], u_[0]) * dx
+         + problem.rho_const * problem.thick**3/12 * ufl.inner(extract_theta(du), extract_theta(u_)) * dx)
 
-    L = problem.f * u_[0] * dx
+    L = problem.f * ufl.conj(u_[0]) * dx
     a = (
-        ufl.inner(bending_moment(u_, problem.D, problem.nu), curv(du)) * dx
-        + ufl.dot(shear_force(u_, problem.F), shear_strain(du)) * dx_shear
+        ufl.inner(bending_moment(du, problem.D, problem.nu), curv(u_)) * dx
+        + ufl.inner(shear_force(du, problem.F), shear_strain(u_)) * dx_shear
     )
 
     return m, L, a

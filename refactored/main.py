@@ -8,6 +8,8 @@ from boundary_conditions import make_border_marker
 from frequency_sweep import frequency_sweep_plate
 from postprocessing import plot_frequency_response
 
+from petsc4py import PETSc
+
 if __name__ == "__main__":
 
     do_frequency_sweep = True
@@ -56,6 +58,9 @@ if __name__ == "__main__":
 
 # --- Perform frequency sweep and compare with computed eigenfrequencies if desired ---
     if do_frequency_sweep:
+
+        print(PETSc.ScalarType) # remove
+
         border = make_border_marker(plate_config.length, plate_config.width)
 
         f_values, w_max_plate = (frequency_sweep_plate
