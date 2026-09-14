@@ -1,5 +1,6 @@
 import pyvista
 import numpy as np
+import matplotlib.pyplot as plt
 from dolfinx import fem, plot
 
 def create_w_plot(domain, function_space, eigenmodes, eigenmode_index, length):
@@ -138,3 +139,40 @@ def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
 
     build_plot(warped, glyphs=glyphs, mass_marker=mass_marker, spring_line=spring_line,
                view_vector=view_vector, save_path=save_path)
+
+
+def plot_frequency_response(f_values, w_max_plate, eigenfrequencies=None, save_path=None):
+    """Plot signed peak plate deflection vs. excitation frequency.
+
+    f_values: frequencies in Hz (not Omega/rad-s) — same length as w_max_plate.
+    w_max_plate: signed peak |w|-with-sign values from frequency_sweep_plate.
+    eigenfrequencies: optional list of Hz values to overlay as vertical lines
+        (e.g. from solve_evp), for later use — omit for now.
+    save_path: if given, saves to this path instead of showing interactively.
+    """
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    ax.plot(f_values, w_max_plate, color="C0", linewidth=1.2)
+    ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+
+    if eigenfrequencies is not None:
+        for i, f_n in enumerate(eigenfrequencies):
+            if f_values[0] <= f_n <= f_values[-1]:
+                ax.axvline(f_n, color="red", linewidth=0.8, linestyle=":",
+                           label="eigenfrequencies" if i == 0 else None)
+        if eigenfrequencies:
+            ax.legend()
+
+    ax.set_xlabel("Excitation frequency [Hz]")
+    ax.set_ylabel("Peak plate deflection $w_{max}$ [m] (signed)")
+    ax.set_title("Frequency response: peak plate deflection under shaker base excitation")
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+
+    plt.close(fig)

@@ -22,7 +22,7 @@ def assemble_plate_matrix(a, bcs, diag_value=1.0):
 
 def solve_evp(
         domain, function_space, problem, bcs, vamm_config = None,
-        phi = None, global_dofs_parent = None, validate_augmentation = True):
+        phi = None, global_dofs_parent = None, eigenmode_number: int = 6, validate_augmentation = True):
     
     m, _, a = define_weak_form(function_space, problem)
     K = assemble_plate_matrix(a, bcs, diag_value=1e10)
@@ -51,7 +51,7 @@ def solve_evp(
 
     eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_MAGNITUDE)
     eps.setTarget(0.0)
-    eps.setDimensions(nev=6)  # how many eigenpairs to converge
+    eps.setDimensions(nev=eigenmode_number)  # how many eigenpairs to converge
     eps.solve()
 
     # create PETSc vectors matching K's layout (real and imaginary parts)
