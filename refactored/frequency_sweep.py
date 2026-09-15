@@ -1,18 +1,21 @@
 import numpy as np
+import ufl
 from dolfinx import fem, mesh
 from dolfinx.fem.petsc import assemble_matrix
+from mpi4py import MPI
 from petsc4py import PETSc
 from weak_form import define_weak_form, PlateProblemConstants
 from boundary_conditions import dirichlet_boundary_conditions, make_border_marker
 from weak_form import collapse_subspace
-from petsc4py.PETSc import ScalarType
 
-def assemble_dynamic_stiffness(a, m, domain, bcs):
-    """Build the (a - Omega^2 m) form ONCE, with Omega as a mutable Constant.
+def assemble_dynamic_stiffness(a, m, domain, gamma: float = 0.0):
+    """Build the (damping_factor * a - Omega² m) form ONCE, with Omega as a mutable Constant.
+    Reduces to (a - Omega² m), i. e., the undampened case if gamma is not specified.
     Returns the compiled form and the Constant so the caller can change
     Omega cheaply later without triggering a JIT recompile."""
     Omega_const = fem.Constant(domain, PETSc.ScalarType(0.0))
-    form = fem.form(a - Omega_const**2 * m)
+    damping_factor = fem.Constant(domain, PETSc.ScalarType(1.0 + 1j * gamma))
+    form = fem.form(damping_factor * a - Omega_const**2 * m)
     return form, Omega_const
 
 def assemble_shaker_rhs(A, form, bcs):
@@ -23,6 +26,28 @@ def assemble_shaker_rhs(A, form, bcs):
     fem.petsc.set_bc(b, bcs)                           # writes q2 = u2*phi_0 into boundary rows
     return b
 
+def compute_rms_velocity(u_point, Omega_const, domain):
+    """Spatial RMS of the plate velocity field at a single frequency Omega.
+    v = i*Omega*w, so |v|^2 = Omega^2 * |w|^2 -- the i drops out under magnitude.
+    Returns a real float; the |.|^2 field is mesh-integrated (not a discrete
+    point-average), so this is smooth in Omega and immune to the argmax-DOF
+    discontinuity seen with the pointwise peak-deflection metric.
+
+    Omega_const must be the same fem.Constant already updated by the caller
+    for this frequency step (not a raw Python float) -- passing a bare 0.0
+    causes UFL to constant-fold the whole integrand to Zero, which loses
+    the integration domain and raises "missing an integration domain".
+    """
+    w, theta = ufl.split(u_point)  # w is the deflection sub-field of the mixed function
+
+    area_form = fem.form(fem.Constant(domain, PETSc.ScalarType(1.0)) * ufl.dx)
+    area = domain.comm.allreduce(fem.assemble_scalar(area_form), op=MPI.SUM)
+
+    mean_sq_form = fem.form(Omega_const**2 * ufl.inner(w, w) * ufl.dx)
+    mean_sq_velocity = domain.comm.allreduce(fem.assemble_scalar(mean_sq_form), op=MPI.SUM) / area
+
+    return np.sqrt(mean_sq_velocity.real)
+
 def solve_linear_system(domain, function_space, A, b):
 
     solver = PETSc.KSP().create(domain.comm)
@@ -31,7 +56,7 @@ def solve_linear_system(domain, function_space, A, b):
     solver.getPC().setType("lu")
 
     u_point = fem.Function(function_space)
-    solver.solve(b, u_point.x.petsc_vec) # currently solves real problem only (no damping)
+    solver.solve(b, u_point.x.petsc_vec)
     u_point.x.scatter_forward()
 
     w_point = u_point.sub(0).collapse()
@@ -47,9 +72,9 @@ def conduct_single_frequency_response(domain, function_space, form, bcs, Omega_c
 
     b = assemble_shaker_rhs(A, form, bcs)
 
-    _, w_point = solve_linear_system(domain, function_space, A, b)
+    u_point, w_point = solve_linear_system(domain, function_space, A, b)
 
-    return w_point
+    return u_point, w_point
 
 def locate_boundary_w_dofs_of_plate(domain, function_space, border_function):
 
@@ -65,7 +90,21 @@ def locate_boundary_w_dofs_of_plate(domain, function_space, border_function):
 
 def frequency_sweep_plate(
         domain, function_space, problem, plate_config, border,
-        f_start: float, f_end: float, Omega_size: int = 100, phi_0: float = 1.0):
+        f_start: float, f_end: float,
+        Omega_size: int = 100, phi_0: float = 1.0, gamma: float = 0.0,
+        compute_max_metric: bool = False):
+
+    """
+    Builds the damped/undamped dynamic-stiffness form (see
+    assemble_dynamic_stiffness) once, then solves the shaker-driven
+    linear system at each frequency in [f_start, f_end]. Always returns
+    the RMS surface velocity (a smooth, spatially-integrated metric that
+    is robust across the whole sweep). Optionally also returns the
+    signed peak plate deflection (a pointwise metric, useful near an
+    isolated resonance for its phase-flip sign, but not reliable as a
+    smooth function of frequency between resonances -- see notes in
+    compute_rms_velocity).
+    """
 
     Omega_start, Omega_end = 2 * np.pi * f_start, 2 * np.pi * f_end
     Omega_values = np.linspace(Omega_start, Omega_end, Omega_size)
@@ -75,16 +114,23 @@ def frequency_sweep_plate(
     m, _, a = define_weak_form(function_space, problem)
     bcs = dirichlet_boundary_conditions(
         domain, function_space, plate_config.length, plate_config.width, phi_0)
-    form, Omega_const = assemble_dynamic_stiffness(a=a, m=m, domain=domain, bcs=bcs)
-    dofs_w_collapsed = locate_boundary_w_dofs_of_plate(domain=domain, function_space=function_space,
+    form, Omega_const = assemble_dynamic_stiffness(a=a, m=m, domain=domain, gamma=gamma)
+
+    if compute_max_metric:
+        dofs_w_collapsed = locate_boundary_w_dofs_of_plate(domain=domain, function_space=function_space,
                                                        border_function=border)
+        w_max_plate = []
 
-    w_max_plate = []
+    rms_velocity = []
     for Omega in Omega_values:
-        w_point = conduct_single_frequency_response(domain=domain, function_space=function_space,
+        u_point, w_point = conduct_single_frequency_response(domain=domain, function_space=function_space,
                                                     form=form, bcs=bcs, Omega_const=Omega_const, Omega=Omega)
+        if compute_max_metric:
+            w_point.x.array[dofs_w_collapsed] = 0
+            w_max_plate.append(max(w_point.x.array, key=abs).real)
 
-        w_point.x.array[dofs_w_collapsed] = 0
-        w_max_plate.append(max(w_point.x.array, key=abs))
-
-    return f_values, w_max_plate
+        rms_velocity.append(compute_rms_velocity(u_point=u_point, Omega_const=Omega_const, domain=domain))
+    if compute_max_metric:
+        return f_values, np.array(w_max_plate), np.array(rms_velocity)
+    else:
+        return f_values, None, np.array(rms_velocity)

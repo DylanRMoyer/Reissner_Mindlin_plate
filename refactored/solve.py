@@ -65,11 +65,11 @@ def solve_evp(
         omega_sq = eigval.real
         freq_hz = np.sqrt(omega_sq) / (2 * np.pi)
 
-        plate_part = vr.getArray()[:n]
-        q_r_value = vr.getArray()[n] if vamm_config is not None else None
+        plate_part = vr.getArray()[:n].real # undamped EVP: eigenvectors are real; explicit cast
+        q_r_value = vr.getArray()[n].real if vamm_config is not None else None
 
         mode_function = fem.Function(function_space)
-        mode_function.x.petsc_vec.setArray(plate_part)
+        mode_function.x.petsc_vec.setArray(plate_part.real) # Revisit for damped eigenproblems!
         mode_function.x.scatter_forward()  # sync ghost values (matters in parallel)
 
         eigenfrequencies.append(freq_hz)

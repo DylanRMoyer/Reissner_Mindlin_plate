@@ -16,7 +16,7 @@ def create_w_plot(domain, function_space, eigenmodes, eigenmode_index, length):
 
     topology, cell_types, geometry = plot.vtk_mesh(V_plot)
     grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
-    grid.point_data["w"] = w_plot.x.array
+    grid.point_data["w"] = w_plot.x.array.real
 
     max_w = np.max(np.abs(w_plot.x.array))
     target_visual_amplitude = 0.05 * length
@@ -40,7 +40,7 @@ def add_theta_plot(function_space, mode_to_plot, warped, factor_scale, deg):
     # theta is a 2-component in-plane field; pad with a zero z-component so
     # PyVista (which wants 3D vectors) can glyph it, and so we can lay the
     # arrows flat/tangent at each warped surface point.
-    theta_vals = theta_plot.x.array.reshape((-1, 2))
+    theta_vals = theta_plot.x.array.reshape((-1, 2)).real
     theta_3d = np.zeros((theta_vals.shape[0], 3))
     theta_3d[:, 0:2] = theta_vals
 
@@ -67,8 +67,8 @@ def add_point_mass_to_plot(vamm_config, phi, w_mode, q_r_to_plot, local_to_globa
 
     # a line from the plate surface to the mass, i.e. the spring itself
     spring_line = pyvista.Line(
-        pointa=[attachment_xy[0], attachment_xy[1], factor_scale * plate_w_at_target],
-        pointb=[attachment_xy[0], attachment_xy[1], factor_scale * q_r_to_plot]
+        pointa=[attachment_xy[0], attachment_xy[1], factor_scale * plate_w_at_target.real],
+        pointb=[attachment_xy[0], attachment_xy[1], factor_scale * q_r_to_plot.real]
     )
 
     return mass_marker, spring_line
@@ -140,20 +140,52 @@ def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
     build_plot(warped, glyphs=glyphs, mass_marker=mass_marker, spring_line=spring_line,
                view_vector=view_vector, save_path=save_path)
 
+def plot_frequency_response(f_values, rms_velocity, w_max_plate=None,
+                             use_max_metric=False, eigenfrequencies=None, save_path=None):
+    """Plot the plate's frequency response.
 
-def plot_frequency_response(f_values, w_max_plate, eigenfrequencies=None, save_path=None):
-    """Plot signed peak plate deflection vs. excitation frequency.
+    By default plots the spatial RMS surface velocity (smooth, robust
+    across the whole sweep -- see frequency_sweep_plate). If
+    use_max_metric=True, plots the signed peak plate deflection instead
+    (a pointwise metric; only meaningful near isolated resonances -- see
+    frequency_sweep_plate's docstring for why it can be discontinuous
+    between resonances). w_max_plate must be provided (not None) when
+    use_max_metric=True, i.e. the sweep must have been run with
+    compute_max_metric=True.
 
-    f_values: frequencies in Hz (not Omega/rad-s) — same length as w_max_plate.
-    w_max_plate: signed peak |w|-with-sign values from frequency_sweep_plate.
-    eigenfrequencies: optional list of Hz values to overlay as vertical lines
-        (e.g. from solve_evp), for later use — omit for now.
+    f_values: frequencies in Hz (not Omega/rad-s) — same length as
+        whichever metric array is plotted.
+    rms_velocity: spatial RMS surface velocity values from
+        frequency_sweep_plate. Always required.
+    w_max_plate: signed peak |w|-with-sign values from
+        frequency_sweep_plate, or None if that metric wasn't computed.
+        Only used when use_max_metric=True.
+    use_max_metric: if True, plot w_max_plate instead of rms_velocity.
+    eigenfrequencies: optional list of Hz values to overlay as vertical
+        lines (e.g. from solve_evp), for later use — omit for now.
     save_path: if given, saves to this path instead of showing interactively.
     """
+    if use_max_metric and w_max_plate is None:
+        raise ValueError(
+            "use_max_metric=True requires w_max_plate (run frequency_sweep_plate "
+            "with compute_max_metric=True first)"
+        )
+
+    if use_max_metric:
+        y_values = w_max_plate
+        y_label = "Peak plate deflection $w_{max}$ [m] (signed)"
+        title = "Frequency response: Peak plate deflection under shaker base excitation"
+    else:
+        y_values = rms_velocity
+        y_label = "RMS surface velocity [m/s]"
+        title = "Frequency response: RMS surface velocity under shaker base excitation"
+
     fig, ax = plt.subplots(figsize=(9, 5))
 
-    ax.plot(f_values, w_max_plate, color="C0", linewidth=1.2)
-    ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+    ax.plot(f_values, y_values, color="C0", linewidth=1.2)
+
+    if use_max_metric:
+        ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
 
     if eigenfrequencies is not None:
         for i, f_n in enumerate(eigenfrequencies):
@@ -164,8 +196,8 @@ def plot_frequency_response(f_values, w_max_plate, eigenfrequencies=None, save_p
             ax.legend()
 
     ax.set_xlabel("Excitation frequency [Hz]")
-    ax.set_ylabel("Peak plate deflection $w_{max}$ [m] (signed)")
-    ax.set_title("Frequency response: peak plate deflection under shaker base excitation")
+    ax.set_ylabel(y_label)
+    ax.set_title(title)
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()

@@ -63,9 +63,12 @@ if __name__ == "__main__":
 
         border = make_border_marker(plate_config.length, plate_config.width)
 
-        f_values, w_max_plate = (frequency_sweep_plate
+        f_values, w_max_plate, rms_velocity = (frequency_sweep_plate
                                  (domain = domain, function_space = function_space, problem = plate_problem_constants,
-                                  plate_config = plate_config, border = border, f_start = 0.0, f_end = 1000.0))
+                                  plate_config = plate_config, border = border,
+                                  f_start = 0, f_end = 1000, Omega_size=500, gamma=0.04))
+        # Peak width scales \Delta f = \gamma f_res, so choose \Delta f > (f_end - f_start)/Omega_size = step size
+        # for resonance frequencies of interest!
 
         plot_frequency_response(
-            f_values = f_values, w_max_plate = w_max_plate, eigenfrequencies = eigenfrequencies)
+            f_values = f_values, rms_velocity=rms_velocity, eigenfrequencies = eigenfrequencies)
