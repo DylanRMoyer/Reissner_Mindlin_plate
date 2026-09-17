@@ -7,6 +7,9 @@ from petsc4py import PETSc
 from weak_form import define_weak_form, PlateProblemConstants
 from boundary_conditions import dirichlet_boundary_conditions, make_border_marker
 from weak_form import collapse_subspace
+from shaker_force import make_force_excitation_rhs_builder
+
+# --- Prescribed motion machinery ---
 
 def assemble_dynamic_stiffness(a, m, domain, gamma: float = 0.0):
     """Build the (damping_factor * a - Omega² m) form ONCE, with Omega as a mutable Constant.
@@ -18,13 +21,31 @@ def assemble_dynamic_stiffness(a, m, domain, gamma: float = 0.0):
     form = fem.form(damping_factor * a - Omega_const**2 * m)
     return form, Omega_const
 
-def assemble_shaker_rhs(A, form, bcs):
+def assemble_shaker_rhs(A, form, bcs=None):
     b = A.createVecRight()
     b.zeroEntries()                                   # no body force — pure homogeneous eqn
-    fem.petsc.apply_lifting(b, [form], bcs=[bcs])      # computes -(K12 - Ω²M12) q2 internally
+    if bcs:
+        fem.petsc.apply_lifting(b, [form], bcs=[bcs])      # computes -(K12 - Ω²M12) q2 internally
     b.ghostUpdate(addv=PETSc.InsertMode.ADD_VALUES, mode=PETSc.ScatterMode.REVERSE)
-    fem.petsc.set_bc(b, bcs)                           # writes q2 = u2*phi_0 into boundary rows
+    if bcs:
+        fem.petsc.set_bc(b, bcs)                           # writes q2 = u2*phi_0 into boundary rows
     return b
+
+# --- Decide on shaker implementation ---
+
+def build_rhs_builder(excitation, domain, function_space, bcs, shaker_config=None):
+    if excitation == "force":
+        if shaker_config is None:
+            raise ValueError("force excitation requires a shaker_config")
+        return make_force_excitation_rhs_builder(domain, function_space, shaker_config)
+    elif excitation == "motion":
+        if not bcs:
+            raise ValueError("motion excitation requires a clamped plate (free_plate=False)")
+        return assemble_shaker_rhs  # already matches the (A, form, bcs) signature
+    else:
+        raise ValueError(f"unknown excitation kind: {excitation!r}")
+
+# --- Frequency sweep machinery, independent of shaker implementation ---
 
 def compute_rms_velocity(u_point, Omega_const, domain):
     """Spatial RMS of the plate velocity field at a single frequency Omega.
@@ -63,14 +84,15 @@ def solve_linear_system(domain, function_space, A, b):
 
     return u_point, w_point
 
-def conduct_single_frequency_response(domain, function_space, form, bcs, Omega_const, Omega):
+def conduct_single_frequency_response(domain, function_space, form,
+                                      Omega_const, Omega, rhs_builder, bcs=None):
     """Now only does the Omega-dependent work: set Omega, assemble, solve."""
     Omega_const.value = Omega
 
     A = fem.petsc.assemble_matrix(form, bcs=bcs)
     A.assemble()
 
-    b = assemble_shaker_rhs(A, form, bcs)
+    b = rhs_builder(A, form, bcs)
 
     u_point, w_point = solve_linear_system(domain, function_space, A, b)
 
@@ -89,10 +111,13 @@ def locate_boundary_w_dofs_of_plate(domain, function_space, border_function):
     return dofs_w_collapsed
 
 def frequency_sweep_plate(
-        domain, function_space, problem, plate_config, border,
+        domain, function_space, problem, plate_config,
         f_start: float, f_end: float,
         Omega_size: int = 100, phi_0: float = 1.0, gamma: float = 0.0,
-        compute_max_metric: bool = False):
+        compute_max_metric: bool = False,
+        free_plate = True,
+        excitation: str = "force",
+        shaker_config = None):
 
     """
     Builds the damped/undamped dynamic-stiffness form (see
@@ -112,24 +137,39 @@ def frequency_sweep_plate(
 
     # --- everything Omega-INdependent: build ONCE, outside the loop ---
     m, _, a = define_weak_form(function_space, problem)
-    bcs = dirichlet_boundary_conditions(
-        domain, function_space, plate_config.length, plate_config.width, phi_0)
     form, Omega_const = assemble_dynamic_stiffness(a=a, m=m, domain=domain, gamma=gamma)
 
+    if free_plate:
+        bcs = []
+        border = None
+    else:
+        bcs = dirichlet_boundary_conditions(
+            domain, function_space, plate_config.length, plate_config.width, phi_0) # fix branch dependency!
+        border = make_border_marker(plate_config.length, plate_config.width)
+
+    rhs_builder = build_rhs_builder(excitation, domain, function_space, bcs, shaker_config)
+
     if compute_max_metric:
-        dofs_w_collapsed = locate_boundary_w_dofs_of_plate(domain=domain, function_space=function_space,
+        if free_plate:
+            dofs_w_collapsed = None # no boundary to zero out — see loop below
+        else:
+            dofs_w_collapsed = locate_boundary_w_dofs_of_plate(domain=domain, function_space=function_space,
                                                        border_function=border)
         w_max_plate = []
 
     rms_velocity = []
     for Omega in Omega_values:
-        u_point, w_point = conduct_single_frequency_response(domain=domain, function_space=function_space,
-                                                    form=form, bcs=bcs, Omega_const=Omega_const, Omega=Omega)
+        u_point, w_point = conduct_single_frequency_response(
+            domain=domain, function_space=function_space, form=form,
+            Omega_const=Omega_const, Omega=Omega, rhs_builder=rhs_builder, bcs=bcs)
+
         if compute_max_metric:
-            w_point.x.array[dofs_w_collapsed] = 0
+            if dofs_w_collapsed is not None:
+                w_point.x.array[dofs_w_collapsed] = 0
             w_max_plate.append(max(w_point.x.array, key=abs).real)
 
         rms_velocity.append(compute_rms_velocity(u_point=u_point, Omega_const=Omega_const, domain=domain))
+
     if compute_max_metric:
         return f_values, np.array(w_max_plate), np.array(rms_velocity)
     else:

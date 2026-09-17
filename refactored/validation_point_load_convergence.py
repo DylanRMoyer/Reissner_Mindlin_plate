@@ -7,6 +7,7 @@ from problem_setup import build_plate_problem
 from config import PlateConfig
 from dolfinx.fem.petsc import assemble_matrix
 from frequency_sweep import solve_linear_system
+from shaker_force import assemble_load_vector_through_force
 
 # --- Solve static problem ---
 
@@ -25,18 +26,10 @@ def assemble_spring_load_vector(A, bilinear_form, bcs, phi, global_dofs_parent,
                                 vamm_config, spring_end_displacement):
     """Build the RHS vector representing an imposed displacement at the
     spring's free end, condensed onto the plate's existing DOFs."""
-    b = A.createVecRight()
-    b.zeroEntries()
-
-    for phi_i, parent_dof in zip(phi, global_dofs_parent):
-        b.setValue(parent_dof, phi_i * vamm_config.point_stiffness * spring_end_displacement,
-                   addv=PETSc.InsertMode.ADD_VALUES)
-    b.assemblyBegin()
-    b.assemblyEnd()
-
-    fem.petsc.apply_lifting(b, [bilinear_form], bcs=[bcs])
-    b.ghostUpdate(addv=PETSc.InsertMode.ADD_VALUES, mode=PETSc.ScatterMode.REVERSE)
-    fem.petsc.set_bc(b, bcs)
+    force_amplitude = vamm_config.point_stiffness * spring_end_displacement
+    b = assemble_load_vector_through_force(A=A, bilinear_form=bilinear_form,
+                                           phi=phi, global_dofs_parent=global_dofs_parent,
+                                           force_amplitude=force_amplitude, bcs = bcs)
     return b
 
 

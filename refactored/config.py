@@ -10,4 +10,4 @@ class PlateConfig:
     rho: float
     mu: float
     lambda_: float
-    constant_force: float = 1.0
+    constant_force: float = 0.0

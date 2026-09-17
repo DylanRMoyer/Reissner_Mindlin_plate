@@ -23,7 +23,7 @@ def reissner_mindlin_constants(domain,
                                rho: float,
                                mu: float,
                                lambda_: float,
-                               constant_force: float = 1.0
+                               constant_force: float = 0.0
                                ):
     thickness = float(thickness)
     rho = float(rho)

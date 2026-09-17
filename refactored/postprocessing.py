@@ -188,11 +188,13 @@ def plot_frequency_response(f_values, rms_velocity, w_max_plate=None,
         ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
 
     if eigenfrequencies is not None:
-        for i, f_n in enumerate(eigenfrequencies):
+        labeled = False
+        for f_n in eigenfrequencies:
             if f_values[0] <= f_n <= f_values[-1]:
                 ax.axvline(f_n, color="red", linewidth=0.8, linestyle=":",
-                           label="eigenfrequencies" if i == 0 else None)
-        if eigenfrequencies:
+                           label="eigenfrequencies" if not labeled else None)
+                labeled = True
+        if labeled:
             ax.legend()
 
     ax.set_xlabel("Excitation frequency [Hz]")

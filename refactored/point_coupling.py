@@ -1,5 +1,4 @@
 import numpy as np
-import basix
 import dolfinx
 from weak_form import collapse_w_subspace
 from dataclasses import dataclass
