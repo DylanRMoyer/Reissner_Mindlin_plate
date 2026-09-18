@@ -1,6 +1,6 @@
 from config import PlateConfig
 from problem_setup import build_plate_problem
-from point_coupling import VAMMConfig, locate_target_cell_degrees_of_freedom
+from point_coupling import VAMM, locate_target_cell_degrees_of_freedom
 from shaker_force import ShakerParameters
 from solve import solve_evp
 from postprocessing import plot_eigenmode
@@ -36,19 +36,19 @@ if __name__ == "__main__":
 
 # --- Compute eigenfrequencies and -modes with an optional VAMM and plot result ---
 
-    vamm_config = VAMMConfig(
-        target_x = 0.137,
-        target_y = 0.912,
-        point_stiffness = 100,
-        point_mass = 1
+    vamm = VAMM(
+        x = 0.137,
+        y = 0.912,
+        stiffness = 100,
+        mass = 1
     )
 
     phi, global_dofs_parent, local_to_global_w\
-        = locate_target_cell_degrees_of_freedom(domain, function_space, vamm_config)
+        = locate_target_cell_degrees_of_freedom(domain, function_space, vamm)
 
     eigenfrequencies, eigenmodes = solve_evp(
         domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
-        vamm_config = None, phi = phi, global_dofs_parent = global_dofs_parent, eigenmode_number = 11)
+        vamm = vamm, phi = phi, global_dofs_parent = global_dofs_parent, eigenmode_number = 11)
 
     for i, freq in enumerate(eigenfrequencies):
         print(f"mode {i}: {freq:.4f} Hz")
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     plot_eigenmode(
         domain = domain, function_space = function_space, eigenmodes = eigenmodes,
         eigenmode_index = 8, length = plate_config.length,
-        vamm_config = vamm_config, phi = phi, local_to_global_w = local_to_global_w)
+        vamm = vamm, phi = phi, local_to_global_w = local_to_global_w)
               #     include_theta=True, include_mass=True,
               #     view_vector=(2, 2, -1), save_path=None):
 
@@ -65,8 +65,8 @@ if __name__ == "__main__":
     if do_frequency_sweep:
 
         shaker_config = ShakerParameters(
-            target_x=plate_config.length/3,
-            target_y=plate_config.width/3,
+            x=plate_config.length/3,
+            y=plate_config.width/3,
             force_amplitude=1.0,
             phase=0.0
         ) if excitation == "force" else None
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         f_values, w_max_plate, rms_velocity = frequency_sweep_plate(
             domain=domain, function_space=function_space, problem=plate_problem_constants,
             plate_config=plate_config,
-            f_start=25, f_end=300, Omega_size=100, gamma=0.04,
+            f_start=25, f_end=300, Omega_size=20, gamma=0.04,
             free_plate=free_plate, excitation=excitation, shaker_config=shaker_config)
         # Peak width scales Delta_f = gamma * f_res, so choose Delta_f > (f_end - f_start)/Omega_size
         # for resonance frequencies of interest!

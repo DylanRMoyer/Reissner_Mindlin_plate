@@ -1,8 +1,7 @@
 from dolfinx import fem
-from petsc4py import PETSc
 from augmented_system import add_condensed_spring_stiffness
 from weak_form import define_weak_form
-from point_coupling import locate_target_cell_degrees_of_freedom, VAMMConfig, locate_cell_and_reference_coords
+from point_coupling import locate_target_cell_degrees_of_freedom, VAMM, locate_cell_and_reference_coords
 from problem_setup import build_plate_problem
 from config import PlateConfig
 from dolfinx.fem.petsc import assemble_matrix
@@ -11,23 +10,23 @@ from shaker_force import assemble_load_vector_through_force
 
 # --- Solve static problem ---
 
-def assemble_condensed_stiffness_matrix(a, bcs, phi, global_dofs_parent, vamm_config):
+def assemble_condensed_stiffness_matrix(a, bcs, phi, global_dofs_parent, vamm):
     """Assemble the plate stiffness matrix with the spring's stiffness
     statically condensed onto the plate's existing DOFs."""
     bilinear_form = fem.form(a)
     A = fem.petsc.assemble_matrix(bilinear_form, bcs=bcs)
     A.assemble()
-    A = add_condensed_spring_stiffness(A, phi, global_dofs_parent, vamm_config.point_stiffness)
+    A = add_condensed_spring_stiffness(A, phi, global_dofs_parent, vamm.stiffness)
     A.assemble()
     return A, bilinear_form
 
 
-def assemble_spring_load_vector(A, bilinear_form, bcs, phi, global_dofs_parent,
-                                vamm_config, spring_end_displacement):
+def assemble_spring_load_vector(A, form, bcs, phi, global_dofs_parent,
+                                vamm, spring_end_displacement):
     """Build the RHS vector representing an imposed displacement at the
     spring's free end, condensed onto the plate's existing DOFs."""
-    force_amplitude = vamm_config.point_stiffness * spring_end_displacement
-    b = assemble_load_vector_through_force(A=A, bilinear_form=bilinear_form,
+    force_amplitude = vamm.stiffness * spring_end_displacement
+    b = assemble_load_vector_through_force(A=A, form=form,
                                            phi=phi, global_dofs_parent=global_dofs_parent,
                                            force_amplitude=force_amplitude, bcs = bcs)
     return b
@@ -39,6 +38,13 @@ if __name__ == "__main__":
     refinement_steps = 11
 
     mesh_sizes = [(n * initial_mesh[0], n * initial_mesh[1]) for n in range(1, refinement_steps + 1)]
+
+    vamm = VAMM(
+        x=0.137,
+        y=0.912,
+        stiffness=100,
+        mass=1
+    )
 
     deflections = []
     strain_energies = []
@@ -59,24 +65,21 @@ if __name__ == "__main__":
         domain, function_space, bcs, plate_problem_constants = build_plate_problem(plate_config)
         # Add degree custom degree (default: deg = 2) or function type (default: el_type = "S") if needed
 
-        vamm_config = VAMMConfig(
-            target_x=0.137,
-            target_y=0.912,
-            point_stiffness=100,
-            point_mass=1
-        )
 
-        cell, x_ref = locate_cell_and_reference_coords(domain, vamm_config.target_x, vamm_config.target_y)
+        cell, x_ref = locate_cell_and_reference_coords(domain, vamm)
 
         _, _, a = define_weak_form(function_space, plate_problem_constants)
 
         phi, global_dofs_parent, local_to_global_w \
-        = locate_target_cell_degrees_of_freedom(domain, function_space, vamm_config)
+        = locate_target_cell_degrees_of_freedom(domain, function_space, vamm)
 
         spring_end_displacement = 1
 
-        A, bilinear_form = assemble_condensed_stiffness_matrix(a, bcs, phi, global_dofs_parent, vamm_config)
-        b = assemble_spring_load_vector(A, bilinear_form, bcs, phi, global_dofs_parent, vamm_config, spring_end_displacement)
+        A, bilinear_form = assemble_condensed_stiffness_matrix(a, bcs, phi, global_dofs_parent, vamm)
+        b = assemble_spring_load_vector(A=A, form=bilinear_form, bcs=bcs,
+                                        phi=phi, global_dofs_parent=global_dofs_parent,
+                                        vamm=vamm,
+                                        spring_end_displacement=spring_end_displacement)
 
         u_point, w_point = solve_linear_system(domain, function_space, A, b)
 
@@ -91,11 +94,11 @@ if __name__ == "__main__":
         strain_energies.append(strain_energy)
 
         print(f"nx={nx}, ny={ny}: deflection = {deflections[-1]:.6e}, "
-              f"strain_energy = {strain_energies[-1]:.6e}, cell = {cell}, x_ref = {x_ref}")
+              f"strain_energy = {strain_energies[-1].real:.6e}, cell = {cell}, x_ref = {x_ref}")
         if len(deflections) > 1:
             rel_defl = 100 * (deflections[-1] - deflections[-2]) / deflections[-2]
             rel_energy = 100 * (strain_energies[-1] - strain_energies[-2]) / strain_energies[-2]
-            print(f"  relative increase: deflection = {rel_defl:.3g} %, strain_energy = {rel_energy:.3g} %")
+            print(f"  relative increase: deflection = {rel_defl.real:.3g} %, strain_energy = {rel_energy.real:.3g} %")
 
     tail_defl = deflections[-3:]
     tail_defl_spread = (max(tail_defl) - min(tail_defl)) / min(tail_defl)

@@ -54,9 +54,9 @@ def add_theta_plot(function_space, mode_to_plot, warped, factor_scale, deg):
     return glyphs
 
 
-def add_point_mass_to_plot(vamm_config, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg):
+def add_point_mass_to_plot(vamm, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg):
 
-    attachment_xy = np.array([vamm_config.target_x, vamm_config.target_y])
+    attachment_xy = np.array([vamm.x, vamm.y])
     plate_w_at_target = np.dot(phi, w_mode.x.array[local_to_global_w])  # w_h at target, this mode
 
     mass_marker = pyvista.PolyData(np.array([[
@@ -110,7 +110,7 @@ def build_plot(warped, glyphs = None, mass_marker = None, spring_line = None, vi
 
 
 def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
-                    vamm_config=None, phi=None, local_to_global_w=None,
+                    vamm=None, phi=None, local_to_global_w=None,
                     include_theta=True, include_mass=True,
                     view_vector=(2, 2, -1), save_path=None):
     """Build and display/save the full eigenmode plot for one mode.
@@ -134,7 +134,7 @@ def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
     if q_r_to_plot is not None:
         if include_mass:
             mass_marker, spring_line = add_point_mass_to_plot(
-                vamm_config, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg
+                vamm, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg
             )
 
     build_plot(warped, glyphs=glyphs, mass_marker=mass_marker, spring_line=spring_line,

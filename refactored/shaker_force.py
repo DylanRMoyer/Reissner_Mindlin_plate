@@ -7,8 +7,8 @@ from point_coupling import locate_target_cell_degrees_of_freedom
 
 @dataclass
 class ShakerParameters:
-    target_x: float
-    target_y: float
+    x: float
+    y: float
     force_amplitude: float
     phase: float = 0
 
