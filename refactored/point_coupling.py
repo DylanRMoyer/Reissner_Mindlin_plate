@@ -20,6 +20,37 @@ class VAMM:
             raise ValueError(f"VAMM stiffness/mass must be positive, got "
                               f"stiffness={self.stiffness}, mass={self.mass}")
 
+def check_separation(current_vamm_list, x, y, min_distance):
+    for vamm in current_vamm_list: # Only skip over already placed VAMMs
+        if abs(vamm.x - x) < min_distance and abs(vamm.y - y) < min_distance:
+            raise ValueError(f"{x, y} is too close to {vamm.x, vamm.y}. Creation skipped.")
+    return True
+
+def register_vamm_indices(vamm_list):
+    """Assign dense, order-matching indices to vamm_list in place. Always
+    safe to re-run after any mutation (place_vamm/remove_vamm -> Future extensions)."""
+    for i, vamm in enumerate(vamm_list):
+        vamm.index = i
+    return vamm_list
+
+def assert_vamm_indices_registered(vamm_list):
+    """Fail loudly if vamm_list's indices aren't densely order-matched.
+    Call this inside augmentation functions as a defensive guard."""
+    assert all(vamm.index == i for i, vamm in enumerate(vamm_list)), \
+        "vamm_list is not densely index-ordered — call register_vamm_indices first"
+
+def create_vamm_list_and_assign_indices(coords_stiffnesses_masses, min_distance):
+    vamm_list = []
+    for x, y, k, m in coords_stiffnesses_masses:
+        try:
+            check_separation(vamm_list, x, y, min_distance)
+        except ValueError as e:
+            print(f"Skipping VAMM at ({x}, {y}): {e}")
+            continue
+        vamm_list.append(VAMM(x=x, y=y, stiffness=k, mass=m))
+    vamm_list = register_vamm_indices(vamm_list)
+    return vamm_list
+
 def compute_point_eigenfrequency(vamm: VAMM):
     return np.sqrt(vamm.stiffness/vamm.mass)/(2*np.pi)
 
@@ -68,3 +99,15 @@ def locate_target_cell_degrees_of_freedom(domain, function_space, vamm):
         function_space, cell, x_ref
     )
     return phi, global_dofs_parent, local_to_global_w
+
+def compute_phi_and_dofs_for_vamm_list(domain, function_space, vamm_list):
+    """Run locate_target_cell_degrees_of_freedom once per VAMM, in vamm_list order."""
+    phi_list = []
+    global_dofs_parent_list = []
+    local_to_global_w_list = []
+    for vamm in vamm_list:
+        phi, global_dofs_parent, local_to_global_w = locate_target_cell_degrees_of_freedom(domain, function_space, vamm)
+        phi_list.append(phi)
+        global_dofs_parent_list.append(global_dofs_parent)
+        local_to_global_w_list.append(local_to_global_w)
+    return phi_list, global_dofs_parent_list, local_to_global_w_list

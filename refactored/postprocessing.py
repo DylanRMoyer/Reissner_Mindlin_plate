@@ -74,12 +74,14 @@ def add_point_mass_to_plot(vamm, phi, w_mode, q_r_to_plot, local_to_global_w, fa
     return mass_marker, spring_line
 
 
-def build_plot(warped, glyphs = None, mass_marker = None, spring_line = None, view_vector = (2,2,-1), save_path = None):
+def build_plot(warped, glyphs=None, mass_markers=None, spring_lines=None,
+                view_vector=(2, 2, -1), save_path=None):
     """Assemble the full eigenmode plot from its sub-parts.
 
         glyphs: theta-rotation glyphs (from add_theta_plot). Omit to skip.
-        mass_marker, spring_line: point-mass visualization (from
-            add_point_mass_to_plot). Omit either/both to skip.
+        mass_markers, spring_lines: lists of point-mass visualizations, one
+            per VAMM (from repeated add_point_mass_to_plot calls). Omit
+            either/both to skip. Must be same-length lists if both given.
         view_vector: camera view direction. Defaults to (2, 2, -1), matching
             the original script's fixed viewing angle.
         save_path: if given, saves the plot to this path (as PDF) instead of
@@ -92,11 +94,13 @@ def build_plot(warped, glyphs = None, mass_marker = None, spring_line = None, vi
     if glyphs is not None:
         p.add_mesh(glyphs, color="red")
 
-    if mass_marker is not None:
-        p.add_mesh(mass_marker, color="blue", point_size=15, render_points_as_spheres=True)
+    if mass_markers is not None:
+        for mass_marker in mass_markers:
+            p.add_mesh(mass_marker, color="blue", point_size=15, render_points_as_spheres=True)
 
-    if spring_line is not None:
-        p.add_mesh(spring_line, color="blue", line_width=3)
+    if spring_lines is not None:
+        for spring_line in spring_lines:
+            p.add_mesh(spring_line, color="blue", line_width=3)
 
     p.show_axes()
     p.view_vector(view_vector)
@@ -108,20 +112,20 @@ def build_plot(warped, glyphs = None, mass_marker = None, spring_line = None, vi
 
     p.close()
 
-
 def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
-                    vamm=None, phi=None, local_to_global_w=None,
+                    vamm_list=None, phi_list=None, local_to_global_w_list=None,
                     include_theta=True, include_mass=True,
                     view_vector=(2, 2, -1), save_path=None):
     """Build and display/save the full eigenmode plot for one mode.
     By default, all overlays (theta, mass) are included.
 
     Set include_theta/include_mass=False to skip those overlays.
-    vamm_config/phi/global_dofs_parent/local_to_global_w are required
-    only if include_mass=True, which is the default setting.
-    If the system is to be solved without masses to begin with, that step is skipped regardless.
+    vamm_list/phi_list/local_to_global_w_list are required only if
+    include_mass=True, which is the default setting. Every VAMM in
+    vamm_list gets its own marker and spring line.
+    If the system is to be solved without VAMMs to begin with, that step is skipped regardless.
     """
-    warped, mode_to_plot, q_r_to_plot, w_mode, factor_scale, deg = create_w_plot(
+    warped, mode_to_plot, q_r_values_to_plot, w_mode, factor_scale, deg = create_w_plot(
         domain, function_space, eigenmodes, eigenmode_index, length
     )
 
@@ -129,17 +133,23 @@ def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
     if include_theta:
         glyphs = add_theta_plot(function_space, mode_to_plot, warped, factor_scale, deg)
 
-    mass_marker, spring_line = None, None
+    mass_markers, spring_lines = None, None
 
-    if q_r_to_plot is not None:
+    if q_r_values_to_plot is not None:
         if include_mass:
-            mass_marker, spring_line = add_point_mass_to_plot(
-                vamm, phi, w_mode, q_r_to_plot, local_to_global_w, factor_scale, deg
-            )
+            mass_markers = []
+            spring_lines = []
+            for vamm, phi, local_to_global_w in zip(vamm_list, phi_list, local_to_global_w_list):
+                q_r = q_r_values_to_plot[vamm.index]
+                marker, spring_line = add_point_mass_to_plot(
+                    vamm, phi, w_mode, q_r, local_to_global_w, factor_scale, deg
+                )
+                mass_markers.append(marker)
+                spring_lines.append(spring_line)
 
-    build_plot(warped, glyphs=glyphs, mass_marker=mass_marker, spring_line=spring_line,
+    build_plot(warped, glyphs=glyphs, mass_markers=mass_markers, spring_lines=spring_lines,
                view_vector=view_vector, save_path=save_path)
-
+    
 def plot_frequency_response(f_values, rms_velocity, w_max_plate=None,
                              use_max_metric=False, eigenfrequencies=None, save_path=None):
     """Plot the plate's frequency response.

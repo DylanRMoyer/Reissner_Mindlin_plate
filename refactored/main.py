@@ -1,6 +1,6 @@
 from config import PlateConfig
 from problem_setup import build_plate_problem
-from point_coupling import VAMM, locate_target_cell_degrees_of_freedom
+from point_coupling import create_vamm_list_and_assign_indices, compute_phi_and_dofs_for_vamm_list
 from shaker_force import ShakerParameters
 from solve import solve_evp
 from postprocessing import plot_eigenmode
@@ -12,7 +12,7 @@ from petsc4py import PETSc
 
 if __name__ == "__main__":
 
-    do_frequency_sweep = True
+    do_frequency_sweep = False
     free_plate = True  # switch: free (shaker-driven) vs. clamped-edge plate
     excitation = "force"  # "force" (needs free_plate=True or False) or "motion" (needs free_plate=False)
 
@@ -36,19 +36,17 @@ if __name__ == "__main__":
 
 # --- Compute eigenfrequencies and -modes with an optional VAMM and plot result ---
 
-    vamm = VAMM(
-        x = 0.137,
-        y = 0.912,
-        stiffness = 100,
-        mass = 1
-    )
+    vamm_list = create_vamm_list_and_assign_indices(
+        [(0.5,0.5,100,1), (0.6, 0.6, 200, 0.5), (0.1, 0.1, 50, 5)], 0.01)
 
-    phi, global_dofs_parent, local_to_global_w\
-        = locate_target_cell_degrees_of_freedom(domain, function_space, vamm)
+    phi_list, global_dofs_parent_list, local_to_global_w_list = compute_phi_and_dofs_for_vamm_list(
+        domain=domain, function_space=function_space, vamm_list=vamm_list
+    )
 
     eigenfrequencies, eigenmodes = solve_evp(
         domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
-        vamm = vamm, phi = phi, global_dofs_parent = global_dofs_parent, eigenmode_number = 11)
+        vamm_list = vamm_list, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
+        eigenmode_number = 11)
 
     for i, freq in enumerate(eigenfrequencies):
         print(f"mode {i}: {freq:.4f} Hz")
@@ -56,7 +54,7 @@ if __name__ == "__main__":
     plot_eigenmode(
         domain = domain, function_space = function_space, eigenmodes = eigenmodes,
         eigenmode_index = 8, length = plate_config.length,
-        vamm = vamm, phi = phi, local_to_global_w = local_to_global_w)
+        vamm_list = vamm_list, phi_list = phi_list, local_to_global_w_list = local_to_global_w_list)
               #     include_theta=True, include_mass=True,
               #     view_vector=(2, 2, -1), save_path=None):
 
