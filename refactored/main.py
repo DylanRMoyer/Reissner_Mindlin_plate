@@ -38,11 +38,11 @@ if __name__ == "__main__":
 
     vamm_list = create_vamm_list_and_assign_indices(
         [
-            (1.1,0.0,858783.5366,1.0,0.02)
+#            (1.1,0.0,85878,35366,1.0,0.02)
+#           ,
+            (0.55, 0.5, 10042816.24, 10.0, 0.05)
            ,
-            (0.55, 0.5, 8587835.366, 10.0, 0.05)
-           ,
-            (0.1, 0.1, 50, 5, 0.01)
+            (0.1, 0.1, 500, 5, 0.01)
          ], 0.01)
 
     phi_list, global_dofs_parent_list, local_to_global_w_list = compute_phi_and_dofs_for_vamm_list(
@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     eigenfrequencies, eigenmodes = solve_evp(
         domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
-        vamm_list = vamm_list, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
+        vamm_list = None, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
         eigenmode_number = 11)
 
     for i, freq in enumerate(eigenfrequencies):
@@ -78,8 +78,8 @@ if __name__ == "__main__":
         f_values, w_max_plate, rms_velocity = frequency_sweep_plate(
             domain=domain, function_space=function_space, problem=plate_problem_constants,
             plate_config=plate_config,
-            f_start=25, f_end=300,
-            vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
+            f_start=0, f_end=1000,
+            vamm_list=None, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
             Omega_size=100, gamma=0.04,
             free_plate=free_plate, excitation=excitation, shaker_config=shaker_config)
         # Peak width scales Delta_f = gamma * f_res, so choose Delta_f > (f_end - f_start)/Omega_size

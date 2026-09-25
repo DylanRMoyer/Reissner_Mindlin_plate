@@ -24,8 +24,10 @@ def assemble_dynamic_stiffness(a, m, domain, gamma: float = 0.0):
     form = fem.form(damping_factor * a - Omega_const**2 * m)
     return form, Omega_const
 
-def assemble_shaker_rhs(A, form, bcs=None):
-    b = A.createVecRight()
+def assemble_shaker_rhs(K_plate, form, bcs=None):
+    """K_plate must be a PLATE-SIZED matrix, never the augmented operator —
+    used only for createVecRight() layout. Returns a plate-sized vector."""
+    b = K_plate.createVecRight()
     b.zeroEntries()                                   # no body force — pure homogeneous eqn
     if bcs:
         fem.petsc.apply_lifting(b, [form], bcs=[bcs])      # computes -(K12 - Ω²M12) q2 internally
@@ -47,6 +49,24 @@ def build_rhs_builder(excitation, domain, function_space, bcs, shaker_config=Non
         return assemble_shaker_rhs  # already matches the (A, form, bcs) signature
     else:
         raise ValueError(f"unknown excitation kind: {excitation!r}")
+
+def pad_to_augmented_size(b_plate, n_plate, n_total, comm):
+    """Zero-pad a plate-sized RHS vector to the augmented (n_plate+N) size.
+    No-op when there are no VAMMs (n_total == n_plate). Zero-padding is exact, since
+    neither a point force nor a plate boundary BC has any
+    direct action on a VAMM's own free coordinate, so those extra rows are
+    always zero, not merely negligible."""
+    if n_total == n_plate:
+        return b_plate
+    b_full = PETSc.Vec().create(comm=comm)
+    b_full.setSizes(n_total)
+    b_full.setUp()
+    b_full.zeroEntries()
+    idx = np.arange(n_plate, dtype=PETSc.IntType)
+    b_full.setValues(idx, b_plate.getArray())
+    b_full.assemblyBegin()
+    b_full.assemblyEnd()
+    return b_full
 
 def locate_boundary_w_dofs_of_plate(domain, function_space, border_function):
 
@@ -117,14 +137,20 @@ def solve_linear_system(domain, function_space, A, b, n_plate):
 
     return u_point, w_point
 
-def conduct_single_frequency_response(domain, function_space, K_aug, M_aug,
-                                       Omega, rhs_builder, n_plate, bcs=None):
+def conduct_single_frequency_response(domain, function_space, K_plate, K_aug, M_aug,
+                                       Omega, rhs_builder, n_plate, bcs=None, form=None):
     """ Does NOT support prescribed motion excitation yet """
     A = K_aug.copy()
     A.axpy(-Omega**2, M_aug)   # A = K_aug - Omega^2 * M_aug
     A.assemble()
+    n_total = A.getSize()[0]
 
-    b = rhs_builder(A, None, bcs)  # form unused when bcs=[]
+    if bcs and form is None:
+        raise ValueError(f"Nonzero bcs requires form to be passed as well")
+
+    b_plate = rhs_builder(K_plate=K_plate, form=form, bcs=bcs)
+    # always plate-sized (n_plate), regardless of excitation kind
+    b = pad_to_augmented_size(b_plate, n_plate, n_total, domain.comm)
 
     u_point, w_point = solve_linear_system(domain, function_space, A, b, n_plate)
     return u_point, w_point
@@ -157,6 +183,8 @@ def frequency_sweep_plate(
 
     # --- everything Omega-INdependent: build ONCE, outside the loop ---
     m, _, a = define_weak_form(function_space, problem)
+
+    # plate-only, unconstrained, Omega-mutable form -- ONLY used for apply_lifting/set_bc
     form, Omega_const = assemble_dynamic_stiffness(a=a, m=m, domain=domain, gamma=gamma)
 
     if free_plate:
@@ -164,7 +192,7 @@ def frequency_sweep_plate(
         border = None
     else:
         bcs = dirichlet_boundary_conditions(
-            domain, function_space, plate_config.length, plate_config.width, phi_0) # fix branch dependency!
+            domain, function_space, plate_config.length, plate_config.width, phi_0)
         border = make_border_marker(plate_config.length, plate_config.width)
 
     K_plate, M_plate = assemble_dynamic_operators(a=a, m=m, bcs=bcs, domain=domain, gamma=gamma)
@@ -191,8 +219,8 @@ def frequency_sweep_plate(
     for Omega in Omega_values:
         Omega_const.value = Omega
         u_point, w_point = conduct_single_frequency_response(
-            domain=domain, function_space=function_space, K_aug=K_aug, M_aug=M_aug, Omega=Omega,
-            rhs_builder=rhs_builder, n_plate=n_plate, bcs=bcs)
+            domain=domain, function_space=function_space, K_plate=K_plate, K_aug=K_aug, M_aug=M_aug, Omega=Omega,
+            rhs_builder=rhs_builder, n_plate=n_plate, bcs=bcs, form=form)
 
         if compute_max_metric:
             if dofs_w_collapsed is not None:

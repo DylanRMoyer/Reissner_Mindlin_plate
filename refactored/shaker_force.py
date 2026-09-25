@@ -12,14 +12,14 @@ class ShakerParameters:
     force_amplitude: float
     phase: float = 0
 
-def assemble_load_vector_through_force(A,
+def assemble_load_vector_through_force(K_plate,
                                        form,
                                        phi,
                                        global_dofs_parent,
                                        force_amplitude,
                                        bcs = None):
     """Build the RHS vector representing a force displacement."""
-    b = A.createVecRight()
+    b = K_plate.createVecRight()
     b.zeroEntries()
 
     for phi_i, parent_dof in zip(phi, global_dofs_parent):
@@ -39,9 +39,9 @@ def make_force_excitation_rhs_builder(domain, function_space, shaker_parameters)
     phi, global_dofs_parent, _ = locate_target_cell_degrees_of_freedom(
         domain, function_space, shaker_parameters
     )
-    def force_excitation_rhs_builder(A, form, bcs=None):
+    def force_excitation_rhs_builder(K_plate, form, bcs=None):
         return assemble_load_vector_through_force(
-        A=A, form=form, phi=phi, global_dofs_parent=global_dofs_parent,
+        K_plate=K_plate, form=form, phi=phi, global_dofs_parent=global_dofs_parent,
             force_amplitude=shaker_parameters.force_amplitude, bcs=bcs
         )
     return force_excitation_rhs_builder
