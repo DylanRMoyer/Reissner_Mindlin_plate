@@ -4,12 +4,15 @@ from dolfinx import fem, mesh
 from dolfinx.fem.petsc import assemble_matrix
 from mpi4py import MPI
 from petsc4py import PETSc
-from weak_form import define_weak_form, PlateProblemConstants
+from weak_form import define_weak_form
+from augmented_system import augment_stiffness_matrix, augment_mass_matrix
 from boundary_conditions import dirichlet_boundary_conditions, make_border_marker
 from weak_form import collapse_subspace
 from shaker_force import make_force_excitation_rhs_builder
 
 # --- Prescribed motion machinery ---
+# --- NOT implemented in the current version: Force excitation only ---
+# --- Implementation for prescribed motion to be implemented ---
 
 def assemble_dynamic_stiffness(a, m, domain, gamma: float = 0.0):
     """Build the (damping_factor * a - Omega² m) form ONCE, with Omega as a mutable Constant.
@@ -45,6 +48,32 @@ def build_rhs_builder(excitation, domain, function_space, bcs, shaker_config=Non
     else:
         raise ValueError(f"unknown excitation kind: {excitation!r}")
 
+def locate_boundary_w_dofs_of_plate(domain, function_space, border_function):
+
+    topological_dimension_mesh = domain.topology.dim
+    facet_dim = topological_dimension_mesh - 1
+
+    clamped_facets = mesh.locate_entities_boundary(domain, facet_dim, border_function)
+    function_space_w, _ = collapse_subspace(function_space, 0)
+    dofs_w = fem.locate_dofs_topological((function_space.sub(0), function_space_w), facet_dim, clamped_facets)
+    dofs_w_collapsed = dofs_w[1]
+
+    return dofs_w_collapsed
+
+# --- Force excitation machinery ---
+
+def assemble_dynamic_operators(a, m, bcs, domain, gamma: float = 0.0):
+    """Assemble K_plate and M_plate ONCE, gamma baked into K_plate as complex
+    hysteretic damping (1+i*gamma). No Omega dependence -- callers combine
+    K_aug - Omega^2*M_aug via cheap PETSc arithmetic per frequency step,
+    not FEM reassembly."""
+    damping_factor = fem.Constant(domain, PETSc.ScalarType(1.0 + 1j * gamma))
+    K_plate = fem.petsc.assemble_matrix(fem.form(damping_factor * a), bcs=bcs)
+    K_plate.assemble()
+    M_plate = fem.petsc.assemble_matrix(fem.form(m), bcs=bcs)
+    M_plate.assemble()
+    return K_plate, M_plate
+
 # --- Frequency sweep machinery, independent of shaker implementation ---
 
 def compute_rms_velocity(u_point, Omega_const, domain):
@@ -69,50 +98,41 @@ def compute_rms_velocity(u_point, Omega_const, domain):
 
     return np.sqrt(mean_sq_velocity.real)
 
-def solve_linear_system(domain, function_space, A, b):
+def solve_linear_system(domain, function_space, A, b, n_plate):
 
     solver = PETSc.KSP().create(domain.comm)
     solver.setOperators(A)
     solver.setType("preonly")
     solver.getPC().setType("lu")
 
+    x = A.createVecRight()
+    solver.solve(b, x)
+
+    plate_part = x.getArray()[:n_plate]
     u_point = fem.Function(function_space)
-    solver.solve(b, u_point.x.petsc_vec)
+    u_point.x.petsc_vec.setArray(plate_part)
     u_point.x.scatter_forward()
 
     w_point = u_point.sub(0).collapse()
 
     return u_point, w_point
 
-def conduct_single_frequency_response(domain, function_space, form,
-                                      Omega_const, Omega, rhs_builder, bcs=None):
-    """Now only does the Omega-dependent work: set Omega, assemble, solve."""
-    Omega_const.value = Omega
-
-    A = fem.petsc.assemble_matrix(form, bcs=bcs)
+def conduct_single_frequency_response(domain, function_space, K_aug, M_aug,
+                                       Omega, rhs_builder, n_plate, bcs=None):
+    """ Does NOT support prescribed motion excitation yet """
+    A = K_aug.copy()
+    A.axpy(-Omega**2, M_aug)   # A = K_aug - Omega^2 * M_aug
     A.assemble()
 
-    b = rhs_builder(A, form, bcs)
+    b = rhs_builder(A, None, bcs)  # form unused when bcs=[]
 
-    u_point, w_point = solve_linear_system(domain, function_space, A, b)
-
+    u_point, w_point = solve_linear_system(domain, function_space, A, b, n_plate)
     return u_point, w_point
-
-def locate_boundary_w_dofs_of_plate(domain, function_space, border_function):
-
-    topological_dimension_mesh = domain.topology.dim
-    facet_dim = topological_dimension_mesh - 1
-
-    clamped_facets = mesh.locate_entities_boundary(domain, facet_dim, border_function)
-    function_space_w, _ = collapse_subspace(function_space, 0)
-    dofs_w = fem.locate_dofs_topological((function_space.sub(0), function_space_w), facet_dim, clamped_facets)
-    dofs_w_collapsed = dofs_w[1]
-
-    return dofs_w_collapsed
 
 def frequency_sweep_plate(
         domain, function_space, problem, plate_config,
         f_start: float, f_end: float,
+        vamm_list = None, phi_list=None, global_dofs_parent_list=None,
         Omega_size: int = 100, phi_0: float = 1.0, gamma: float = 0.0,
         compute_max_metric: bool = False,
         free_plate = True,
@@ -147,6 +167,16 @@ def frequency_sweep_plate(
             domain, function_space, plate_config.length, plate_config.width, phi_0) # fix branch dependency!
         border = make_border_marker(plate_config.length, plate_config.width)
 
+    K_plate, M_plate = assemble_dynamic_operators(a=a, m=m, bcs=bcs, domain=domain, gamma=gamma)
+
+    if vamm_list is not None:
+        K_aug, n_plate = augment_stiffness_matrix(K=K_plate, vamm_list=vamm_list,
+                                                  phi_list=phi_list,
+                                                  global_dofs_parent_list=global_dofs_parent_list)
+        M_aug = augment_mass_matrix(M=M_plate, vamm_list=vamm_list)
+    else:
+        K_aug, M_aug, n_plate = K_plate, M_plate, K_plate.getSize()[0]
+
     rhs_builder = build_rhs_builder(excitation, domain, function_space, bcs, shaker_config)
 
     if compute_max_metric:
@@ -159,9 +189,10 @@ def frequency_sweep_plate(
 
     rms_velocity = []
     for Omega in Omega_values:
+        Omega_const.value = Omega
         u_point, w_point = conduct_single_frequency_response(
-            domain=domain, function_space=function_space, form=form,
-            Omega_const=Omega_const, Omega=Omega, rhs_builder=rhs_builder, bcs=bcs)
+            domain=domain, function_space=function_space, K_aug=K_aug, M_aug=M_aug, Omega=Omega,
+            rhs_builder=rhs_builder, n_plate=n_plate, bcs=bcs)
 
         if compute_max_metric:
             if dofs_w_collapsed is not None:

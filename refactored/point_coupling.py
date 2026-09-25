@@ -13,12 +13,15 @@ class VAMM:
     y: float
     stiffness: float
     mass: float
+    gamma: float = 0.0
     index: int | None = None
 
     def __post_init__(self):
         if self.stiffness <= 0 or self.mass <= 0:
-            raise ValueError(f"VAMM stiffness/mass must be positive, got "
+            raise ValueError(f"VAMM stiffness/ mass/ damping must be positive, got "
                               f"stiffness={self.stiffness}, mass={self.mass}")
+        if self.gamma < 0:
+            raise ValueError(f"VAMM damping (gamma) must be non-negative, got gamme={self.gamma}")
 
 def check_separation(current_vamm_list, x, y, min_distance):
     for vamm in current_vamm_list: # Only skip over already placed VAMMs
@@ -41,13 +44,15 @@ def assert_vamm_indices_registered(vamm_list):
 
 def create_vamm_list_and_assign_indices(coords_stiffnesses_masses, min_distance):
     vamm_list = []
-    for x, y, k, m in coords_stiffnesses_masses:
+    for entry in coords_stiffnesses_masses:
+        x, y, k, m, *rest = entry
+        gamma = rest[0] if rest else 0.0
         try:
             check_separation(vamm_list, x, y, min_distance)
         except ValueError as e:
             print(f"Skipping VAMM at ({x}, {y}): {e}")
             continue
-        vamm_list.append(VAMM(x=x, y=y, stiffness=k, mass=m))
+        vamm_list.append(VAMM(x=x, y=y, stiffness=k, mass=m, gamma=gamma))
     vamm_list = register_vamm_indices(vamm_list)
     return vamm_list
 

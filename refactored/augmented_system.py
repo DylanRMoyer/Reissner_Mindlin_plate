@@ -2,7 +2,7 @@ import numpy as np
 from petsc4py import PETSc
 from scipy.sparse import bmat
 from scipy.sparse import csr_matrix, coo_matrix
-from point_coupling import register_vamm_indices, assert_vamm_indices_registered
+from point_coupling import assert_vamm_indices_registered
 
 
 # --- helpers: PETSc <-> scipy round-trip ---
@@ -55,7 +55,7 @@ def augment_stiffness_matrix(
         nz = np.nonzero(phi_ext)[0]
         rows = np.repeat(nz, len(nz))
         cols = np.tile(nz, len(nz))
-        vals = vamm.stiffness * np.outer(phi_ext[nz], phi_ext[nz]).flatten()
+        vals = vamm.stiffness * (1 + 1j*vamm.gamma) * np.outer(phi_ext[nz], phi_ext[nz]).flatten()
         K_spring_total = K_spring_total + coo_matrix((vals, (rows, cols)), shape=(n_total, n_total)).tocsr()
 
     K_embedded = bmat([[K_sp, None],
@@ -92,8 +92,8 @@ def validate_augmented_system(
     # 1. q_r's own diagonal should be exactly k_r (mass m_r), nothing else touches it
     for vamm in vamm_list:
         current_index = n_plate + vamm.index
-        assert(np.isclose(K_aug[current_index, current_index], vamm.stiffness, rtol=1e-9)), \
-            f"K_aug[n,n] = {K_aug[current_index, current_index]}, expected: {vamm.stiffness}"
+        assert(np.isclose(K_aug[current_index, current_index], vamm.stiffness*(1+1j*vamm.gamma), rtol=1e-9)), \
+            f"K_aug[n,n] = {K_aug[current_index, current_index]}, expected: {vamm.stiffness*(1+1j*vamm.gamma)}"
         assert(np.isclose(M_aug[current_index, current_index], vamm.mass, rtol=1e-9)), \
             f"M_aug[n,n] = {M_aug[current_index, current_index]} expected: {vamm.mass}"
 
@@ -101,7 +101,7 @@ def validate_augmented_system(
     for vamm, phi, global_dofs_parent in zip(vamm_list, phi_list, global_dofs_parent_list):
         current_index = n_plate + vamm.index
         for k, dof_i in enumerate(global_dofs_parent):
-            expected_coupling = -vamm.stiffness * phi[k]
+            expected_coupling = -vamm.stiffness *(1+1j*vamm.gamma)* phi[k]
             assert(np.isclose(K_aug[dof_i, current_index], expected_coupling, rtol = 1e-9)), \
                 f"K_aug[i0, n] = {K_aug[dof_i, current_index]} expected: {expected_coupling}"
             assert(np.isclose(K_aug[current_index, dof_i], expected_coupling, rtol = 1e-9)), \
@@ -113,7 +113,7 @@ def validate_augmented_system(
     expected_delta = {}
     for vamm, phi, global_dofs_parent in zip(vamm_list, phi_list, global_dofs_parent_list):
         for k, dof_i in enumerate(global_dofs_parent):
-            expected_delta[dof_i] = expected_delta.get(dof_i, 0.0) + vamm.stiffness * phi[k]**2
+            expected_delta[dof_i] = expected_delta.get(dof_i, 0.0) + vamm.stiffness *(1+1j*vamm.gamma)* phi[k]**2
 
     for dof_i, delta in expected_delta.items():
         expected_value = K_sp[dof_i, dof_i] + delta

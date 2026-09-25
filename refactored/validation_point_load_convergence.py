@@ -31,7 +31,6 @@ def assemble_spring_load_vector(A, form, bcs, phi, global_dofs_parent,
                                            force_amplitude=force_amplitude, bcs = bcs)
     return b
 
-
 if __name__ == "__main__":
 
     initial_mesh = (6,5)

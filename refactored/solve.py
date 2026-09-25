@@ -52,8 +52,15 @@ def solve_evp(
 
     eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_MAGNITUDE)
     eps.setTarget(0.0)
-    eps.setDimensions(nev=eigenmode_number)  # how many eigenpairs to converge
+    eps.setDimensions(nev=eigenmode_number, ncv = 2 * eigenmode_number)  # how many eigenpairs to converge
     eps.solve()
+
+    n_converged = eps.getConverged()
+    if n_converged < eigenmode_number:
+        raise RuntimeError(
+            f"SLEPc converged only {n_converged} of {eigenmode_number} requested eigenpairs "
+            f"(reason={eps.getConvergedReason()}); increase ncv or check the problem setup."
+        )
 
     # create PETSc vectors matching K's layout (real and imaginary parts)
     vr, vi = K_aug.createVecs()
@@ -61,9 +68,14 @@ def solve_evp(
     eigenfrequencies = []
     eigenmodes = []
 
-    for i in range(eps.getConverged()):
+    for i in range(eigenmode_number):
         eigval = eps.getEigenpair(i, vr, vi)  # fills vr, vi; returns eigenvalue
         omega_sq = eigval.real
+        tolerance = 1.0e-3 # To-Do: set dynamic tolerance!
+        if -tolerance < omega_sq < tolerance:
+            omega_sq = 0.0
+        if omega_sq < 0.0:
+            raise ValueError(f"omega_sq={omega_sq} < 0.0")
         freq_hz = np.sqrt(omega_sq) / (2 * np.pi)
 
         plate_part = vr.getArray()[:n_plate].real  # undamped EVP: eigenvectors are real; explicit cast
