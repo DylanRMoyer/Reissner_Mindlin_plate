@@ -190,13 +190,13 @@ if __name__ == "__main__":
 
 
     vamm_list = create_vamm_list_and_assign_indices(
-        [(0.5,0.5,100,1), (0.6, 0.6, 200, 0.5), (0.1, 0.1, 50, 5)], 0.01)
+        [(0.5,0.5,100,1), (0.6, 0.6, 200, 0.5), (0.1, 0.1, 50, 5)])
 
     vamm_list_nodal_line_mode_five = create_vamm_list_and_assign_indices(
-        [(node_xy[0], node_xy[1], 1e10, 1)], 0.01)
+        [(node_xy[0], node_xy[1], 1e10, 1)])
         # no shift expected, resonance frequency @ 147.4898 Hz
     vamm_list_antinodal_line_mode_five = create_vamm_list_and_assign_indices(
-        [(antinode_xy[0], antinode_xy[1], 1e10, 1)], 0.01)
+        [(antinode_xy[0], antinode_xy[1], 1e10, 1)])
         # large shift from original resonance frequency @ 147.4898 Hz expected
 
     stiff_limits =\

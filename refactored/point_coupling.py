@@ -21,13 +21,7 @@ class VAMM:
             raise ValueError(f"VAMM stiffness/ mass/ damping must be positive, got "
                               f"stiffness={self.stiffness}, mass={self.mass}")
         if self.gamma < 0:
-            raise ValueError(f"VAMM damping (gamma) must be non-negative, got gamme={self.gamma}")
-
-def check_separation(current_vamm_list, x, y, min_distance):
-    for vamm in current_vamm_list: # Only skip over already placed VAMMs
-        if abs(vamm.x - x) < min_distance and abs(vamm.y - y) < min_distance:
-            raise ValueError(f"{x, y} is too close to {vamm.x, vamm.y}. Creation skipped.")
-    return True
+            raise ValueError(f"VAMM damping (gamma) must be non-negative, got gamma={self.gamma}")
 
 def register_vamm_indices(vamm_list):
     """Assign dense, order-matching indices to vamm_list in place. Always
@@ -42,16 +36,11 @@ def assert_vamm_indices_registered(vamm_list):
     assert all(vamm.index == i for i, vamm in enumerate(vamm_list)), \
         "vamm_list is not densely index-ordered — call register_vamm_indices first"
 
-def create_vamm_list_and_assign_indices(coords_stiffnesses_masses, min_distance):
+def create_vamm_list_and_assign_indices(coords_stiffnesses_masses):
     vamm_list = []
     for entry in coords_stiffnesses_masses:
         x, y, k, m, *rest = entry
         gamma = rest[0] if rest else 0.0
-        try:
-            check_separation(vamm_list, x, y, min_distance)
-        except ValueError as e:
-            print(f"Skipping VAMM at ({x}, {y}): {e}")
-            continue
         vamm_list.append(VAMM(x=x, y=y, stiffness=k, mass=m, gamma=gamma))
     vamm_list = register_vamm_indices(vamm_list)
     return vamm_list
