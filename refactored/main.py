@@ -1,21 +1,20 @@
+import numpy as np
 from config import PlateConfig
 from problem_setup import build_plate_problem
 from point_coupling import create_vamm_list_and_assign_indices, compute_phi_and_dofs_for_vamm_list
 from shaker_force import ShakerParameters
 from solve import solve_evp
-from postprocessing import plot_eigenmode
+from postprocessing import plot_eigenmode, plot_frequency_response, plot_mobility_bode
 from vamm_grid import GridConfig, state_to_vamm_list
+from probe import make_probe
 
-from frequency_sweep import frequency_sweep_plate
-from postprocessing import plot_frequency_response
-
-from petsc4py import PETSc
+from frequency_sweep import frequency_sweep_plate, build_frequency_grid, warn_if_grid_too_coarse
 
 if __name__ == "__main__":
 
-    do_frequency_sweep = False
-    free_plate = True  # switch: free (shaker-driven) vs. clamped-edge plate
-    excitation = "force"  # "force" (needs free_plate=True or False) or "motion" (needs free_plate=False)
+    do_frequency_sweep = True
+    free_plate = True # switch: free (shaker-driven) vs. clamped-edge plate
+    excitation = "force"  # "force" (allows both free_plate=True or False) or "motion" (needs free_plate=False)
     vamm_mode = "manual"  # "grid" or "manual"
 
     plate_config = PlateConfig(
@@ -44,15 +43,15 @@ if __name__ == "__main__":
         state = [1, 0, 1, 0, 1, 1]  # length n_x * n_y
         vamm_list = state_to_vamm_list(state, grid_config, plate_config.length, plate_config.width)
     elif vamm_mode == "manual":
-        vamm_list2 = create_vamm_list_and_assign_indices(
+        vamm_list = create_vamm_list_and_assign_indices(
             [
-                (1.1,0.0,85878.35366,1.0,0.02)
-                ,
-                (0.55, 0.5, 10042816.24, 10.0, 0.05)
-                ,
-                (0.1, 0.1, 500, 5, 0.01)
+                (1.1,0.0,858783.5366,1.0,0.02)
+                #,
+                #(0.55, 0.5, 10042816.24, 10.0, 0.05)
+                #,
+                #(0.1, 0.1, 500, 5, 0.01)
             ])
-        vamm_list = create_vamm_list_and_assign_indices([
+        vamm_list2 = create_vamm_list_and_assign_indices([
             (0.275, 0.16666666666666666, 85878.35366, 1.0, 0.02),
             (0.275, 0.8333333333333333, 85878.35366, 1.0, 0.02),
             (0.8250000000000001, 0.5, 85878.35366, 1.0, 0.02),
@@ -66,17 +65,25 @@ if __name__ == "__main__":
         domain=domain, function_space=function_space, vamm_list=vamm_list
     )
 
-    eigenfrequencies, eigenmodes = solve_evp(
+    eigenfrequencies_bare, eigenmodes_bare = solve_evp(
+        domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
+        vamm_list = None, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
+        eigenmode_number = 40)
+
+    eigenfrequencies_vamm, eigenmodes_vamm = solve_evp(
         domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
         vamm_list = vamm_list, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
-        eigenmode_number = 12)
+        eigenmode_number = 40)
 
-    for i, freq in enumerate(eigenfrequencies):
+    for i, freq in enumerate(eigenfrequencies_bare):
+        print(f"mode {i}: {freq:.4f} Hz")
+
+    for i, freq in enumerate(eigenfrequencies_vamm):
         print(f"mode {i}: {freq:.4f} Hz")
 
     plot_eigenmode(
-        domain = domain, function_space = function_space, eigenmodes = eigenmodes,
-        eigenmode_index = 7, length = plate_config.length,
+        domain = domain, function_space = function_space, eigenmodes = eigenmodes_bare,
+        eigenmode_index = 34, length = plate_config.length,
         vamm_list = vamm_list, phi_list = phi_list, local_to_global_w_list = local_to_global_w_list)
               #     include_theta=True, include_mass=True,
               #     view_vector=(2, 2, -1), save_path=None):
@@ -92,15 +99,46 @@ if __name__ == "__main__":
             phase=0.0
         ) if excitation == "force" else None
 
-        f_values, w_max_plate, rms_velocity = frequency_sweep_plate(
+        shaker_probe = make_probe(domain, function_space, shaker_config.x, shaker_config.y)
+        transfer_probe = make_probe(domain, function_space, 0.6, 0.6)
+        probes = [shaker_probe, transfer_probe]
+        f_start = 100
+        f_end = 300
+        gamma_plate = 0.04
+        grid = build_frequency_grid(f_start=f_start, f_end=f_end, gamma=0.02)  # smallest gamma in either run
+
+        sweep_vamm = frequency_sweep_plate(
             domain=domain, function_space=function_space, problem=plate_problem_constants,
             plate_config=plate_config,
-            f_start=0, f_end=1000,
+            f_start=f_start, f_end=f_end,
             vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
-            Omega_size=100, gamma=0.04,
-            free_plate=free_plate, excitation=excitation, shaker_config=shaker_config)
+            frequency_grid=grid, gamma=gamma_plate,
+            free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
+            probes=probes)
         # Peak width scales Delta_f = gamma * f_res, so choose Delta_f > (f_end - f_start)/Omega_size
         # for resonance frequencies of interest!
 
+        sweep_bare = frequency_sweep_plate(
+            domain=domain, function_space=function_space, problem=plate_problem_constants,
+            plate_config=plate_config,
+            f_start=f_start, f_end=f_end,
+            vamm_list=None, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
+            frequency_grid=grid, gamma=gamma_plate,
+            free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
+            probes=probes)
+
+        plot_mobility_bode(
+            f_values=sweep_bare.f_values,
+            mobilities=[sweep_bare.probe_mobility[0], sweep_vamm.probe_mobility[0]],
+            labels=["bare plate", "with VAMMs"],
+            eigenfrequencies=eigenfrequencies_bare,
+            title="Driving-point mobility")
+
+        np.savez("sweep_dp_100to300.npz",
+                 f=sweep_bare.f_values,
+                 Y_bare=sweep_bare.probe_mobility[0], Y_vamm=sweep_vamm.probe_mobility[0],
+                 eig_bare=np.array(eigenfrequencies_bare), eig_vamm=np.array(eigenfrequencies_vamm),
+                 gamma=0.04)
+
         plot_frequency_response(
-            f_values = f_values, rms_velocity=rms_velocity, eigenfrequencies = eigenfrequencies)
+            f_values = sweep_vamm.f_values, rms_velocity=sweep_vamm.rms_velocity, eigenfrequencies = eigenfrequencies_bare)

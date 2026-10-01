@@ -1,5 +1,8 @@
 import numpy as np
 import ufl
+import warnings
+import time
+from dataclasses import dataclass
 from dolfinx import fem, mesh
 from dolfinx.fem.petsc import assemble_matrix
 from mpi4py import MPI
@@ -9,10 +12,53 @@ from augmented_system import augment_stiffness_matrix, augment_mass_matrix
 from boundary_conditions import dirichlet_boundary_conditions, make_border_marker
 from weak_form import collapse_subspace
 from shaker_force import make_force_excitation_rhs_builder
+from probe import evaluate_w_at_probe, compute_mobility
+
+# --- Define dataclass to hold the desired outputs of the sweep ---
+@dataclass
+class SweepResult:
+    f_values: np.ndarray
+    rms_velocity: np.ndarray
+    w_max_plate: np.ndarray | None
+    probe_mobility: np.ndarray | None   # shape (n_probes, n_freq), complex
+
+# --- Define function building a frequency grid fine enough to resolve peaks ---
+
+def build_frequency_grid(f_start, f_end, gamma, points_per_fwhm=5):
+    """Geometric frequency grid with local step df = gamma * f / points_per_fwhm,
+    i.e. a constant number of points across each resonance's FWHM (~gamma * f_res).
+    Requires f_start > 0 and gamma > 0."""
+    if f_start <= 0:
+        raise ValueError("auto grid needs f_start > 0 (step is proportional to f); "
+                         "pass frequency_grid or Omega_size for a grid starting at 0")
+    if gamma <= 0:
+        raise ValueError("auto grid needs gamma > 0 (an undamped resonance has no finite width); "
+                         "pass frequency_grid or Omega_size explicitly")
+    ratio = 1.0 + gamma / points_per_fwhm
+    n_points = int(np.ceil(np.log(f_end / f_start) / np.log(ratio))) + 1
+    return f_start * ratio ** np.arange(n_points)
+
+# --- Add a function warning the user if the chosen grid is too coarse to resolve peaks ---
+
+def warn_if_grid_too_coarse(f_values, gamma, min_points_per_fwhm=3):
+    """Warn (never raise) if the grid has fewer than min_points_per_fwhm points
+    across the FWHM (~gamma * f) of a resonance anywhere in the band."""
+    if gamma <= 0 or len(f_values) < 2:
+        return
+    df = np.diff(f_values)
+    f_mid = 0.5 * (f_values[1:] + f_values[:-1])
+    points_per_fwhm = gamma * f_mid / df
+    too_coarse = points_per_fwhm < min_points_per_fwhm
+    if too_coarse.any():
+        f_limit = f_mid[too_coarse].max()
+        warnings.warn(
+            f"Frequency grid is too coarse below ~{f_limit:.1f} Hz "
+            f"(minimum {points_per_fwhm.min():.2f} points per resonance width, "
+            f"recommended >= {min_points_per_fwhm}). Peaks there may be missed or distorted.",
+            stacklevel=3)
+
 
 # --- Prescribed motion machinery ---
-# --- NOT implemented in the current version: Force excitation only ---
-# --- Implementation for prescribed motion to be implemented ---
 
 def assemble_dynamic_stiffness(a, m, domain, gamma: float = 0.0):
     """Build the (damping_factor * a - Omega² m) form ONCE, with Omega as a mutable Constant.
@@ -159,27 +205,50 @@ def frequency_sweep_plate(
         domain, function_space, problem, plate_config,
         f_start: float, f_end: float,
         vamm_list = None, phi_list=None, global_dofs_parent_list=None,
-        Omega_size: int = 100, phi_0: float = 1.0, gamma: float = 0.0,
+        Omega_size: int | None = None, phi_0: float = 1.0, gamma: float = 0.0,
+        frequency_grid = None,
+        points_per_fwhm = 5,
         compute_max_metric: bool = False,
         free_plate = True,
         excitation: str = "force",
-        shaker_config = None):
+        shaker_config = None,
+        probes = None):
 
     """
     Builds the damped/undamped dynamic-stiffness form (see
     assemble_dynamic_stiffness) once, then solves the shaker-driven
-    linear system at each frequency in [f_start, f_end]. Always returns
-    the RMS surface velocity (a smooth, spatially-integrated metric that
-    is robust across the whole sweep). Optionally also returns the
-    signed peak plate deflection (a pointwise metric, useful near an
+    linear system at each frequency in [f_start, f_end].
+    Returns sweep_results, always including the f_values, the
+    Omega_size frequencies in Hz spanning [f_start, f_end]
+    and rms_velocity (a smooth, spatially-integrated metric that
+    is robust across the whole sweep). Optionally also returns
+    signed peak deflection w_max_plate (a pointwise metric, useful near an
     isolated resonance for its phase-flip sign, but not reliable as a
     smooth function of frequency between resonances -- see notes in
-    compute_rms_velocity).
+    compute_rms_velocity). If probes is not None, also returns the mobility
+    of the plate at the location of the probes. probe_mobility has shape
+    (n_probes, n_freq), is complex and requires force excitation.
     """
 
-    Omega_start, Omega_end = 2 * np.pi * f_start, 2 * np.pi * f_end
-    Omega_values = np.linspace(Omega_start, Omega_end, Omega_size)
-    f_values = Omega_values / (2 * np.pi)
+    if probes and excitation != "force":
+        raise ValueError("probe mobility requires force excitation (shaker_config.force_amplitude)")
+
+    gammas = [g for g in [gamma] + ([v.gamma for v in vamm_list] if vamm_list else []) if g > 0]
+    gamma_min = min(gammas) if gammas else 0.0
+
+    if frequency_grid is not None:
+        f_values = np.asarray(frequency_grid, dtype=float)
+        Omega_size = len(f_values)
+    elif Omega_size is not None:
+        f_values = np.linspace(f_start, f_end, Omega_size)
+    else:
+        f_values = build_frequency_grid(f_start, f_end, gamma_min, points_per_fwhm)
+        Omega_size = len(f_values)
+
+    warn_if_grid_too_coarse(f_values, gamma_min)
+    Omega_values = 2 * np.pi * f_values
+    n_freq = len(f_values)
+    print(f"Frequency sweep: {n_freq} points, {f_values[0]:.2f}-{f_values[-1]:.2f} Hz")
 
     # --- everything Omega-INdependent: build ONCE, outside the loop ---
     m, _, a = define_weak_form(function_space, problem)
@@ -214,20 +283,53 @@ def frequency_sweep_plate(
             dofs_w_collapsed = locate_boundary_w_dofs_of_plate(domain=domain, function_space=function_space,
                                                        border_function=border)
         w_max_plate = []
+    else:
+        w_max_plate = None
 
     rms_velocity = []
-    for Omega in Omega_values:
+
+    if probes:
+        probe_mobility = np.zeros((len(probes), Omega_size), dtype=complex)
+    else:
+        probe_mobility = None
+
+    sweep_start = time.perf_counter()
+    for step, Omega in enumerate(Omega_values):
+        step_start = time.perf_counter()
         Omega_const.value = Omega
         u_point, w_point = conduct_single_frequency_response(
             domain=domain, function_space=function_space, K_plate=K_plate, K_aug=K_aug, M_aug=M_aug, Omega=Omega,
             rhs_builder=rhs_builder, n_plate=n_plate, bcs=bcs, form=form)
 
+        if probes:
+            for p, probe in enumerate(probes):
+                w_val = evaluate_w_at_probe(w_point, probe)
+                probe_mobility[p, step] = compute_mobility(
+                    w_value=w_val, Omega=Omega, force_amplitude=shaker_config.force_amplitude)
+
+        # NOTE: must stay AFTER the probe evaluation above: this zeroes boundary entries of w_point in place
         if compute_max_metric:
             if dofs_w_collapsed is not None:
                 w_point.x.array[dofs_w_collapsed] = 0
             w_max_plate.append(max(w_point.x.array, key=abs).real)
 
         rms_velocity.append(compute_rms_velocity(u_point=u_point, Omega_const=Omega_const, domain=domain))
+
+        if step == 0:
+            t_first = time.perf_counter() - step_start
+            print(f"First step took {t_first:.2f} s; estimated total about "
+                  f"{n_freq * t_first / 60:.1f} min (upper bound, includes solver warm-up)")
+
+        print(f"Sweep finished in {(time.perf_counter() - sweep_start) / 60:.1f} min")
+
+    f_values = np.array(f_values)
+    rms_velocity = np.array(rms_velocity)
+    w_max_plate = np.array(w_max_plate) if w_max_plate is not None else None
+
+    sweep_results = SweepResult(
+        f_values=f_values, rms_velocity=rms_velocity, w_max_plate=w_max_plate, probe_mobility=probe_mobility)
+
+    return sweep_results
 
     if compute_max_metric:
         return f_values, np.array(w_max_plate), np.array(rms_velocity)

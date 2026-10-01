@@ -91,34 +91,24 @@ def vamm_list_to_state(vamm_list, grid_config: GridConfig, length, width):
         state[k] = 1
     return state
 
-def alter_state(state, index: int, command: str):
+def alter_state(state, index: int):
     """
     Alter a state by removing/ adding a VAMM to grid site index with/ without a VAMM present at site index.
-    Takes a state, an index at which the altering takes place, and a command "add" or "remove".
+    Takes a state and an index at which the altering takes place.
     Returns the altered state as a copy, leaves original state as is.
 
-    Will raise an error if add/ remove is chosen at a site with/ without a VAMM,
-    or if a command other than "add" or "remove" is chosen.
+    Will raise an error if index is out of range or if state[index] is an invalid entry, i. e., not 0 or 1.
     """
-    if index > len(state) - 1:
+    if not 0 <= index < len(state) - 1:
         raise IndexError("VAMM index out of range. Please choose a VAMM from the given state.")
     new_state = list(state)
-    if command == "add":
-        if new_state[index] == 0:
-            new_state[index] = 1
-        else:
-            raise ValueError(f"VAMM already at grid site {index}.")
-    elif command == "remove":
-        if new_state[index] == 1:
-            new_state[index] = 0
-        else:
-            raise ValueError(f"No VAMM to remove at grid site {index}.")
+    if new_state[index] == 1:
+        new_state[index] = 0
+    elif new_state[index] == 0:
+        new_state[index] = 1
     else:
-        raise ValueError(f"command {command} is not recognized. \n"
-                         f"You may choose to add or remove a VAMM from the grid.")
+        raise ValueError(f"Invalid entry: Only 0 and 1 are valid entries, got {new_state[index]}.")
     return new_state
-
-
 
 if __name__ == "__main__":
     grid_config = GridConfig(n_x=2, n_y=3, stiffness=85878.35366, mass=1.0, gamma=0.02)
@@ -138,8 +128,8 @@ if __name__ == "__main__":
     return_state = vamm_list_to_state(vamm_list, grid_config, 1.1, 1)
     print(return_state)
 
-    first_altered_state = alter_state(return_state, 0, 'remove')
+    first_altered_state = alter_state(return_state, 0)
     print(first_altered_state)
-    second_altered_state = alter_state(first_altered_state, 1, 'add')
+    second_altered_state = alter_state(first_altered_state, 1)
     print(second_altered_state)
-    error_altered_state = alter_state(second_altered_state, 1, 'add')
+    error_altered_state = alter_state(second_altered_state, 1)

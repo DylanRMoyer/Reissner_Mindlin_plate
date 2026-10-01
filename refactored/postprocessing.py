@@ -220,3 +220,73 @@ def plot_frequency_response(f_values, rms_velocity, w_max_plate=None,
         plt.show()
 
     plt.close(fig)
+
+Y_REF = 1.0  # mobility reference [m/(N s)] for dB levels; keep one value for all figures
+
+
+def plot_mobility_bode(f_values, mobilities, labels, eigenfrequencies=None,
+                       y_infinite=None, title="Mobility", save_path=None):
+    """Bode plot (magnitude in dB, unwrapped phase in degrees) of one or more
+    complex mobilities Y(f), plotted on shared frequency axes.
+
+    f_values: frequencies in Hz, shape (n_freq,).
+    mobilities: list of complex arrays, each shape (n_freq,), e.g.
+        [sweep_bare.probe_mobility[0], sweep_vamm.probe_mobility[0]].
+        A single 1D array is also accepted.
+    labels: list of legend labels, same length as mobilities.
+    eigenfrequencies: optional list of Hz values drawn as vertical dotted lines.
+    y_infinite: optional infinite-plate driving-point mobility
+        1/(8*sqrt(D*rho*h)) [m/(N s)], drawn as a horizontal guide line
+        in the magnitude panel.
+    save_path: if given, saves the figure instead of showing it.
+
+    Level convention: 20*log10(|Y| / Y_REF), i.e. dB re 1 m/(N s).
+    Phase is unwrapped along frequency (radians), then shown in degrees. Unwrapping
+    is only trustworthy if the sweep resolves each resonance; with too coarse a
+    step the pi phase jump across a peak can be misread as a jump of
+    +/- pi and give a false offset.
+    """
+    if isinstance(mobilities, np.ndarray) and mobilities.ndim == 1:
+        mobilities = [mobilities]
+    if len(mobilities) != len(labels):
+        raise ValueError(f"got {len(mobilities)} mobilities but {len(labels)} labels")
+
+    fig, (ax_mag, ax_phase) = plt.subplots(
+        2, 1, figsize=(9, 7), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
+
+    for Y, label in zip(mobilities, labels):
+        magnitude_db = 20 * np.log10(np.abs(Y) / Y_REF)
+        phase_deg = np.degrees(np.unwrap(np.angle(Y)))
+        ax_mag.plot(f_values, magnitude_db, linewidth=1.2, label=label)
+        ax_phase.plot(f_values, phase_deg, linewidth=1.2, label=label)
+
+    if y_infinite is not None:
+        ax_mag.axhline(20 * np.log10(y_infinite / Y_REF), color="gray",
+                       linewidth=0.9, linestyle="--", label="infinite plate")
+
+    if eigenfrequencies is not None:
+        labeled = False
+        for f_n in eigenfrequencies:
+            if f_values[0] <= f_n <= f_values[-1]:
+                for ax in (ax_mag, ax_phase):
+                    ax.axvline(f_n, color="red", linewidth=0.8, linestyle=":",
+                               label="eigenfrequencies" if (not labeled and ax is ax_mag) else None)
+                labeled = True
+
+    ax_mag.set_ylabel("Mobility level [dB re 1 m/(N s)]")
+    ax_mag.set_title(title)
+    ax_mag.legend()
+    ax_mag.grid(True, alpha=0.3)
+
+    ax_phase.set_ylabel("Phase [deg]")
+    ax_phase.set_xlabel("Frequency [Hz]")
+    ax_phase.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+
+    plt.close(fig)
