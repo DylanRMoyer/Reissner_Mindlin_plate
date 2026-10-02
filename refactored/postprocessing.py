@@ -1,7 +1,11 @@
 import pyvista
 import numpy as np
 import matplotlib.pyplot as plt
+from dataclasses import dataclass
+from matplotlib.patches import Rectangle
 from dolfinx import fem, plot
+
+# --- Plotting solutions to Eigenvalue problem ---
 
 def create_w_plot(domain, function_space, eigenmodes, eigenmode_index, length):
 
@@ -149,7 +153,9 @@ def plot_eigenmode(domain, function_space, eigenmodes, eigenmode_index, length,
 
     build_plot(warped, glyphs=glyphs, mass_markers=mass_markers, spring_lines=spring_lines,
                view_vector=view_vector, save_path=save_path)
-    
+
+# --- Plotting routine for frequency responses ---
+
 def plot_frequency_response(f_values, rms_velocity, w_max_plate=None,
                              use_max_metric=False, eigenfrequencies=None, save_path=None):
     """Plot the plate's frequency response.
@@ -221,71 +227,179 @@ def plot_frequency_response(f_values, rms_velocity, w_max_plate=None,
 
     plt.close(fig)
 
+# --- Plotting routine for mobility Bode plots ---
+
+from dataclasses import dataclass
+
+@dataclass
+class PlateLayout:
+    plate_config: object
+    shaker_config: object
+    probes: list | None = None      # Probe objects (need .x and .y)
+    vamm_list: list | None = None
+    connect: bool = True            # dashed shaker->probe line; False for hand-placed probes
+
+def draw_plate_layout(ax, plate_config, shaker_config, probes=None,
+                      vamm_list=None, connect=True, fontsize=7, highlight=None):
+    """Sketch of the plate: outline, shaker (red star), VAMMs (blue squares),
+    numbered probes (black dots). connect=True draws the shaker->probe line,
+    meaningful for ray layouts; set False for hand-placed probes.
+    Draws on whatever Axes it is given (inset or dedicated panel)."""
+    L, W = plate_config.length, plate_config.width
+    ax.add_patch(Rectangle((0, 0), L, W, fill=False, edgecolor="gray", linewidth=1.2))
+
+    if probes and connect:
+        xs = [shaker_config.x] + [p.x for p in probes]
+        ys = [shaker_config.y] + [p.y for p in probes]
+        ax.plot(xs, ys, linestyle="--", color="gray", linewidth=0.8, zorder=1)
+
+    for v in (vamm_list or []):
+        ax.plot(v.x, v.y, marker="s", color="C0", markersize=4, linestyle="none", zorder=3)
+
+    for i, p in enumerate(probes or []):
+        is_hl = (i == highlight)
+        ax.plot(p.x, p.y, marker="o", color="C1" if is_hl else "k",
+                markersize=6 if is_hl else 3.5, linestyle="none", zorder=4)
+        ax.annotate(str(i), (p.x, p.y), textcoords="offset points",
+                    xytext=(3, 3), fontsize=fontsize)
+
+    ax.plot(shaker_config.x, shaker_config.y, marker="*", color="red",
+            markersize=8, linestyle="none", zorder=5)
+
+    pad = 0.05 * max(L, W)
+    ax.set_xlim(-pad, L + pad)
+    ax.set_ylim(-pad, W + pad)
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+def add_layout_inset(ax, layout: PlateLayout, bounds=(0.76, 0.58, 0.23, 0.38), highlight=None):
+    inset = ax.inset_axes(list(bounds))   # bounds: [x0, y0, width, height] in axes fractions
+    draw_plate_layout(inset, layout.plate_config, layout.shaker_config,
+                      probes=layout.probes, vamm_list=layout.vamm_list,
+                      connect=layout.connect, highlight=highlight)
+    return inset
+
 Y_REF = 1.0  # mobility reference [m/(N s)] for dB levels; keep one value for all figures
 
+def _phase_for_plot(f_values, Y, mode):
+    """Return (f, phase_deg) ready for plotting. 'wrapped' inserts NaN at every jump
+    across +-180 deg, so the line breaks there instead of drawing a vertical streak."""
+    if mode == "unwrapped":
+        return f_values, np.degrees(np.unwrap(np.angle(Y)))
+    if mode != "wrapped":
+        raise ValueError(f"phase must be 'wrapped' or 'unwrapped', got {mode!r}")
+    phi = np.degrees(np.angle(Y))
+    jumps = np.where(np.abs(np.diff(phi)) > 180)[0] + 1
+    return np.insert(f_values, jumps, np.nan), np.insert(phi, jumps, np.nan)
 
-def plot_mobility_bode(f_values, mobilities, labels, eigenfrequencies=None,
-                       y_infinite=None, title="Mobility", save_path=None):
-    """Bode plot (magnitude in dB, unwrapped phase in degrees) of one or more
-    complex mobilities Y(f), plotted on shared frequency axes.
+
+def plot_mobility_bode(
+        f_values, mobilities, labels, eigenfrequencies=None, y_infinite=None, title="Mobility",
+        save_path=None, layout=None, highlight_probe=None, phase="wrapped"):
+    """Bode plot (magnitude in dB, phase in degrees) of one or more complex
+    mobilities Y(f), plotted on shared frequency axes.
 
     f_values: frequencies in Hz, shape (n_freq,).
     mobilities: list of complex arrays, each shape (n_freq,), e.g.
         [sweep_bare.probe_mobility[0], sweep_vamm.probe_mobility[0]].
         A single 1D array is also accepted.
     labels: list of legend labels, same length as mobilities.
-    eigenfrequencies: optional list of Hz values drawn as vertical dotted lines.
+    eigenfrequencies: optional. Either a flat list of Hz values (one red set of
+        vertical dotted lines), or a list of lists, one set per entry of
+        mobilities and in the same order, drawn in the matching curve's color,
+        e.g. [eigenfrequencies_bare, eigenfrequencies_vamm].
     y_infinite: optional infinite-plate driving-point mobility
         1/(8*sqrt(D*rho*h)) [m/(N s)], drawn as a horizontal guide line
         in the magnitude panel.
     save_path: if given, saves the figure instead of showing it.
+    layout: optional PlateLayout; if given, a plate map (shaker, VAMMs, numbered
+        probes) is drawn in its own panel to the right, with the legend below it,
+        so nothing covers the curves.
+    highlight_probe: index of the probe whose mobility is plotted, marked on the
+        map (None for none, e.g. a driving-point plot).
+    phase: 'wrapped' (default; values in (-180, 180], line broken at the jumps)
+        or 'unwrapped'. Unwrapping is only trustworthy if every resonance and
+        antiresonance is resolved, and for transfer mobilities the absolute
+        offset (multiples of 360 deg) is not physically meaningful.
 
     Level convention: 20*log10(|Y| / Y_REF), i.e. dB re 1 m/(N s).
-    Phase is unwrapped along frequency (radians), then shown in degrees. Unwrapping
-    is only trustworthy if the sweep resolves each resonance; with too coarse a
-    step the pi phase jump across a peak can be misread as a jump of
-    +/- pi and give a false offset.
     """
     if isinstance(mobilities, np.ndarray) and mobilities.ndim == 1:
         mobilities = [mobilities]
     if len(mobilities) != len(labels):
         raise ValueError(f"got {len(mobilities)} mobilities but {len(labels)} labels")
 
-    fig, (ax_mag, ax_phase) = plt.subplots(
-        2, 1, figsize=(9, 7), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
+    per_curve_eigs = (eigenfrequencies is not None and len(eigenfrequencies) > 0
+                      and np.ndim(eigenfrequencies[0]) > 0)
+    if per_curve_eigs and len(eigenfrequencies) != len(mobilities):
+        raise ValueError(f"got {len(eigenfrequencies)} eigenfrequency sets "
+                         f"but {len(mobilities)} mobilities")
 
+    if layout is not None:
+        fig = plt.figure(figsize=(11.5, 7), layout="constrained")
+        gs = fig.add_gridspec(2, 2, width_ratios=[4, 1.3], height_ratios=[2, 1])
+        ax_mag = fig.add_subplot(gs[0, 0])
+        ax_phase = fig.add_subplot(gs[1, 0], sharex=ax_mag)
+        ax_layout = fig.add_subplot(gs[0, 1])
+        ax_legend = fig.add_subplot(gs[1, 1])
+        ax_legend.axis("off")
+    else:
+        fig, (ax_mag, ax_phase) = plt.subplots(
+            2, 1, figsize=(9, 7), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
+
+    curve_colors = []
     for Y, label in zip(mobilities, labels):
         magnitude_db = 20 * np.log10(np.abs(Y) / Y_REF)
-        phase_deg = np.degrees(np.unwrap(np.angle(Y)))
-        ax_mag.plot(f_values, magnitude_db, linewidth=1.2, label=label)
-        ax_phase.plot(f_values, phase_deg, linewidth=1.2, label=label)
+        line, = ax_mag.plot(f_values, magnitude_db, linewidth=1.2, label=label)
+        curve_colors.append(line.get_color())
+        f_phase, phase_deg = _phase_for_plot(f_values, Y, phase)
+        ax_phase.plot(f_phase, phase_deg, linewidth=1.2, color=line.get_color(), label=label)
 
     if y_infinite is not None:
         ax_mag.axhline(20 * np.log10(y_infinite / Y_REF), color="gray",
                        linewidth=0.9, linestyle="--", label="infinite plate")
 
     if eigenfrequencies is not None:
-        labeled = False
-        for f_n in eigenfrequencies:
-            if f_values[0] <= f_n <= f_values[-1]:
-                for ax in (ax_mag, ax_phase):
-                    ax.axvline(f_n, color="red", linewidth=0.8, linestyle=":",
-                               label="eigenfrequencies" if (not labeled and ax is ax_mag) else None)
-                labeled = True
+        if per_curve_eigs:
+            eig_sets = [(f_set, color, f"{label} eigenfrequencies")
+                        for f_set, color, label in zip(eigenfrequencies, curve_colors, labels)]
+        else:
+            eig_sets = [(eigenfrequencies, "red", "eigenfrequencies")]
+        for f_set, color, set_label in eig_sets:
+            labeled = False
+            for f_n in f_set:
+                if f_values[0] <= f_n <= f_values[-1]:
+                    for ax in (ax_mag, ax_phase):
+                        ax.axvline(f_n, color=color, linewidth=0.8, linestyle=":", alpha=0.7,
+                                   label=set_label if (not labeled and ax is ax_mag) else None)
+                    labeled = True
 
     ax_mag.set_ylabel("Mobility level [dB re 1 m/(N s)]")
     ax_mag.set_title(title)
-    ax_mag.legend()
     ax_mag.grid(True, alpha=0.3)
 
     ax_phase.set_ylabel("Phase [deg]")
     ax_phase.set_xlabel("Frequency [Hz]")
     ax_phase.grid(True, alpha=0.3)
+    if phase == "wrapped":
+        ax_phase.set_yticks(np.arange(-180, 181, 90))
+        ax_phase.set_ylim(-190, 190)
 
-    plt.tight_layout()
+    if layout is not None:
+        draw_plate_layout(ax_layout, layout.plate_config, layout.shaker_config,
+                          probes=layout.probes, vamm_list=layout.vamm_list,
+                          connect=layout.connect, highlight=highlight_probe)
+        handles, legend_labels = ax_mag.get_legend_handles_labels()
+        ax_legend.legend(handles, legend_labels, loc="upper left")
+    else:
+        ax_mag.legend()
+        plt.tight_layout()      # not used with constrained layout
 
     if save_path is not None:
-        plt.savefig(save_path)
+        fig.savefig(save_path)
     else:
         plt.show()
 

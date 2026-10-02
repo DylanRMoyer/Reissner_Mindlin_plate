@@ -4,9 +4,10 @@ from problem_setup import build_plate_problem
 from point_coupling import create_vamm_list_and_assign_indices, compute_phi_and_dofs_for_vamm_list
 from shaker_force import ShakerParameters
 from solve import solve_evp
-from postprocessing import plot_eigenmode, plot_frequency_response, plot_mobility_bode
+from postprocessing import plot_eigenmode, plot_frequency_response, plot_mobility_bode, PlateLayout
 from vamm_grid import GridConfig, state_to_vamm_list
-from probe import make_probe
+from probe import make_probe, build_probe_coordinates
+from sweep_cache import CACHE_DIR, make_cache_key, get_or_compute_sweep
 
 from frequency_sweep import frequency_sweep_plate, build_frequency_grid, warn_if_grid_too_coarse
 
@@ -100,45 +101,74 @@ if __name__ == "__main__":
         ) if excitation == "force" else None
 
         shaker_probe = make_probe(domain, function_space, shaker_config.x, shaker_config.y)
-        transfer_probe = make_probe(domain, function_space, 0.6, 0.6)
-        probes = [shaker_probe, transfer_probe]
+        probe_coords = build_probe_coordinates(plate_config=plate_config, shaker_config=shaker_config,
+                                               amount=5, vamm_list=vamm_list)
+        probes = [make_probe(domain, function_space, x, y) for x, y in probe_coords]
+        probes.insert(0, shaker_probe)
         f_start = 100
         f_end = 300
         gamma_plate = 0.04
         grid = build_frequency_grid(f_start=f_start, f_end=f_end, gamma=0.02)  # smallest gamma in either run
+        layout = PlateLayout(
+            plate_config=plate_config, shaker_config=shaker_config, probes=probes, vamm_list=vamm_list
+        )
 
-        sweep_vamm = frequency_sweep_plate(
+    settings = dict(
+        plate_config=plate_config, shaker_config=shaker_config,
+        probe_coords=[(p.x, p.y) for p in probes],
+        grid=np.asarray(grid), gamma_plate=gamma_plate,
+        free_plate=free_plate, excitation=excitation,
+        code_version="v1")  # bump this string if you change the sweep code itself
+
+    key_vamm, blob_vamm = make_cache_key(vamm_list=vamm_list, **settings)
+    key_bare, blob_bare = make_cache_key(vamm_list=None, **settings)
+
+    sweep_vamm = get_or_compute_sweep(
+        CACHE_DIR / f"sweep_vamm_{key_vamm}.npz",
+        compute=lambda: frequency_sweep_plate(
             domain=domain, function_space=function_space, problem=plate_problem_constants,
-            plate_config=plate_config,
-            f_start=f_start, f_end=f_end,
+            plate_config=plate_config, f_start=f_start, f_end=f_end,
             vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
             frequency_grid=grid, gamma=gamma_plate,
             free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-            probes=probes)
-        # Peak width scales Delta_f = gamma * f_res, so choose Delta_f > (f_end - f_start)/Omega_size
-        # for resonance frequencies of interest!
+            probes=probes),
+        settings_blob=blob_vamm)
 
-        sweep_bare = frequency_sweep_plate(
+    sweep_bare = get_or_compute_sweep(
+        CACHE_DIR / f"sweep_bare_{key_bare}.npz",
+        compute=lambda: frequency_sweep_plate(
             domain=domain, function_space=function_space, problem=plate_problem_constants,
-            plate_config=plate_config,
-            f_start=f_start, f_end=f_end,
+            plate_config=plate_config, f_start=f_start, f_end=f_end,
             vamm_list=None, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
             frequency_grid=grid, gamma=gamma_plate,
             free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-            probes=probes)
+            probes=probes),
+        settings_blob=blob_bare)
 
+    # --- Driving point (probe 0 = shaker location) ---
+    plot_mobility_bode(
+        f_values=sweep_bare.f_values,
+        mobilities=[sweep_bare.probe_mobility[0], sweep_vamm.probe_mobility[0]],
+        labels=["bare plate", "with VAMMs"],
+        eigenfrequencies=[eigenfrequencies_bare, eigenfrequencies_vamm],
+        title="Driving-point mobility",
+        layout=layout, highlight_probe=None
+        #, save_path=r"/home/local/CSI/dm27demu/Desktop/Mobilities/Y_dp.pdf"
+    )
+
+    # --- Transfer mobilities (probes 1..5) ---
+    for i in range(1, len(probes)):
+        d = np.hypot(probes[i].x - shaker_config.x, probes[i].y - shaker_config.y)
         plot_mobility_bode(
             f_values=sweep_bare.f_values,
-            mobilities=[sweep_bare.probe_mobility[0], sweep_vamm.probe_mobility[0]],
+            mobilities=[sweep_bare.probe_mobility[i], sweep_vamm.probe_mobility[i]],
             labels=["bare plate", "with VAMMs"],
-            eigenfrequencies=eigenfrequencies_bare,
-            title="Driving-point mobility")
+            eigenfrequencies=[eigenfrequencies_bare, eigenfrequencies_vamm],
+            title=f"Transfer mobility, probe {i} ({d:.2f} m from shaker)",
+            layout=layout, highlight_probe=i
+            #, save_path=rf"/home/local/CSI/dm27demu/Desktop/Mobilities/Y_{i}.pdf"
+        )
 
-        np.savez("sweep_dp_100to300.npz",
-                 f=sweep_bare.f_values,
-                 Y_bare=sweep_bare.probe_mobility[0], Y_vamm=sweep_vamm.probe_mobility[0],
-                 eig_bare=np.array(eigenfrequencies_bare), eig_vamm=np.array(eigenfrequencies_vamm),
-                 gamma=0.04)
-
-        plot_frequency_response(
-            f_values = sweep_vamm.f_values, rms_velocity=sweep_vamm.rms_velocity, eigenfrequencies = eigenfrequencies_bare)
+    plot_frequency_response(
+        f_values=sweep_vamm.f_values, rms_velocity=sweep_vamm.rms_velocity,
+        eigenfrequencies=eigenfrequencies_bare)

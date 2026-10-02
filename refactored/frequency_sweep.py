@@ -330,8 +330,3 @@ def frequency_sweep_plate(
         f_values=f_values, rms_velocity=rms_velocity, w_max_plate=w_max_plate, probe_mobility=probe_mobility)
 
     return sweep_results
-
-    if compute_max_metric:
-        return f_values, np.array(w_max_plate), np.array(rms_velocity)
-    else:
-        return f_values, None, np.array(rms_velocity)
