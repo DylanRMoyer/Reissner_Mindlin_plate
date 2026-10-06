@@ -21,7 +21,8 @@ def assemble_plate_matrix(a, bcs, diag_value=1.0):
 
 def solve_evp(
         domain, function_space, problem, bcs, vamm_list=None,
-        phi_list=None, global_dofs_parent_list=None, eigenmode_number: int = 6, validate_augmentation=True):
+        phi_list=None, global_dofs_parent_list=None, eigenmode_number: int = 6,
+        validate_augmentation=True, ncv_factor: int = 2):
     m, _, a = define_weak_form(function_space, problem)
     K = assemble_plate_matrix(a, bcs, diag_value=1e10)
     M = assemble_plate_matrix(m, bcs)
@@ -52,7 +53,7 @@ def solve_evp(
 
     eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_MAGNITUDE)
     eps.setTarget(0.0)
-    eps.setDimensions(nev=eigenmode_number, ncv = 2 * eigenmode_number)  # how many eigenpairs to converge
+    eps.setDimensions(nev=eigenmode_number, ncv = ncv_factor * eigenmode_number)  # how many eigenpairs to converge
     eps.solve()
 
     n_converged = eps.getConverged()

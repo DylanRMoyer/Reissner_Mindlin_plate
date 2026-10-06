@@ -11,6 +11,9 @@ def create_w_plot(domain, function_space, eigenmodes, eigenmode_index, length):
 
     deg = function_space.ufl_element().degree
 
+    if eigenmode_index > len(eigenmodes) - 1:
+        raise ValueError(f"Eigenmode {eigenmode_index} out of range, "
+                         f"highest possible index is {len(eigenmodes) - 1}.")
     mode_to_plot, q_r_to_plot = eigenmodes[eigenmode_index]
     w_mode = mode_to_plot.sub(0).collapse()   # scalar w-part of this eigenmode, still on Serendipity space
 
@@ -403,4 +406,168 @@ def plot_mobility_bode(
     else:
         plt.show()
 
+    plt.close(fig)
+
+
+# --- Helpers for plot_insertion_loss_bode ---
+
+def _break_at_wrap(f_values, phase_deg, jump_deg=180.0):
+    """Insert NaNs where a wrapped phase jumps by more than jump_deg between
+    neighbouring samples, so matplotlib does not draw a line across the whole
+    panel at every +-180 deg wrap. Returns (f_with_nans, phase_with_nans).
+    (Swap in your existing helper from plot_mobility_bode if you prefer.)"""
+    f = np.asarray(f_values, dtype=float)
+    p = np.asarray(phase_deg, dtype=float)
+    jumps = np.where(np.abs(np.diff(p)) > jump_deg)[0] + 1
+    return np.insert(f, jumps, np.nan), np.insert(p, jumps, np.nan)
+
+
+def _default_probe_colors(n_probes):
+    """One distinct colour per probe, for any number of probes."""
+    if n_probes <= 10:
+        cmap = plt.get_cmap("tab10")
+        return [cmap(i) for i in range(n_probes)]
+    cmap = plt.get_cmap("turbo")
+    return [cmap(i / (n_probes - 1)) for i in range(n_probes)]
+
+
+def _draw_eigenfrequency_lines(axes, f_values, frequencies, label, label_axis, **style):
+    """Vertical lines at the eigenfrequencies inside the plotted band, in every
+    axis of `axes`; only the first line in `label_axis` carries a legend label."""
+    if frequencies is None:
+        return
+    in_band = [fn for fn in frequencies if f_values[0] <= fn <= f_values[-1]]
+    for ax in axes:
+        for k, fn in enumerate(in_band):
+            ax.axvline(fn, zorder=0, label=label if (ax is label_axis and k == 0) else None, **style)
+
+
+# --- Insertion-loss Bode plot ---
+
+def plot_insertion_loss_bode(
+        f_values, il_pointwise, dphi_deg, il_force, il_power=None,
+        eigenfrequencies_vamm=None, eigenfrequencies_bare=None,
+        probe_labels=None, probe_colors=None, probes_to_show=None,
+        layout=None, draw_layout=None,
+        il_ylim=None, log_x=False,
+        title="Insertion loss", save_path=None):
+    """Three stacked panels sharing the frequency axis, plus an optional plate-layout panel:
+        top:    global insertion loss, IL^F (solid) and, if given, IL^P (dashed)
+        middle: pointwise insertion loss per probe [dB]
+        bottom: phase shift per probe, wrapped to (-180, 180] deg
+    Positive IL = attenuation by the VAMMs, a horizontal line marks 0 dB.
+
+    Works for any number of probes: n_probes is read from the shape of il_pointwise.
+
+    f_values: frequencies in Hz, shape (n_freq,)
+    il_pointwise, dphi_deg: shape (n_probes, n_freq), from insertion_loss.py.
+        Row 0 is treated as the driving point (shaker location) in the default labels.
+    il_force, il_power: shape (n_freq,); il_power may be None.
+    eigenfrequencies_vamm / eigenfrequencies_bare: optional lists in Hz. The VAMM-system
+        ones are drawn darker and dashed, the bare ones lighter and dotted.
+    probe_labels: optional list of n_probes strings (default: "probe i").
+    probe_colors: optional list of n_probes colours, e.g. the ones used in the mobility
+        plots; indexed by absolute probe index, so colours stay stable when
+        probes_to_show selects a subset. Default: tab10 (turbo for > 10 probes).
+    probes_to_show: optional iterable of probe indices to plot (default: all).
+    layout, draw_layout: if both are given, a plate-layout panel is added on the right and
+        draw_layout(ax, layout) is called to fill it (adapt to draw_plate_layout's signature).
+    il_ylim: optional (low, high) for the pointwise panel; IL spikes at
+        antiresonances can otherwise dominate the scale.
+    log_x: logarithmic frequency axis.
+    save_path: if given, saves the figure instead of showing it interactively.
+    """
+    f = np.asarray(f_values, dtype=float)
+    il_pointwise = np.atleast_2d(np.asarray(il_pointwise, dtype=float))
+    dphi_deg = np.atleast_2d(np.asarray(dphi_deg, dtype=float))
+    il_force = np.asarray(il_force, dtype=float)
+    n_probes, n_freq = il_pointwise.shape
+
+    if dphi_deg.shape != il_pointwise.shape:
+        raise ValueError(f"dphi_deg shape {dphi_deg.shape} != il_pointwise shape {il_pointwise.shape}")
+    if len(f) != n_freq or il_force.shape != (n_freq,):
+        raise ValueError(f"f_values (len {len(f)}), il_force {il_force.shape} and il_pointwise "
+                         f"({n_probes}, {n_freq}) must share the same number of frequencies")
+    if il_power is not None:
+        il_power = np.asarray(il_power, dtype=float)
+        if il_power.shape != (n_freq,):
+            raise ValueError(f"il_power shape {il_power.shape} != ({n_freq},)")
+
+    indices = list(range(n_probes)) if probes_to_show is None else list(probes_to_show)
+    if not indices or any(i < 0 or i >= n_probes for i in indices):
+        raise ValueError(f"probes_to_show must be non-empty indices in [0, {n_probes - 1}], got {indices}")
+
+    if probe_labels is None:
+        probe_labels = ["probe 0 (driving point)"] + [f"probe {i}" for i in range(1, n_probes)]
+    if probe_colors is None:
+        probe_colors = _default_probe_colors(n_probes)
+    if len(probe_labels) != n_probes or len(probe_colors) != n_probes:
+        raise ValueError(f"probe_labels/probe_colors need {n_probes} entries, got "
+                         f"{len(probe_labels)}/{len(probe_colors)}")
+
+    with_layout = layout is not None and draw_layout is not None
+    fig = plt.figure(figsize=(12.5 if with_layout else 9.5, 8.5), constrained_layout=True)
+    gs = fig.add_gridspec(3, 2 if with_layout else 1,
+                          width_ratios=[3, 1] if with_layout else None,
+                          height_ratios=[1, 1.3, 1])
+    ax_global = fig.add_subplot(gs[0, 0])
+    ax_point = fig.add_subplot(gs[1, 0], sharex=ax_global)
+    ax_phase = fig.add_subplot(gs[2, 0], sharex=ax_global)
+    axes = (ax_global, ax_point, ax_phase)
+
+    # Eigenfrequency lines first, so they sit behind the curves.
+    _draw_eigenfrequency_lines(axes, f, eigenfrequencies_bare, "bare eigenfrequencies", ax_global,
+                               color="0.7", linestyle=":", linewidth=0.9)
+    _draw_eigenfrequency_lines(axes, f, eigenfrequencies_vamm, "VAMM-system eigenfrequencies", ax_global,
+                               color="0.3", linestyle="--", linewidth=0.9)
+
+    # Top: global insertion loss
+    ax_global.plot(f, il_force, color="k", linewidth=1.4, label=r"$IL^F$ (equal force)")
+    if il_power is not None:
+        ax_global.plot(f, il_power, color="k", linewidth=1.2, linestyle="--", label=r"$IL^P$ (equal input power)")
+    ax_global.axhline(0, color="gray", linewidth=0.8)
+    ax_global.set_ylabel("global IL [dB]")
+    ax_global.set_title("Global insertion loss")
+    ax_global.legend(loc="upper right", fontsize=8)
+
+    # Middle: pointwise insertion loss
+    for i in indices:
+        ax_point.plot(f, il_pointwise[i], color=probe_colors[i], linewidth=1.1, label=probe_labels[i])
+    ax_point.axhline(0, color="gray", linewidth=0.8)
+    if il_ylim is not None:
+        ax_point.set_ylim(*il_ylim)
+    ax_point.set_ylabel("pointwise IL [dB]")
+    ax_point.set_title("Pointwise insertion loss")
+    ax_point.legend(loc="upper right", fontsize=8, ncol=min(len(indices), 3))
+
+    # Bottom: phase shift, wrapped
+    for i in indices:
+        f_plot, phase_plot = _break_at_wrap(f, dphi_deg[i])
+        ax_phase.plot(f_plot, phase_plot, color=probe_colors[i], linewidth=1.1)
+    ax_phase.axhline(0, color="gray", linewidth=0.8)
+    ax_phase.set_ylim(-190, 190)
+    ax_phase.set_yticks([-180, -90, 0, 90, 180])
+    ax_phase.set_ylabel(r"$\Delta\varphi$ [deg]")
+    ax_phase.set_title(r"Phase shift $\arg(Y_{vamm}/Y_{bare})$")
+    ax_phase.set_xlabel("Frequency [Hz]")
+
+    for ax in axes:
+        ax.grid(True, alpha=0.3)
+    ax_global.tick_params(labelbottom=False)
+    ax_point.tick_params(labelbottom=False)
+    if log_x:
+        ax_global.set_xscale("log")
+    ax_global.set_xlim(f[0], f[-1])
+
+    if with_layout:
+        ax_layout = fig.add_subplot(gs[:, 1])
+        draw_layout(ax_layout, layout)
+        ax_layout.set_title("Probe layout")
+
+    fig.suptitle(title)
+
+    if save_path is not None:
+        fig.savefig(save_path)
+    else:
+        plt.show()
     plt.close(fig)

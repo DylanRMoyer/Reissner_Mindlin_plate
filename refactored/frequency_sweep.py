@@ -320,7 +320,7 @@ def frequency_sweep_plate(
             print(f"First step took {t_first:.2f} s; estimated total about "
                   f"{n_freq * t_first / 60:.1f} min (upper bound, includes solver warm-up)")
 
-        print(f"Sweep finished in {(time.perf_counter() - sweep_start) / 60:.1f} min")
+    print(f"Sweep finished in {(time.perf_counter() - sweep_start) / 60:.1f} min")
 
     f_values = np.array(f_values)
     rms_velocity = np.array(rms_velocity)
