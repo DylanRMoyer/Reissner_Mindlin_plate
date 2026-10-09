@@ -12,6 +12,7 @@ from sweep_cache import CACHE_DIR, make_cache_key, get_or_compute_sweep
 from insertion_loss import assert_comparable_sweeps, compute_insertion_loss
 
 from frequency_sweep import frequency_sweep_plate, build_frequency_grid, warn_if_grid_too_coarse
+from validate_eigenvalues import build_symmetry_probes, classify_modes
 
 if __name__ == "__main__":
 
@@ -22,15 +23,16 @@ if __name__ == "__main__":
 
     eigenmode_number = 20 # the total number of eigenmodes to be computed by eigensolver
     eigenmode_to_plot = 13 # the desired eigenmode INDEX to be plotted. Can be no larger than (eigenmode_number - 1).
+    target_frequency_hz = 0.0
 
-    ncv_factor = 4 # integer, default: 2, increase if suspected that not all modes are found by the solver
+    ncv_factor = 6 # integer, default: 2, increase if suspected that not all modes are found by the solver
 
     plate_config = PlateConfig(
-    length = 1.1,
+    length = 1,
     width = 1,
-    thickness = 0.02,
-    nx = 60,
-    ny = 50,
+    thickness = 0.002,
+    nx = 80,
+    ny = 80,
     rho = 7850,
     mu = 77e9,
     lambda_ = 115e9,
@@ -76,7 +78,7 @@ if __name__ == "__main__":
     eigenfrequencies_bare, eigenmodes_bare = solve_evp(
         domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
         vamm_list = None, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
-        eigenmode_number = eigenmode_number, ncv_factor=ncv_factor)
+        eigenmode_number = eigenmode_number, target_hz=target_frequency_hz, ncv_factor=ncv_factor)
 
     eigenfrequencies_vamm, eigenmodes_vamm = solve_evp(
         domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
@@ -85,6 +87,7 @@ if __name__ == "__main__":
 
     for i, freq in enumerate(eigenfrequencies_bare):
         print(f"mode {i}: {freq:.4f} Hz")
+
 
     for i, freq in enumerate(eigenfrequencies_vamm):
         print(f"mode {i}: {freq:.4f} Hz")
