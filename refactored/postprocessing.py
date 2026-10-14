@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from matplotlib.patches import Rectangle
 from dolfinx import fem, plot
+from radiation import power_level_db
 
 # --- Plotting solutions to Eigenvalue problem ---
 
@@ -564,6 +565,57 @@ def plot_insertion_loss_bode(
         draw_layout(ax_layout, layout)
         ax_layout.set_title("Probe layout")
 
+    fig.suptitle(title)
+
+    if save_path is not None:
+        fig.savefig(save_path)
+    else:
+        plt.show()
+    plt.close(fig)
+
+
+# --- Plot radiation insertion loss ---
+def plot_radiation_bode(f_values, P_bare, P_vamm, sigma_bare, sigma_vamm,
+                        il_rad, il_rad_pow, il_force,
+                        eigenfrequencies_bare=None, eigenfrequencies_vamm=None,
+                        il_ylim=None, title="Radiated sound power", save_path=None):
+    f = np.asarray(f_values, dtype=float)
+    fig, (ax_p, ax_s, ax_il) = plt.subplots(
+        3, 1, figsize=(9.5, 9), sharex=True, constrained_layout=True,
+        gridspec_kw={"height_ratios": [1.2, 1, 1.3]})
+    axes = (ax_p, ax_s, ax_il)
+
+    # eigenfrequency lines first, so they sit behind the curves
+    _draw_eigenfrequency_lines(axes, f, eigenfrequencies_bare, "bare eigenfrequencies", ax_p,
+                               color="0.7", linestyle=":", linewidth=0.9)
+    _draw_eigenfrequency_lines(axes, f, eigenfrequencies_vamm, "VAMM-system eigenfrequencies", ax_p,
+                               color="0.3", linestyle="--", linewidth=0.9)
+
+    ax_p.plot(f, power_level_db(P_bare), color="C0", linewidth=1.2, label="bare plate")
+    ax_p.plot(f, power_level_db(P_vamm), color="C1", linewidth=1.2, label="with VAMMs")
+    ax_p.set_ylabel(r"$L_P$ [dB re $10^{-12}$ W]")
+    ax_p.set_title("Radiated power at 1 N force")
+    ax_p.legend(loc="upper right", fontsize=8)
+
+    ax_s.semilogy(f, sigma_bare, color="C0", linewidth=1.2, label="bare plate")
+    ax_s.semilogy(f, sigma_vamm, color="C1", linewidth=1.2, label="with VAMMs")
+    ax_s.set_ylabel(r"$\sigma$ [-]")
+    ax_s.set_title("Radiation efficiency")
+
+    ax_il.plot(f, il_force, color="0.5", linewidth=0.9, label=r"$IL^F$ (structural, equal force)")
+    ax_il.plot(f, il_rad, color="k", linewidth=1.4, label=r"$IL_{rad}$ (equal force)")
+    ax_il.plot(f, il_rad_pow, color="k", linewidth=1.2, linestyle="--", label=r"$IL_{rad}$ (equal input power)")
+    ax_il.axhline(0, color="gray", linewidth=0.8)
+    if il_ylim is not None:
+        ax_il.set_ylim(*il_ylim)
+    ax_il.set_ylabel("IL [dB]")
+    ax_il.set_xlabel("Frequency [Hz]")
+    ax_il.set_title("Insertion loss")
+    ax_il.legend(loc="upper right", fontsize=8)
+
+    for ax in axes:
+        ax.grid(True, alpha=0.3)
+    ax_p.set_xlim(f[0], f[-1])
     fig.suptitle(title)
 
     if save_path is not None:

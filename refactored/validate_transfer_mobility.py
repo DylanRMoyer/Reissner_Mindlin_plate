@@ -1,8 +1,12 @@
 """
 Validation of the transfer-mobility pipeline.
 
-Run in fenicsx-env-complex. The first run needs 7 sweeps on a coarse 25-point grid
-(a few minutes); afterwards everything comes from the sweep cache.
+Run in fenicsx-env-complex. The sweep cache now stores the physical result (w_field) only,
+so it depends on shaker position, VAMMs, grid and plate settings, but NOT on the probes.
+Per label (bare / vamm) three sweeps are needed: shaker at s, and shaker at each of the
+two chosen probes r (for reciprocity). The first run needs 6 sweeps on a coarse 25-point
+grid (a few minutes); afterwards everything comes from the cache, and changing probe
+positions costs nothing.
 Reciprocity is an algebraic identity of the discrete system, so a coarse grid is
 sufficient: it holds at every frequency, resonant or not.
 """
@@ -13,12 +17,14 @@ from config import PlateConfig
 from problem_setup import build_plate_problem
 from point_coupling import create_vamm_list_and_assign_indices, compute_phi_and_dofs_for_vamm_list
 from shaker_force import ShakerParameters
-from probe import make_probe, build_probe_coordinates
+from probe import make_probe, build_probe_coordinates, mobility_at_probes
 from frequency_sweep import frequency_sweep_plate
 from sweep_cache import CACHE_DIR, make_cache_key, get_or_compute_sweep
 
 GAMMA_PLATE = 0.04
 FREE_PLATE = True
+FORCE_AMPLITUDE = 1.0
+DEG, EL_TYPE = 2, "S"
 F_START, F_END, N_FREQ = 100.0, 300.0, 25
 RECIPROCITY_TOL = 1e-6      # expected actual values are far smaller (round-off level)
 CONTROL_MIN_DIFF = 1e-2     # the negative control must differ by at least this much
@@ -36,27 +42,28 @@ class SweepContext:
     grid: np.ndarray
 
 
-def sweep_with_shaker_at(ctx, shaker_xy, probe_xy_list, vamm_list):
-    shaker_config = ShakerParameters(x=shaker_xy[0], y=shaker_xy[1], force_amplitude=1.0, phase=0.0)
-    probes = [make_probe(ctx.domain, ctx.function_space, x, y) for x, y in probe_xy_list]
+def sweep_with_shaker_at(ctx, shaker_xy, vamm_list):
+    shaker_config = ShakerParameters(
+        x=shaker_xy[0], y=shaker_xy[1], force_amplitude=FORCE_AMPLITUDE, phase=0.0)
     return frequency_sweep_plate(
         domain=ctx.domain, function_space=ctx.function_space, problem=ctx.problem,
         plate_config=ctx.plate_config, f_start=float(ctx.grid[0]), f_end=float(ctx.grid[-1]),
         vamm_list=vamm_list, phi_list=ctx.phi_list,
         global_dofs_parent_list=ctx.global_dofs_parent_list,
         frequency_grid=ctx.grid, gamma=GAMMA_PLATE,
-        free_plate=FREE_PLATE, excitation="force", shaker_config=shaker_config,
-        probes=probes)
+        free_plate=FREE_PLATE, excitation="force", shaker_config=shaker_config)
 
 
-def cached_sweep(ctx, name, shaker_xy, probe_xy_list, vamm_list):
+def cached_sweep(ctx, name, shaker_xy, vamm_list):
+    # No probe information in the key: the cached w_field is probe-independent.
     key, blob = make_cache_key(
-        plate_config=ctx.plate_config, shaker_xy=shaker_xy, probe_xy_list=probe_xy_list,
+        plate_config=ctx.plate_config, shaker_xy=shaker_xy, force_amplitude=FORCE_AMPLITUDE,
         vamm_list=vamm_list, grid=ctx.grid, gamma_plate=GAMMA_PLATE,
-        free_plate=FREE_PLATE, excitation="force", code_version="v1")
+        free_plate=FREE_PLATE, excitation="force", deg=DEG, el_type=EL_TYPE,
+        code_version="v2")
     return get_or_compute_sweep(
         CACHE_DIR / f"val_{name}_{key}.npz",
-        compute=lambda: sweep_with_shaker_at(ctx, shaker_xy, probe_xy_list, vamm_list),
+        compute=lambda: sweep_with_shaker_at(ctx, shaker_xy, vamm_list),
         settings_blob=blob)
 
 
@@ -78,32 +85,37 @@ def check_driving_point_passivity(name, Y_dp):
     assert ok, f"{name}: Re(Y_dp) < 0 somewhere, max |phase| = {max_phase:.1f} deg"
 
 
-def run_checks(ctx, label, vamm_list, all_xy, pair_indices, offset_xy_for_control, check_order=False):
-    """all_xy[0] is the shaker location (driving point), all_xy[1:] the transfer probes."""
+def run_checks(ctx, label, vamm_list, all_probes, pair_indices, control_probe, check_order=False):
+    """all_probes[0] is at the shaker location (driving point), all_probes[1:] the transfer probes."""
     print(f"\n=== {label} ===")
-    s_xy = all_xy[0]
-    base = cached_sweep(ctx, f"{label}_base", s_xy, all_xy, vamm_list)
+    s_probe = all_probes[0]
+    s_xy = (s_probe.x, s_probe.y)
+    base = cached_sweep(ctx, f"{label}_base", s_xy, vamm_list)
     f = base.f_values
+    Y_base = mobility_at_probes(base, all_probes, FORCE_AMPLITUDE)
 
     # B2: driving point of the base sweep
-    check_driving_point_passivity("base (shaker at s)", base.probe_mobility[0])
+    check_driving_point_passivity("base (shaker at s)", Y_base[0])
 
-    # B1: row i of probe_mobility must belong to probe i, whatever the list order
+    # B1: row i of the mobility must belong to probe i, whatever the list order.
+    # Pure postprocessing now: same sweep, probes in reversed order, no extra solve.
     if check_order:
-        reversed_sweep = cached_sweep(ctx, f"{label}_reversed", s_xy, all_xy[::-1], vamm_list)
-        err = relative_difference(reversed_sweep.probe_mobility[::-1], base.probe_mobility)
+        Y_rev = mobility_at_probes(base, all_probes[::-1], FORCE_AMPLITUDE)
+        err = relative_difference(Y_rev[::-1], Y_base)
         print(f"  B1 order invariance: max rel. diff {err.max():.2e}")
         assert err.max() < 1e-9, "probe rows are not independent of probe-list order"
 
     # C: reciprocity for the chosen pairs, plus negative control
     for i in pair_indices:
-        r_xy = all_xy[i]
-        swapped = cached_sweep(ctx, f"{label}_swap{i}", r_xy, [r_xy, s_xy, offset_xy_for_control], vamm_list)
-        check_driving_point_passivity(f"swapped (shaker at probe {i})", swapped.probe_mobility[0])
+        r_probe = all_probes[i]
+        r_xy = (r_probe.x, r_probe.y)
+        swapped = cached_sweep(ctx, f"{label}_swap{i}", r_xy, vamm_list)
+        Y_swapped = mobility_at_probes(swapped, [r_probe, s_probe, control_probe], FORCE_AMPLITUDE)
+        check_driving_point_passivity(f"swapped (shaker at probe {i})", Y_swapped[0])
 
-        Y_rs = base.probe_mobility[i]        # force at s, response at r
-        Y_sr = swapped.probe_mobility[1]     # force at r, response at s
-        Y_ctrl = swapped.probe_mobility[2]   # force at r, response displaced from s
+        Y_rs = Y_base[i]        # force at s, response at r
+        Y_sr = Y_swapped[1]     # force at r, response at s
+        Y_ctrl = Y_swapped[2]   # force at r, response displaced from s
 
         err = relative_difference(Y_rs, Y_sr)
         err_ctrl = relative_difference(Y_rs, Y_ctrl)
@@ -119,7 +131,8 @@ def run_checks(ctx, label, vamm_list, all_xy, pair_indices, offset_xy_for_contro
 def main():
     plate_config = PlateConfig(length=1.1, width=1, thickness=0.02, nx=60, ny=50,
                                rho=7850, mu=77e9, lambda_=115e9)
-    domain, function_space, _, problem = build_plate_problem(plate_config, deg=2)
+    domain, function_space, _, problem = build_plate_problem(
+        plate_config, deg=DEG, el_type=EL_TYPE)
 
     vamm_list = create_vamm_list_and_assign_indices([
         (1.1, 0.0, 85878.35366, 1.0, 0.02),
@@ -134,17 +147,20 @@ def main():
                        global_dofs_parent_list=global_dofs_parent_list, grid=grid)
 
     shaker_xy = (plate_config.length / 3, plate_config.width / 3)
-    shaker_config = ShakerParameters(x=shaker_xy[0], y=shaker_xy[1], force_amplitude=1.0, phase=0.0)
+    shaker_config = ShakerParameters(x=shaker_xy[0], y=shaker_xy[1],
+                                     force_amplitude=FORCE_AMPLITUDE, phase=0.0)
     probe_xy = build_probe_coordinates(plate_config=plate_config, shaker_config=shaker_config,
                                        amount=5, vamm_list=vamm_list)
     all_xy = [shaker_xy] + probe_xy                      # index 0 = driving point, as in main.py
-    pair_indices = [1, len(all_xy) - 1]                  # nearest and farthest transfer probe
+    all_probes = [make_probe(domain, function_space, x, y) for x, y in all_xy]
+    pair_indices = [1, len(all_probes) - 1]              # nearest and farthest transfer probe
 
     h_x = plate_config.length / plate_config.nx
     offset_xy = (min(shaker_xy[0] + CONTROL_OFFSET_ELEMENTS * h_x, plate_config.length), shaker_xy[1])
+    control_probe = make_probe(domain, function_space, *offset_xy)
 
-    run_checks(ctx, "bare", None, all_xy, pair_indices, offset_xy, check_order=True)
-    run_checks(ctx, "vamm", vamm_list, all_xy, pair_indices, offset_xy)
+    run_checks(ctx, "bare", None, all_probes, pair_indices, control_probe, check_order=True)
+    run_checks(ctx, "vamm", vamm_list, all_probes, pair_indices, control_probe)
     print("\nAll transfer-mobility validations passed.")
 
 

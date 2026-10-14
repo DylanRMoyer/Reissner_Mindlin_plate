@@ -5,41 +5,46 @@ from point_coupling import create_vamm_list_and_assign_indices, compute_phi_and_
 from shaker_force import ShakerParameters
 from solve import solve_evp
 from postprocessing import (plot_eigenmode, plot_frequency_response, plot_mobility_bode, PlateLayout,
-                            plot_insertion_loss_bode, draw_plate_layout)
+                            plot_insertion_loss_bode, draw_plate_layout, plot_radiation_bode)
 from vamm_grid import GridConfig, state_to_vamm_list
-from probe import make_probe, build_probe_coordinates
+from probe import make_probe, build_probe_coordinates, mobility_at_probes
 from sweep_cache import CACHE_DIR, make_cache_key, get_or_compute_sweep
-from insertion_loss import assert_comparable_sweeps, compute_insertion_loss
+from insertion_loss import (assert_comparable_sweeps, compute_insertion_loss,
+                            global_insertion_loss_radiated_db, global_insertion_loss_radiated_equal_power_db)
+from radiation import radiated_power, build_radiation_points, radiation_efficiency
 
 from frequency_sweep import frequency_sweep_plate, build_frequency_grid, warn_if_grid_too_coarse
-from validate_eigenvalues import build_symmetry_probes, classify_modes
 
 if __name__ == "__main__":
 
-    do_frequency_sweep = False
+    do_frequency_sweep = True
     free_plate = True # switch: free (shaker-driven) vs. clamped-edge plate
     excitation = "force"  # "force" (allows both free_plate=True or False) or "motion" (needs free_plate=False)
-    vamm_mode = "grid"  # "grid" or "manual"
+    vamm_mode = "manual"  # "grid" or "manual"
 
     eigenmode_number = 20 # the total number of eigenmodes to be computed by eigensolver
     eigenmode_to_plot = 13 # the desired eigenmode INDEX to be plotted. Can be no larger than (eigenmode_number - 1).
     target_frequency_hz = 0.0
 
-    ncv_factor = 6 # integer, default: 2, increase if suspected that not all modes are found by the solver
+    deg = 2
+    el_type = "S"
+
+    ncv_factor = 4 # integer, default: 2, increase if suspected that not all modes are found by the solver
 
     plate_config = PlateConfig(
-    length = 1,
+    length = 1.1,
     width = 1,
-    thickness = 0.002,
-    nx = 80,
-    ny = 80,
+    thickness = 0.02,
+    nx = 50,
+    ny = 50,
     rho = 7850,
     mu = 77e9,
     lambda_ = 115e9,
     # constant_force = 0.0 # Use if wanting to prescribe a custom constant force across the plate
     )
 
-    domain, function_space, bcs_clamped, plate_problem_constants = build_plate_problem(plate_config, deg=2)
+    domain, function_space, bcs_clamped, plate_problem_constants = build_plate_problem(
+        plate_config, deg=deg, el_type=el_type)
     # Add degree custom degree (default: deg = 2) or function type (default: el_type = "S") if needed
 
     # Use the real clamped BCs only if we're not testing the free plate.
@@ -123,12 +128,15 @@ if __name__ == "__main__":
             plate_config=plate_config, shaker_config=shaker_config, probes=probes, vamm_list=vamm_list
         )
 
+        surface_area = plate_config.length * plate_config.width
+        shaker_force = shaker_config.force_amplitude
+
         settings = dict(
             plate_config=plate_config, shaker_config=shaker_config,
-            probe_coords=[(p.x, p.y) for p in probes],
             grid=np.asarray(grid), gamma_plate=gamma_plate,
             free_plate=free_plate, excitation=excitation,
-            code_version="v1")  # bump this string if you change the sweep code itself
+            deg=deg, el_type=el_type,
+            code_version="v2")  # bump this string if you change the sweep code itself
 
         key_vamm, blob_vamm = make_cache_key(vamm_list=vamm_list, **settings)
         key_bare, blob_bare = make_cache_key(vamm_list=None, **settings)
@@ -140,8 +148,7 @@ if __name__ == "__main__":
                 plate_config=plate_config, f_start=f_start, f_end=f_end,
                 vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid, gamma=gamma_plate,
-                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-                probes=probes),
+                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config),
             settings_blob=blob_vamm)
 
         sweep_bare = get_or_compute_sweep(
@@ -151,12 +158,60 @@ if __name__ == "__main__":
                 plate_config=plate_config, f_start=f_start, f_end=f_end,
                 vamm_list=None, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid, gamma=gamma_plate,
-                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-                probes=probes),
+                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config),
             settings_blob=blob_bare)
 
+        bare_probe_mobility = mobility_at_probes(
+            sweep=sweep_bare, probes=probes, force_amplitude=shaker_force)
+
+        vamm_probe_mobility = mobility_at_probes(
+            sweep=sweep_vamm, probes=probes, force_amplitude=shaker_force)
+
+
+        probes_mesh, dS, r = build_radiation_points(
+            domain=domain, function_space=function_space, plate_config=plate_config)
+
+        bare_probe_mobility_radiation = mobility_at_probes(
+            sweep=sweep_bare, probes=probes_mesh, force_amplitude=shaker_force)
+
+        vamm_probe_mobility_radiation = mobility_at_probes(
+            sweep=sweep_vamm, probes=probes_mesh, force_amplitude=shaker_force)
+
+
+        P_bare = radiated_power(
+            Y_grid=bare_probe_mobility_radiation, r=r, dS=dS,
+            f_values=sweep_bare.f_values, force_amplitude=shaker_force)
+
+        P_vamm = radiated_power(
+            Y_grid=vamm_probe_mobility_radiation, r=r, dS=dS,
+            f_values=sweep_bare.f_values, force_amplitude=shaker_force)
+
+        sigma_bare = radiation_efficiency(
+            P_bare, bare_probe_mobility_radiation, surface_area, force_amplitude=shaker_force)
+        sigma_vamm = radiation_efficiency(
+            P_vamm, vamm_probe_mobility_radiation, surface_area, force_amplitude=shaker_force)
+
+        Y_dp_bare = mobility_at_probes(sweep_bare, [shaker_probe], shaker_force)[0]
+        Y_dp_vamm = mobility_at_probes(sweep_vamm, [shaker_probe], shaker_force)[0]
+
+        insertion_loss_db = global_insertion_loss_radiated_db(P_bare, P_vamm)
+        insertion_loss_db_power = global_insertion_loss_radiated_equal_power_db(
+            P_bare, P_vamm, Y_dp_bare, Y_dp_vamm, force_amplitude=shaker_force)
+
         assert_comparable_sweeps(sweep_vamm, sweep_bare)
-        il_pt, dphi, il_f, il_p = compute_insertion_loss(sweep_bare=sweep_bare, sweep_vamm=sweep_vamm)
+
+        il_pt_rad, dphi_rad, il_f_rad, il_p_rad = compute_insertion_loss(
+            bare_probe_mobility=bare_probe_mobility, vamm_probe_mobility=vamm_probe_mobility,
+            sweep_bare=sweep_bare, sweep_vamm=sweep_vamm)
+
+        plot_radiation_bode(
+            f_values=sweep_bare.f_values, P_bare=P_bare, P_vamm=P_vamm, sigma_bare=sigma_bare, sigma_vamm=sigma_vamm,
+            il_rad=insertion_loss_db, il_rad_pow=insertion_loss_db_power, il_force=il_f_rad,
+            eigenfrequencies_bare=eigenfrequencies_bare, eigenfrequencies_vamm=eigenfrequencies_vamm)
+
+        il_pt, dphi, il_f, il_p = compute_insertion_loss(
+            bare_probe_mobility=bare_probe_mobility, vamm_probe_mobility=vamm_probe_mobility,
+            sweep_bare=sweep_bare, sweep_vamm=sweep_vamm)
 
         plot_insertion_loss_bode(
             f_values=sweep_bare.f_values,
@@ -170,7 +225,7 @@ if __name__ == "__main__":
         # --- Driving point (probe 0 = shaker location) ---
         plot_mobility_bode(
             f_values=sweep_bare.f_values,
-            mobilities=[sweep_bare.probe_mobility[0], sweep_vamm.probe_mobility[0]],
+            mobilities=[bare_probe_mobility[0], vamm_probe_mobility[0]],
             labels=["bare plate", "with VAMMs"],
             eigenfrequencies=[eigenfrequencies_bare, eigenfrequencies_vamm],
             title="Driving-point mobility",
@@ -183,7 +238,7 @@ if __name__ == "__main__":
             d = np.hypot(probes[i].x - shaker_config.x, probes[i].y - shaker_config.y)
             plot_mobility_bode(
                 f_values=sweep_bare.f_values,
-                mobilities=[sweep_bare.probe_mobility[i], sweep_vamm.probe_mobility[i]],
+                mobilities=[bare_probe_mobility[i], vamm_probe_mobility[i]],
                 labels=["bare plate", "with VAMMs"],
                 eigenfrequencies=[eigenfrequencies_bare, eigenfrequencies_vamm],
                 title=f"Transfer mobility, probe {i} ({d:.2f} m from shaker)",

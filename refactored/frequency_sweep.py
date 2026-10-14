@@ -19,8 +19,8 @@ from probe import evaluate_w_at_probe, compute_mobility
 class SweepResult:
     f_values: np.ndarray
     rms_velocity: np.ndarray
+    w_field: np.ndarray   # shape (n_freq, n_w_dofs), complex
     w_max_plate: np.ndarray | None
-    probe_mobility: np.ndarray | None   # shape (n_probes, n_freq), complex
 
 # --- Define function building a frequency grid fine enough to resolve peaks ---
 
@@ -211,8 +211,7 @@ def frequency_sweep_plate(
         compute_max_metric: bool = False,
         free_plate = True,
         excitation: str = "force",
-        shaker_config = None,
-        probes = None):
+        shaker_config = None):
 
     """
     Builds the damped/undamped dynamic-stiffness form (see
@@ -225,13 +224,8 @@ def frequency_sweep_plate(
     signed peak deflection w_max_plate (a pointwise metric, useful near an
     isolated resonance for its phase-flip sign, but not reliable as a
     smooth function of frequency between resonances -- see notes in
-    compute_rms_velocity). If probes is not None, also returns the mobility
-    of the plate at the location of the probes. probe_mobility has shape
-    (n_probes, n_freq), is complex and requires force excitation.
+    compute_rms_velocity).
     """
-
-    if probes and excitation != "force":
-        raise ValueError("probe mobility requires force excitation (shaker_config.force_amplitude)")
 
     gammas = [g for g in [gamma] + ([v.gamma for v in vamm_list] if vamm_list else []) if g > 0]
     gamma_min = min(gammas) if gammas else 0.0
@@ -288,10 +282,9 @@ def frequency_sweep_plate(
 
     rms_velocity = []
 
-    if probes:
-        probe_mobility = np.zeros((len(probes), Omega_size), dtype=complex)
-    else:
-        probe_mobility = None
+    function_space_w, _ = collapse_subspace(function_space, 0)
+    n_w_dofs = function_space_w.dofmap.index_map.size_local * function_space_w.dofmap.index_map_bs
+    w_field = np.empty((n_freq, n_w_dofs), dtype=complex)
 
     sweep_start = time.perf_counter()
     for step, Omega in enumerate(Omega_values):
@@ -301,13 +294,9 @@ def frequency_sweep_plate(
             domain=domain, function_space=function_space, K_plate=K_plate, K_aug=K_aug, M_aug=M_aug, Omega=Omega,
             rhs_builder=rhs_builder, n_plate=n_plate, bcs=bcs, form=form)
 
-        if probes:
-            for p, probe in enumerate(probes):
-                w_val = evaluate_w_at_probe(w_point, probe)
-                probe_mobility[p, step] = compute_mobility(
-                    w_value=w_val, Omega=Omega, force_amplitude=shaker_config.force_amplitude)
+        w_field[step] = w_point.x.array
 
-        # NOTE: must stay AFTER the probe evaluation above: this zeroes boundary entries of w_point in place
+        # NOTE: must stay AFTER the w field evaluation above: this zeroes boundary entries of w_point in place
         if compute_max_metric:
             if dofs_w_collapsed is not None:
                 w_point.x.array[dofs_w_collapsed] = 0
@@ -327,6 +316,6 @@ def frequency_sweep_plate(
     w_max_plate = np.array(w_max_plate) if w_max_plate is not None else None
 
     sweep_results = SweepResult(
-        f_values=f_values, rms_velocity=rms_velocity, w_max_plate=w_max_plate, probe_mobility=probe_mobility)
+        f_values=f_values, rms_velocity=rms_velocity, w_max_plate=w_max_plate, w_field=w_field)
 
     return sweep_results

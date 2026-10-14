@@ -27,7 +27,7 @@ def save_sweep(path, sweep, settings_blob=""):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     arrays = dict(f_values=sweep.f_values, rms_velocity=sweep.rms_velocity,
-                  probe_mobility=sweep.probe_mobility, settings=np.array(settings_blob))
+                  w_field=sweep.w_field, settings=np.array(settings_blob))
     if getattr(sweep, "w_max_plate", None) is not None:
         arrays["w_max_plate"] = sweep.w_max_plate
     np.savez(path, **arrays)
@@ -37,7 +37,7 @@ def load_sweep(path):
     with np.load(path, allow_pickle=False) as data:
         return SimpleNamespace(
             f_values=data["f_values"], rms_velocity=data["rms_velocity"],
-            probe_mobility=data["probe_mobility"],
+            w_field=data["w_field"],
             w_max_plate=data["w_max_plate"] if "w_max_plate" in data.files else None)
 
 

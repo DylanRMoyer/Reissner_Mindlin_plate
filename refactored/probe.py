@@ -2,7 +2,7 @@ import numpy as np
 import warnings
 from types import SimpleNamespace
 from dataclasses import dataclass
-from shaker_force import ShakerParameters
+from scipy.sparse import csr_matrix
 from point_coupling import locate_target_cell_degrees_of_freedom
 
 
@@ -148,3 +148,23 @@ def build_probe_coordinates(plate_config, shaker_config, amount: int = 5,
           f"min clearance {clearance:.1f} elements")
     warn_if_probes_poorly_placed(coords, plate_config, shaker_config, vamm_list, min_clearance)
     return coords
+
+def mobility_at_probes(sweep, probes, force_amplitude):
+    Omega = 2*np.pi*sweep.f_values            # (n_freq,)
+    Y = np.empty((len(probes), len(Omega)), dtype=complex)
+    for p, probe in enumerate(probes):
+        w_at = sweep.w_field[:, probe.local_to_global_w] @ probe.phi   # (n_freq,)
+        Y[p] = 1j*Omega*w_at/force_amplitude
+    return Y
+
+def build_interpolation_matrix(probes, n_w_dofs):
+    n_pts, n_loc = len(probes), len(probes[0].phi)
+    rows = np.repeat(np.arange(n_pts), n_loc)
+    cols = np.concatenate([p.local_to_global_w for p in probes])
+    vals = np.concatenate([p.phi for p in probes])
+    return csr_matrix((vals, (rows, cols)), shape=(n_pts, n_w_dofs))
+
+def mobility_on_points(sweep, Phi, force_amplitude):
+    Omega = 2 * np.pi * sweep.f_values
+    W = (Phi @ sweep.w_field.T)             # (n_points, n_freq)
+    return 1j * Omega[None, :] * W / force_amplitude

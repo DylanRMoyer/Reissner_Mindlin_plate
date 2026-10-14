@@ -24,23 +24,28 @@ class GridConfig:
             raise ValueError("Relative offset inside unit cell must be between 0 and 1. \n"
                              f"Currently: offset_x ={self.offset_x}, offset_y = {self.offset_y}")
 
+def cell_center_positions(length, width, n_x, n_y, offset_x: float =0.5, offset_y: float=0.5):
+    cell_length = length / n_x
+    cell_width = width / n_y
+
+    grid_coords = []
+
+    for i in range(n_x):
+        for j in range(n_y):
+            x_coord = (i + offset_x) * cell_length
+            y_coord = (j + offset_y) * cell_width
+            grid_coords.append([x_coord, y_coord])
+
+    return grid_coords
 
 def build_grid_positions(
         length: float,
         width: float,
         grid_config: GridConfig):
 
-
-    cell_length = length / grid_config.n_x
-    cell_width = width / grid_config.n_y
-
-    vamm_grid_coords = []
-
-    for i in range(grid_config.n_x):
-        for j in range(grid_config.n_y):
-            x_coord = (i + grid_config.offset_x) * cell_length
-            y_coord = (j + grid_config.offset_y) * cell_width
-            vamm_grid_coords.append([x_coord, y_coord])
+    vamm_grid_coords = cell_center_positions(
+        length=length, width=width, n_x=grid_config.n_x, n_y=grid_config.n_y,
+        offset_x=grid_config.offset_x, offset_y=grid_config.offset_y)
 
     return vamm_grid_coords
 

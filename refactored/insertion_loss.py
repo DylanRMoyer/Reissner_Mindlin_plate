@@ -18,6 +18,14 @@ def _floor_real_part(y, rel=1e-12):
     scale = np.max(np.abs(y), axis=-1, keepdims=True)
     return np.maximum(real, np.maximum(rel * scale, np.finfo(float).tiny))
 
+def mobility_at_probes(sweep, probes, force_amplitude):
+    Omega = 2*np.pi*sweep.f_values            # (n_freq,)
+    Y = np.empty((len(probes), len(Omega)), dtype=complex)
+    for p, probe in enumerate(probes):
+        w_at = sweep.w_field[:, probe.local_to_global_w] @ probe.phi   # (n_freq,)
+        Y[p] = 1j*Omega*w_at/force_amplitude
+    return Y
+
 
 def pointwise_insertion_loss_db(y_bare, y_vamm):
     return 20 * np.log10(_floor_magnitude(y_bare) / _floor_magnitude(y_vamm))
@@ -41,14 +49,24 @@ def global_insertion_loss_power_db(rms_bare, rms_vamm, y_dp_bare, y_dp_vamm):
     power_term = 10 * np.log10(_floor_real_part(y_dp_vamm) / _floor_real_part(y_dp_bare))
     return il_force + power_term
 
+def global_insertion_loss_radiated_db(P_bare, P_vamm=1e-12):
+    """IL of the radiated power at equal force: 10*log10(P_bare / P_vamm).
+       Positive = the VAMMs reduce the radiated sound power."""
+    return 10 * np.log10(np.maximum(P_bare, np.finfo(float).tiny) / P_vamm)
 
-def assert_comparable_sweeps(result_bare, result_vamm):
-    if not np.array_equal(result_bare.f_values, result_vamm.f_values):
-        raise ValueError("Sweeps use different frequency grids; IL is undefined.")
-    if result_bare.probe_mobility.shape != result_vamm.probe_mobility.shape:
+def global_insertion_loss_radiated_equal_power_db(P_bare, P_vamm, y_dp_bare, y_dp_vamm, force_amplitude=1.0):
+    """Same, but both systems compared at equal *input* power: normalize each P_rad by its
+    own input power first (P_rad / P_in is the fraction of the input that is radiated)."""
+    frac_bare = P_bare / _floor_real_part(input_power(y_dp_bare, force_amplitude))
+    frac_vamm = P_vamm / _floor_real_part(input_power(y_dp_vamm, force_amplitude))
+    return 10 * np.log10(_floor_magnitude(frac_bare) / _floor_magnitude(frac_vamm))
+
+
+def assert_comparable_sweeps(sweep_bare, sweep_vamm):
+    if sweep_bare.f_values.shape != sweep_vamm.f_values.shape:
         raise ValueError(
-            f"Probe/frequency shapes differ: {result_bare.probe_mobility.shape} "
-            f"vs {result_vamm.probe_mobility.shape}.")
+            f"Probe shapes differ: {sweep_bare.f_values.shape} "
+            f"vs {sweep_vamm.f_values.shape}.")
 
 
 
@@ -93,11 +111,13 @@ def run_synthetic_checks():
         il_p_direct, rtol=1e-12, atol=0)
 
 def compute_insertion_loss(
-        sweep_bare, sweep_vamm,
+        bare_probe_mobility, vamm_probe_mobility, sweep_bare=None, sweep_vamm=None,
         f0=None, f_lo=None, f_hi=None, gamma_plate=None):
-    assert_comparable_sweeps(sweep_bare, sweep_vamm)
+    if sweep_bare and sweep_vamm:
+        assert_comparable_sweeps(
+            sweep_bare=sweep_bare, sweep_vamm=sweep_vamm)
     f = sweep_bare.f_values
-    y_b, y_v = sweep_bare.probe_mobility, sweep_vamm.probe_mobility
+    y_b, y_v = bare_probe_mobility, vamm_probe_mobility
 
     il_pt = pointwise_insertion_loss_db(y_b, y_v)
     dphi = phase_shift_deg(y_b, y_v)
@@ -258,7 +278,6 @@ if __name__ == "__main__":
 
     settings = dict(
         plate_config=plate_config, shaker_config=shaker_config,
-        probe_coords=[(p.x, p.y) for p in probes],
         grid=np.asarray(grid), gamma_plate=gamma_plate,
         free_plate=free_plate, excitation=excitation,
         code_version="v1")  # bump this string if you change the sweep code itself
@@ -282,8 +301,7 @@ if __name__ == "__main__":
                 plate_config=plate_config, f_start=f_start, f_end=f_end,
                 vamm_list=vl, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid_coarse, gamma=gamma_plate,
-                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-                probes=probes),
+                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,),
             settings_blob=blob)
 
 
@@ -291,12 +309,18 @@ if __name__ == "__main__":
     sweep_light_c = coarse_sweep(vamm_list_light, "light")
     assert_comparable_sweeps(sweep_bare_c, sweep_light_c)
 
-    il_pt = pointwise_insertion_loss_db(sweep_bare_c.probe_mobility, sweep_light_c.probe_mobility)
-    dphi = phase_shift_deg(sweep_bare_c.probe_mobility, sweep_light_c.probe_mobility)
+    bare_c_probe_mobility = mobility_at_probes(
+        sweep=sweep_bare_c, probes=probes, force_amplitude=shaker_config.force_amplitude)
+
+    light_c_probe_mobility = mobility_at_probes(
+        sweep=sweep_light_c, probes=probes, force_amplitude=shaker_config.force_amplitude)
+
+    il_pt = pointwise_insertion_loss_db(bare_c_probe_mobility, light_c_probe_mobility)
+    dphi = phase_shift_deg(bare_c_probe_mobility, light_c_probe_mobility)
     il_f = global_insertion_loss_force_db(sweep_bare_c.rms_velocity, sweep_light_c.rms_velocity)
     il_p = global_insertion_loss_power_db(
         sweep_bare_c.rms_velocity, sweep_light_c.rms_velocity,
-        sweep_bare_c.probe_mobility[0], sweep_light_c.probe_mobility[0])
+        bare_c_probe_mobility[0], light_c_probe_mobility[0])
 
     print(f"max |IL pointwise| = {np.max(np.abs(il_pt)):.3e} dB")
     print(f"max |dphi|         = {np.max(np.abs(dphi)):.3e} deg")
@@ -316,8 +340,7 @@ if __name__ == "__main__":
             plate_config=plate_config, f_start=f_start, f_end=f_end,
             vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
             frequency_grid=grid, gamma=gamma_plate,
-            free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-            probes=probes),
+            free_plate=free_plate, excitation=excitation, shaker_config=shaker_config),
         settings_blob=blob_vamm)
 
     sweep_bare = get_or_compute_sweep(
@@ -327,11 +350,14 @@ if __name__ == "__main__":
             plate_config=plate_config, f_start=f_start, f_end=f_end,
             vamm_list=None, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
             frequency_grid=grid, gamma=gamma_plate,
-            free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-            probes=probes),
+            free_plate=free_plate, excitation=excitation, shaker_config=shaker_config),
         settings_blob=blob_bare)
 
-    for y_bare_sweep in sweep_bare.probe_mobility:
+    bare_probe_mobility = mobility_at_probes(
+        sweep=sweep_bare, probes=probes, force_amplitude=shaker_config.force_amplitude
+    )
+
+    for y_bare_sweep in bare_probe_mobility:
         for idx, y_bare in enumerate(y_bare_sweep):
             no_loss = pointwise_insertion_loss_db(y_bare, y_bare)
             no_phase = phase_shift_deg(y_bare, y_bare)
@@ -340,14 +366,19 @@ if __name__ == "__main__":
             assert np.isclose(no_phase, 0, rtol=1e-9), (
                 f"Phase shift should be 0 for bare plate, found {no_phase} at f={sweep_bare.f_values[idx]}")
 
-    y_vamm_test_nophase = 0.5 * sweep_bare.probe_mobility
-    y_vamm_test_phase = 0.5 * np.exp(1j * np.pi/4) * sweep_bare.probe_mobility
 
-    y_dp_bare = sweep_bare.probe_mobility[0]
-    y_dp_vamm = sweep_vamm.probe_mobility[0]
+    vamm_probe_mobility = mobility_at_probes(
+        sweep=sweep_vamm, probes=probes, force_amplitude=shaker_config.force_amplitude
+    )
 
-    for idx in range(len(sweep_bare.probe_mobility)):
-        probe_mobility = sweep_bare.probe_mobility[idx]
+    y_vamm_test_nophase = 0.5 * bare_probe_mobility
+    y_vamm_test_phase = 0.5 * np.exp(1j * np.pi/4) * bare_probe_mobility
+
+    y_dp_bare = bare_probe_mobility[0]
+    y_dp_vamm = vamm_probe_mobility[0]
+
+    for idx in range(len(bare_probe_mobility)):
+        probe_mobility = bare_probe_mobility[idx]
         probe_mobility_vamm_nophase = y_vamm_test_nophase[idx]
         probe_mobility_phase = y_vamm_test_phase[idx]
         for index in range(len(probe_mobility)):
@@ -370,5 +401,6 @@ if __name__ == "__main__":
             (f"Expected difference {power_term}, instead found {ilp - ilf}.")
 
     compute_insertion_loss(
-        sweep_bare=sweep_bare, sweep_vamm=sweep_vamm, f0=147.49, f_lo=133.49, f_hi=152.75, gamma_plate=gamma_plate)
+        bare_probe_mobility=bare_probe_mobility, vamm_probe_mobility=vamm_probe_mobility,
+        f0=147.49, f_lo=133.49, f_hi=152.75, gamma_plate=gamma_plate)
 
