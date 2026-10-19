@@ -18,38 +18,9 @@ from radiation import (build_radiation_points, radiation_resistance_matrix,
                        radiated_power, radiation_efficiency, power_level_db)
 
 from insertion_loss import (input_power, global_insertion_loss_radiated_db,
-                            global_insertion_loss_radiated_equal_power_db)
+                            global_insertion_loss_radiated_equal_power_db,
+                            assert_allclose_detailed, assert_allclose_two_arrays)
 from scipy.signal import find_peaks
-
-def assert_allclose_detailed(array, target=0.0, rtol=1e-05, atol=1e-08):
-    close_mask = np.isclose(array, target, rtol=rtol, atol=atol)
-    if not np.all(close_mask):
-        bad_idx = np.flatnonzero(~close_mask)[0]
-        raise AssertionError(
-            f"Element {bad_idx} should be value {target}, is {array[bad_idx]}"
-        )
-
-def assert_allclose_two_arrays(array, target_array, rtol=1e-05, atol=1e-08):
-    array = np.asarray(array)
-    target_array = np.asarray(target_array)
-
-    # 1. Compare the two arrays element-wise
-    close_mask = np.isclose(array, target_array, rtol=rtol, atol=atol)
-
-    # 2. Check if any elements failed the tolerance check
-    if not np.all(close_mask):
-        bad_flat_idx = np.flatnonzero(~close_mask)[0]
-
-        # Unravel the flat index into multidimensional coordinates (if applicable)
-        bad_idx = np.unravel_index(bad_flat_idx, array.shape)
-        if len(bad_idx) == 1:
-            bad_idx = bad_idx[0]  # Keep it clean for 1D arrays
-
-        raise AssertionError(
-            f"Element {bad_idx} should be value {target_array.flat[bad_flat_idx]}, "
-            f"is {array.flat[bad_flat_idx]}"
-        )
-
 
 
 # assert_allclose_detailed(a, b)
