@@ -27,7 +27,7 @@ if __name__ == "__main__":
     target_frequency_hz = 0.0
 
     deg = 2
-    el_type = "S"
+    el_type = "Lagrange"
 
     ncv_factor = 4 # integer, default: 2, increase if suspected that not all modes are found by the solver
 

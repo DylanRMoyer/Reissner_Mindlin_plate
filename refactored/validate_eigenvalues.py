@@ -101,18 +101,18 @@ INTERVAL_CASES = [
 class FEMode:
     def __init__(self, f, lam2): self.f, self.lam2 = f, lam2
 
-def compute_fe_modes(case, eigenmode_number=20, ncv_factor=6):
+def compute_fe_modes(case, eigenmode_number=24, ncv_factor=6, el_type="S"):
     c = case["cfg"]
     if "nu" in case:
         mu, lam = lame_from_nu(E_REF, case["nu"])
     else:
         mu, lam = c["mu"], c["lambda_"]
-    key = (c["thickness"], c["nx"], round(mu), round(lam))
+    key = (c["thickness"], c["nx"], round(mu), round(lam), el_type)
     if key in _fe_cache:
         return _fe_cache[key]
     cfg = PlateConfig(length=1, width=1, thickness=c["thickness"], nx=c["nx"], ny=c["nx"],
                       rho=RHO, mu=mu, lambda_=lam)
-    domain, V, _, prob = build_plate_problem(cfg, deg=2)
+    domain, V, _, prob = build_plate_problem(cfg, deg=2, el_type=el_type)
     f, _ = solve_evp(domain=domain, function_space=V, bcs=[], problem=prob,
                      eigenmode_number=eigenmode_number, target_hz=0.0, ncv_factor=ncv_factor)
     nu, D, m = plate_constants(cfg)
@@ -185,8 +185,13 @@ def match_group(case, fe):
     return rows, extra
 
 # --- report ---
-HEADER = """# Free-plate eigenfrequency validation
-Generated {date} with DOLFINx {ver}. Square plate, side L = 1 m, free edges, Reissner-Mindlin, Serendipity degree 2.
+VARIANTS = (("S", "Serendipity"), ("Lagrange", "Lagrange"))
+
+HEADER = """# Free-plate eigenfrequency validation: Serendipity vs Lagrange
+Generated {date} with DOLFINx {ver}. Square plate, side L = 1 m, free edges, Reissner-Mindlin, degree 2.
+Every case is computed twice, with Serendipity ("S") and with Lagrange ("L") elements, on the same mesh.
+Pass/fail is evaluated separately for each element type with the criteria below; "L - S" is the relative
+difference of the Lagrange value with respect to the Serendipity value, (L - S) / S in %.
 
 Definitions (m = rho * h is the areal mass; rho = volumetric density):
 - D = E h^3 / (12 (1 - nu^2)), E = mu (3 lambda + 2 mu) / (lambda + mu), nu = lambda / (2 (lambda + mu))
@@ -204,11 +209,66 @@ Definitions (m = rho * h is the areal mass; rho = volumetric density):
 - Relative error = (FE - ref) / ref in %, compared in lambda^2 (literature) or Hz (colleague)
 """
 
-def report_case(case):
-    cfg, nu, fe = compute_fe_modes(case)
+def fmt(v):
+    return "-" if v is None else f"{v:.4f}"
+
+def fmt_pct(v):
+    return "-" if v is None else f"{v:+.2f}"
+
+
+def evaluate_variant(case, el_type):
+    """Match, score and summarise one case for one element type. No printing."""
+    cfg, nu, fe = compute_fe_modes(case, el_type=el_type)
     rows, extra = match_index(case, fe) if case["kind"] == "index" else match_group(case, fe)
+    tol = case["tol"]
+    one_sided = case.get("ref_is_upper_bound", False)
+
+    errs, bad = [], 0
+    for r in rows:
+        if r["fe"] is not None:
+            r["err"] = err_pct(r["fe"], r["ref"])
+            if not r.get("informational"):
+                errs.append(r["err"])
+        bad += r["status"] == "NO FE MODE" or r["status"].startswith("MULTIPLICITY")
+    bad += len(extra)
+
+    count_line = ""
+    if case["kind"] == "index":
+        f_cut = 1.02 * max(r["ref"] for r in rows)
+        n_fe = sum(m.f <= f_cut for m in fe)
+        n_ref = len(rows)
+        bad += n_fe != n_ref          # NOTE: now part of the verdict (it was only displayed before)
+        count_line = f"mode count up to {f_cut:.1f} Hz: reference {n_ref}, FE {n_fe}"
+
+    max_abs = max((abs(e) for e in errs), default=float("nan"))
+    max_above = max(errs, default=float("nan"))
+    min_below = min(errs, default=float("nan"))
+    if one_sided:
+        crit_ok = max_above <= UPPER_SLACK_PCT and min_below >= -tol
+        detail = (f"max FE above reference = {max(max_above, 0.0):.2f} %, "
+                  f"max FE below reference = {max(-min_below, 0.0):.2f} %")
+    else:
+        crit_ok = max_abs <= tol
+        detail = f"max |error| = {max_abs:.2f} %"
+
+    return dict(
+        cfg=cfg, nu=nu, rows=rows, extra=extra, errs=errs, bad=int(bad),
+        excluded=sum(r["status"].startswith("excluded") for r in rows),
+        beyond=sum(r["status"] == "beyond computed range" for r in rows),
+        documented=sum(r["fe"] is None and r["status"] not in ("NO FE MODE", "beyond computed range")
+                       and not r["status"].startswith("excluded") for r in rows),
+        detail=detail, count_line=count_line,
+        ok=bool(bad == 0 and len(errs) > 0 and crit_ok))
+
+
+def report_case(case):
+    res = {t: evaluate_variant(case, t) for t, _ in VARIANTS}
+    S, L = res["S"], res["Lagrange"]
     unit, tol = case["unit"], case["tol"]
     one_sided = case.get("ref_is_upper_bound", False)
+
+    assert len(S["rows"]) == len(L["rows"]) and all(
+        np.isclose(a["ref"], b["ref"]) for a, b in zip(S["rows"], L["rows"])), "row alignment broken"
 
     if case["kind"] == "index":
         crit = f"Criterion: |error| <= {tol} %."
@@ -222,78 +282,85 @@ def report_case(case):
     out += [f"- {n}" for n in case.get("notes", [])]
     if case.get("notes"):
         out.append("")
-    out += [f"FE: nu = {nu:.4f}, h = {cfg.thickness} m, mesh {cfg.nx}x{cfg.ny}. {crit}", "",
-            f"| ref. column | reference (native) | reference ({unit}) | FE ({unit}) | rel. error [%] | note |",
-            "|---|---|---|---|---|---|"]
+    cfg = S["cfg"]
+    out += [f"FE: nu = {S['nu']:.4f}, h = {cfg.thickness} m, mesh {cfg.nx}x{cfg.ny}. {crit}", "",
+            f"| ref. column | reference (native) | reference ({unit}) | S ({unit}) | S err [%] "
+            f"| L ({unit}) | L err [%] | L - S [%] | note |",
+            "|---|---|---|---|---|---|---|---|---|"]
 
-    errs, bad = [], 0                    # errs: signed errors of matched rows
-    for r in rows:
-        if r["fe"] is None:
-            out.append(f"| {r['label']} | {r['ref_native']:.4f} | {r['ref']:.4f} | - | - | {r['status']} |")
-        else:
-            e = err_pct(r["fe"], r["ref"])
-            if not r.get("informational"):
-                errs.append(e)
-            out.append(f"| {r['label']} | {r['ref_native']:.4f} | {r['ref']:.4f} | {r['fe']:.4f} | {e:+.2f} | {r['status']} |")
-        bad += r["status"] == "NO FE MODE" or r["status"].startswith("MULTIPLICITY")
-    for L in extra:
-        out.append(f"| - | - | - | {L['lam2']:.4f} (x{L['mult']}) | - | FE MODE WITHOUT REFERENCE |")
-    bad += len(extra)
+    diffs = []
+    for a, b in zip(S["rows"], L["rows"]):
+        d = err_pct(b["fe"], a["fe"]) if a["fe"] is not None and b["fe"] is not None else None
+        if d is not None:
+            diffs.append(d)
+        note = a["status"] if a["status"] == b["status"] else f"S: {a['status'] or 'ok'}; L: {b['status'] or 'ok'}"
+        out.append(f"| {a['label']} | {a['ref_native']:.4f} | {a['ref']:.4f} | {fmt(a['fe'])} | "
+                   f"{fmt_pct(a.get('err'))} | {fmt(b['fe'])} | {fmt_pct(b.get('err'))} | {fmt_pct(d)} | {note} |")
 
-    excluded = sum(r["status"].startswith("excluded") for r in rows)
-    beyond = sum(r["status"] == "beyond computed range" for r in rows)
-    documented = sum(r["fe"] is None and r["status"] not in ("NO FE MODE", "beyond computed range")
-                     and not r["status"].startswith("excluded") for r in rows)
+    out.append("")
+    for tag, name in (("S", "Serendipity"), ("Lagrange", "Lagrange")):
+        R = res[tag]
+        for lev in R["extra"]:
+            out.append(f"- {name}: FE MODE WITHOUT REFERENCE at {lev['lam2']:.4f} (x{lev['mult']})")
+        if R["count_line"]:
+            out.append(f"- {name}: {R['count_line']}")
+    out.append("")
+    for tag, name in (("S", "Serendipity"), ("Lagrange", "Lagrange")):
+        R = res[tag]
+        out.append(f"{name}: compared {len(R['errs'])}, excluded {R['excluded']}, "
+                   f"unmatched but documented {R['documented']}, beyond computed range {R['beyond']}, "
+                   f"problems {R['bad']}; {R['detail']} -> {'PASS' if R['ok'] else 'FAIL'}  ")
+    if diffs:
+        out.append(f"\nLagrange vs Serendipity: max |L - S| = {max(abs(x) for x in diffs):.3f} %, "
+                   f"mean L - S = {np.mean(diffs):+.3f} %")
+    return "\n".join(out), S["ok"] and L["ok"]
 
-    max_abs = max((abs(e) for e in errs), default=float("nan"))
-    max_above = max((e for e in errs), default=float("nan"))
-    min_below = min((e for e in errs), default=float("nan"))
-    if one_sided:
-        crit_ok = max_above <= UPPER_SLACK_PCT and min_below >= -tol
-        detail = f"max FE above reference = {max(max_above, 0.0):.2f} %, max FE below reference = {max(-min_below, 0.0):.2f} %"
-    else:
-        crit_ok = max_abs <= tol
-        detail = f"max |error| = {max_abs:.2f} %"
-    ok = bad == 0 and len(errs) > 0 and crit_ok
-    count_line = ""
-    if case["kind"] == "index":
-        f_cut = 1.02 * max(r["ref"] for r in rows)
-        n_fe = sum(m.f <= f_cut for m in fe)
-        n_ref = len(rows)
-        if n_fe != n_ref:
-            bad += 1
-        count_line = f"Mode count up to {f_cut:.1f} Hz: reference {n_ref}, FE {n_fe}.\n"
-    out.append("\n" + count_line + f"\nCompared: {len(errs)}, excluded: {excluded}, unmatched but documented: {documented}, "
-               f"beyond computed range: {beyond}, problems: {bad}; {detail} -> {'PASS' if ok else 'FAIL'}")
-    return "\n".join(out), bool(ok)
 
-def report_interval_case(case):
-    cfg, nu, fe = compute_fe_modes(case)
+def evaluate_interval(case, el_type):
+    cfg, nu, fe = compute_fe_modes(case, el_type=el_type)
     levels = fe_levels(fe)
     lam2_max = max(L["lam2"] for L in levels)
-    out = [f"\n## {case['name']}", f"Source: {case['source']}", ""]
-    if case.get("caveat"):
-        out += [f"Caveat: {case['caveat']}", ""]
-    out += [f"FE: nu = {nu:.4f}, h = {cfg.thickness} m, mesh {cfg.nx}x{cfg.ny}. "
-            "Bounds are for the Kirchhoff plate, FE is Reissner-Mindlin.", "",
-            "| lower | upper | width [%] | FE (lambda^2) | margin to lower [%] | margin to upper [%] | result |",
-            "|---|---|---|---|---|---|---|"]
-    ok, checked = True, 0
+    rows = []
     for lo, hi in case["bounds"]:
         mid = 0.5 * (lo + hi)
         near = [L for L in levels if abs(L["lam2"] - mid) / mid < 0.05]
         if not near:
             note = "beyond computed range" if mid > 1.02 * lam2_max else "NO FE MODE"
-            ok &= note != "NO FE MODE"
-            out.append(f"| {lo} | {hi} | {100 * (hi - lo) / lo:.2f} | - | - | - | {note} |")
+            rows.append(dict(lo=lo, hi=hi, x=None, note=note, inside=note != "NO FE MODE", checked=False))
             continue
         x = min(near, key=lambda L: abs(L["lam2"] - mid))["lam2"]
         inside = lo <= x <= hi
-        ok &= inside; checked += 1
-        out.append(f"| {lo} | {hi} | {100 * (hi - lo) / lo:.2f} | {x:.4f} | {err_pct(x, lo):+.2f} | "
-                   f"{err_pct(x, hi):+.2f} | {'inside' if inside else 'OUTSIDE'} |")
-    out.append(f"\nChecked: {checked} -> {'PASS' if ok and checked else 'FAIL'}")
-    return "\n".join(out), bool(ok and checked)
+        rows.append(dict(lo=lo, hi=hi, x=x, note="inside" if inside else "OUTSIDE", inside=inside, checked=True))
+    checked = sum(r["checked"] for r in rows)
+    return dict(cfg=cfg, nu=nu, rows=rows, checked=checked,
+                ok=bool(all(r["inside"] for r in rows) and checked))
+
+
+def report_interval_case(case):
+    S = evaluate_interval(case, "S")
+    L = evaluate_interval(case, "Lagrange")
+    out = [f"\n## {case['name']}", f"Source: {case['source']}", ""]
+    if case.get("caveat"):
+        out += [f"Caveat: {case['caveat']}", ""]
+    cfg = S["cfg"]
+    out += [f"FE: nu = {S['nu']:.4f}, h = {cfg.thickness} m, mesh {cfg.nx}x{cfg.ny}. "
+            "Bounds are for the Kirchhoff plate, FE is Reissner-Mindlin.", "",
+            "| lower | upper | width [%] | S (lambda^2) | S margin lo [%] | S margin hi [%] | S result "
+            "| L (lambda^2) | L margin lo [%] | L margin hi [%] | L result | L - S [%] |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+
+    def cells(r):
+        if r["x"] is None:
+            return ["-", "-", "-", r["note"]]
+        return [f"{r['x']:.4f}", fmt_pct(err_pct(r["x"], r["lo"])), fmt_pct(err_pct(r["x"], r["hi"])), r["note"]]
+
+    for a, b in zip(S["rows"], L["rows"]):
+        d = err_pct(b["x"], a["x"]) if a["x"] is not None and b["x"] is not None else None
+        out.append(f"| {a['lo']} | {a['hi']} | {100 * (a['hi'] - a['lo']) / a['lo']:.2f} | "
+                   + " | ".join(cells(a)) + " | " + " | ".join(cells(b)) + f" | {fmt_pct(d)} |")
+    out.append(f"\nSerendipity: checked {S['checked']} -> {'PASS' if S['ok'] else 'FAIL'}  \n"
+               f"Lagrange: checked {L['checked']} -> {'PASS' if L['ok'] else 'FAIL'}")
+    return "\n".join(out), S["ok"] and L["ok"]
 
 
 if __name__ == "__main__":
@@ -305,9 +372,9 @@ if __name__ == "__main__":
         all_ok &= ok
     for case in INTERVAL_CASES:
         block, ok = report_interval_case(case)
-        text += block + "\n";
+        text += block + "\n"
         all_ok &= ok
     print(text)
-    with open("validation_eigenvalues.md", "w", encoding="utf-8") as fh:
+    with open("validation_eigenvalues_S_vs_Lagrange.md", "w", encoding="utf-8") as fh:
         fh.write(text)
     sys.exit(0 if all_ok else 1)
