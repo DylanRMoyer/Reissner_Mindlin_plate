@@ -1,0 +1,137 @@
+"""Bare unit cell (no VAMM): FE Bloch bands vs the analytic folded Reissner-Mindlin dispersion.
+
+Run in fenicsx-env-complex. Checks:
+1. SLEPc bands agree with a dense eigensolver (no missed degenerate partners).
+2. FE bands match the analytic folded bands at points on Gamma-X-M-Gamma and at a generic k,
+   for a square and a rectangular cell.
+3. Halving the element size reduces the error at the expected rate (Q2 eigenvalues: order 4).
+4. Known spurious mode: Lagrange Q2 with 2x2 reduced shear quadrature has one extra zero-energy
+   (hourglass) mode at Gamma whose branch rises steeply away from Gamma. It is excluded at Gamma and
+   the comparison points keep |k| >= 0.25 pi / L, where the branch lies above the compared bands.
+"""
+import numpy as np
+from scipy.linalg import eigh
+from config import PlateConfig
+from problem_setup import build_plate_problem
+from periodic_bc import build_pairs
+from bloch_solver import assemble_unit_cell_matrices, reduce_to_bloch, solve_bloch_evp
+
+NUMBER_OF_BANDS = 10
+RELATIVE_TOLERANCE = 5e-3          # FE vs analytic, finest mesh
+MINIMUM_CONVERGENCE_ORDER = 3.0    # observed log2(coarse error / fine error); theory gives 4
+ZERO_FREQUENCY_HZ = 1e-2
+
+
+def plate_constants(plate_config):
+    """Same definitions as weak_form.reissner_mindlin_constants, evaluated as plain floats."""
+    shear_modulus, lame_lambda = plate_config.mu, plate_config.lambda_
+    poisson_ratio = lame_lambda / (2 * (lame_lambda + shear_modulus))
+    youngs_modulus = shear_modulus * (3 * lame_lambda + 2 * shear_modulus) / (shear_modulus + lame_lambda)
+    thickness = plate_config.thickness
+    bending_rigidity = youngs_modulus * thickness ** 3 / (12 * (1 - poisson_ratio ** 2))
+    shear_stiffness = shear_modulus * thickness * 5.0 / 6.0
+    return dict(bending_rigidity=bending_rigidity, shear_stiffness=shear_stiffness, poisson_ratio=poisson_ratio,
+                mass_per_area=plate_config.rho * thickness,
+                rotary_inertia=plate_config.rho * thickness ** 3 / 12)
+
+
+def plane_wave_omega_squared(wavenumber_magnitude, constants):
+    """All three Reissner-Mindlin branches for a plane wave exp(i kappa e.x) in an infinite plate.
+
+    Rotation split into theta_parallel (along e) and theta_perpendicular. theta_parallel couples to w:
+        K = [[F k^2, -F k], [-F k, D k^2 + F]],  M = diag(rho h, rho h^3/12)   (theta_parallel = i * Phi)
+    theta_perpendicular is decoupled: omega^2 = (D (1 - nu)/2 k^2 + F) / (rho h^3 / 12)."""
+    bending, shear = constants["bending_rigidity"], constants["shear_stiffness"]
+    stiffness = np.array([[shear * wavenumber_magnitude ** 2, -shear * wavenumber_magnitude],
+                          [-shear * wavenumber_magnitude, bending * wavenumber_magnitude ** 2 + shear]])
+    mass = np.diag([constants["mass_per_area"], constants["rotary_inertia"]])
+    coupled_branches = eigh(stiffness, mass, eigvals_only=True)
+    twist_branch = (bending * (1 - constants["poisson_ratio"]) / 2 * wavenumber_magnitude ** 2 + shear) \
+        / constants["rotary_inertia"]
+    return np.concatenate([coupled_branches, [twist_branch]])
+
+
+def analytic_folded_frequencies(wavenumber_x, wavenumber_y, length_x, length_y, constants,
+                                number_of_bands, harmonic_range=6):
+    """Lowest bands of the infinite plate folded into the cell: kappa = k + G, G = 2 pi (m / Lx, n / Ly)."""
+    omega_squared = []
+    for m in range(-harmonic_range, harmonic_range + 1):
+        for n in range(-harmonic_range, harmonic_range + 1):
+            folded_magnitude = np.hypot(wavenumber_x + 2 * np.pi * m / length_x,
+                                        wavenumber_y + 2 * np.pi * n / length_y)
+            omega_squared.extend(plane_wave_omega_squared(folded_magnitude, constants))
+    omega_squared = np.sort(np.clip(omega_squared, 0.0, None))[:number_of_bands]
+    return np.sqrt(omega_squared) / (2 * np.pi)
+
+
+def setup_cell(length_x, length_y, elements_x, elements_y):
+    plate_config = PlateConfig(length=length_x, width=length_y, thickness=0.02, nx=elements_x, ny=elements_y,
+                               rho=7850, mu=77e9, lambda_=115e9)
+    _, function_space, _, problem = build_plate_problem(plate_config, deg=2, el_type="Lagrange")
+    stiffness, mass = assemble_unit_cell_matrices(function_space, problem)
+    pairs = build_pairs(function_space, length_x, length_y)
+    return plate_config, stiffness, mass, pairs
+
+
+def wavevector_samples(length_x, length_y):
+    """Gamma, points on Gamma-X-M-Gamma (all with |k| >= 0.25 pi / L) and one generic point."""
+    gamma, x_point, m_point = np.zeros(2), np.array([np.pi / length_x, 0]), np.array([np.pi / length_x, np.pi / length_y])
+    samples = {"Gamma": gamma, "X": x_point, "M": m_point, "generic": np.array([0.3 * np.pi / length_x, 0.7 * np.pi / length_y])}
+    for fraction in (0.25, 0.5, 0.75):
+        samples[f"Gamma-X {fraction}"] = fraction * x_point
+        samples[f"X-M {fraction}"] = x_point + fraction * (m_point - x_point)
+        samples[f"M-Gamma {fraction}"] = m_point + fraction * (gamma - m_point)
+    return samples
+
+
+def compare_cell(length_x, length_y, elements_x, elements_y):
+    """Max relative FE-vs-analytic error per wavevector sample (Gamma: over the nonzero bands)."""
+    plate_config, stiffness, mass, pairs = setup_cell(length_x, length_y, elements_x, elements_y)
+    constants = plate_constants(plate_config)
+    errors = {}
+    for name, (wavenumber_x, wavenumber_y) in wavevector_samples(length_x, length_y).items():
+        stiffness_reduced, mass_reduced = reduce_to_bloch(stiffness, mass, pairs, wavenumber_x, wavenumber_y,
+                                                          length_x, length_y)
+        fe_frequencies, _ = solve_bloch_evp(stiffness_reduced, mass_reduced, number_of_bands=NUMBER_OF_BANDS + 1)
+        analytic_frequencies = analytic_folded_frequencies(wavenumber_x, wavenumber_y, length_x, length_y,
+                                                           constants, NUMBER_OF_BANDS + 1)
+        if name == "Gamma":
+            fe_zero_count = int(np.sum(fe_frequencies < ZERO_FREQUENCY_HZ))
+            analytic_zero_count = int(np.sum(analytic_frequencies < ZERO_FREQUENCY_HZ))
+            assert (fe_zero_count, analytic_zero_count) == (2, 1), \
+                f"expected rigid + one hourglass zero mode in FE, got {fe_zero_count} vs analytic {analytic_zero_count}"
+            fe_frequencies, analytic_frequencies = fe_frequencies[2:], analytic_frequencies[1:]   # drop zeros
+        fe_frequencies, analytic_frequencies = fe_frequencies[:NUMBER_OF_BANDS - 1], analytic_frequencies[:NUMBER_OF_BANDS - 1]
+        nonzero = analytic_frequencies > ZERO_FREQUENCY_HZ
+        absolute_error = np.abs(fe_frequencies - analytic_frequencies)
+        assert np.all(absolute_error[~nonzero] < ZERO_FREQUENCY_HZ), (name, fe_frequencies, analytic_frequencies)
+        errors[name] = (absolute_error[nonzero] / analytic_frequencies[nonzero]).max()
+    return errors
+
+
+if __name__ == "__main__":
+    # 1. SLEPc vs dense solve at a generic k (square cell: degenerate pairs present at symmetric points too)
+    _, stiffness, mass, pairs = setup_cell(1.0, 1.0, 4, 4)
+    for wavenumber_x, wavenumber_y in [(0.3 * np.pi, 0.7 * np.pi), (np.pi, np.pi), (0.0, 0.0)]:
+        stiffness_reduced, mass_reduced = reduce_to_bloch(stiffness, mass, pairs, wavenumber_x, wavenumber_y, 1.0, 1.0)
+        slepc_frequencies, _ = solve_bloch_evp(stiffness_reduced, mass_reduced, number_of_bands=NUMBER_OF_BANDS)
+        dense_omega_squared = eigh(stiffness_reduced.toarray(), mass_reduced.toarray(), eigvals_only=True)
+        dense_frequencies = np.sqrt(np.clip(dense_omega_squared[:NUMBER_OF_BANDS], 0, None)) / (2 * np.pi)
+        assert np.allclose(slepc_frequencies, dense_frequencies, atol=1e-3, rtol=1e-8), \
+            (wavenumber_x, wavenumber_y, slepc_frequencies, dense_frequencies)
+    print("SLEPc matches dense eigh (including degenerate groups)")
+
+    # 2. + 3. analytic comparison with refinement, square and rectangular cell
+    for length_x, length_y, coarse_elements, fine_elements in [(1.0, 1.0, (8, 8), (16, 16)),
+                                                               (1.3, 0.7, (12, 6), (24, 12))]:
+        coarse_errors = compare_cell(length_x, length_y, *coarse_elements)
+        fine_errors = compare_cell(length_x, length_y, *fine_elements)
+        print(f"\ncell {length_x} x {length_y}: max relative error over the lowest {NUMBER_OF_BANDS - 1} bands")
+        print(f"{'k point':<16}{str(coarse_elements):>12}{str(fine_elements):>12}{'order':>8}")
+        for name in fine_errors:
+            convergence_order = np.log2(coarse_errors[name] / fine_errors[name])
+            print(f"{name:<16}{coarse_errors[name]:>12.2e}{fine_errors[name]:>12.2e}{convergence_order:>8.2f}")
+            assert convergence_order > MINIMUM_CONVERGENCE_ORDER, f"{name}: convergence order {convergence_order:.2f}"
+        worst_fine = max(fine_errors.values())
+        assert worst_fine < RELATIVE_TOLERANCE, f"FE vs analytic error {worst_fine:.2e} too large"
+    print("\nbare-cell bands match the analytic folded Reissner-Mindlin dispersion")
