@@ -14,10 +14,14 @@ from insertion_loss import (assert_comparable_sweeps, compute_insertion_loss,
 from radiation import radiated_power, build_radiation_points, radiation_efficiency
 
 from frequency_sweep import frequency_sweep_plate, build_frequency_grid, warn_if_grid_too_coarse
+from dispersion import unit_cell_element_counts, build_wavevector_path, dispersion_sweep, analytic_dispersion
+from postprocessing_dispersion import plot_dispersion
+import dataclasses
 
 if __name__ == "__main__":
 
-    do_frequency_sweep = True
+    do_frequency_sweep = False
+    do_dispersion = True  # bare unit cell (plate_config dimensions) band diagram; Lagrange, 16 elements per metre
     free_plate = True # switch: free (shaker-driven) vs. clamped-edge plate
     excitation = "force"  # "force" (allows both free_plate=True or False) or "motion" (needs free_plate=False)
     vamm_mode = "manual"  # "grid" or "manual"
@@ -34,8 +38,8 @@ if __name__ == "__main__":
     plate_config = PlateConfig(
     length = 1.1,
     width = 1,
-    thickness = 0.02,
-    nx = 50,
+    thickness = 0.005,
+    nx = 60,
     ny = 50,
     rho = 7850,
     mu = 77e9,
@@ -249,3 +253,27 @@ if __name__ == "__main__":
         plot_frequency_response(
             f_values=sweep_vamm.f_values, rms_velocity=sweep_vamm.rms_velocity,
             eigenfrequencies=eigenfrequencies_bare)
+
+
+# --- Dispersion diagram of the bare unit cell (no VAMM yet) ---
+    if do_dispersion:
+        unit_cell_length = 0.1          # = VAMM spacing; same material and thickness as plate_config
+        maximum_frequency_hz = 5000.0   # bands below this frequency (critical frequency of 5 mm steel: ~2.45 kHz)
+        unit_cell_elements_x, unit_cell_elements_y = unit_cell_element_counts(unit_cell_length, unit_cell_length)
+        unit_cell_config = dataclasses.replace(plate_config, length=unit_cell_length, width=unit_cell_length,
+                                               nx=unit_cell_elements_x, ny=unit_cell_elements_y)
+        _, unit_cell_function_space, _, unit_cell_problem = build_plate_problem(
+            unit_cell_config, deg=2, el_type="Lagrange")
+
+        wavevector_path = build_wavevector_path(unit_cell_length, unit_cell_length, points_per_segment=40)
+        dispersion_result = dispersion_sweep(
+            function_space=unit_cell_function_space, problem=unit_cell_problem, plate_config=unit_cell_config,
+            wavevector_path=wavevector_path, maximum_frequency_hz=maximum_frequency_hz)
+
+        plot_dispersion(
+            result=dispersion_result,
+            analytic_frequencies=analytic_dispersion(
+                wavevector_path, unit_cell_config, maximum_frequency_hz=1.1 * maximum_frequency_hz),
+            frequency_limit=maximum_frequency_hz,
+            title=f"Bare unit cell {unit_cell_length} x {unit_cell_length} m, "
+                  f"h = {plate_config.thickness * 1e3:.0f} mm")

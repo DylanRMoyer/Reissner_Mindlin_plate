@@ -20,54 +20,13 @@ from config import PlateConfig
 from problem_setup import build_plate_problem
 from periodic_bc import build_pairs
 from bloch_solver import assemble_unit_cell_matrices, reduce_to_bloch, solve_bloch_evp
+from dispersion import plate_constants, analytic_folded_frequencies
 
 NUMBER_OF_BANDS = 10
 RELATIVE_TOLERANCE = 5e-3          # FE vs analytic, finest mesh
 PRODUCTION_MESH_TOLERANCE = 1e-2   # FE vs analytic, coarse mesh = production density (16 elements per metre)
 MINIMUM_CONVERGENCE_ORDER = 3.0    # observed log2(coarse error / fine error); asymptotic theory gives 4
 ZERO_FREQUENCY_HZ = 1e-2
-
-
-def plate_constants(plate_config):
-    """Same definitions as weak_form.reissner_mindlin_constants, evaluated as plain floats."""
-    shear_modulus, lame_lambda = plate_config.mu, plate_config.lambda_
-    poisson_ratio = lame_lambda / (2 * (lame_lambda + shear_modulus))
-    youngs_modulus = shear_modulus * (3 * lame_lambda + 2 * shear_modulus) / (shear_modulus + lame_lambda)
-    thickness = plate_config.thickness
-    bending_rigidity = youngs_modulus * thickness ** 3 / (12 * (1 - poisson_ratio ** 2))
-    shear_stiffness = shear_modulus * thickness * 5.0 / 6.0
-    return dict(bending_rigidity=bending_rigidity, shear_stiffness=shear_stiffness, poisson_ratio=poisson_ratio,
-                mass_per_area=plate_config.rho * thickness,
-                rotary_inertia=plate_config.rho * thickness ** 3 / 12)
-
-
-def plane_wave_omega_squared(wavenumber_magnitude, constants):
-    """All three Reissner-Mindlin branches for a plane wave exp(i kappa e.x) in an infinite plate.
-
-    Rotation split into theta_parallel (along e) and theta_perpendicular. theta_parallel couples to w:
-        K = [[F k^2, -F k], [-F k, D k^2 + F]],  M = diag(rho h, rho h^3/12)   (theta_parallel = i * Phi)
-    theta_perpendicular is decoupled: omega^2 = (D (1 - nu)/2 k^2 + F) / (rho h^3 / 12)."""
-    bending, shear = constants["bending_rigidity"], constants["shear_stiffness"]
-    stiffness = np.array([[shear * wavenumber_magnitude ** 2, -shear * wavenumber_magnitude],
-                          [-shear * wavenumber_magnitude, bending * wavenumber_magnitude ** 2 + shear]])
-    mass = np.diag([constants["mass_per_area"], constants["rotary_inertia"]])
-    coupled_branches = eigh(stiffness, mass, eigvals_only=True)
-    twist_branch = (bending * (1 - constants["poisson_ratio"]) / 2 * wavenumber_magnitude ** 2 + shear) \
-        / constants["rotary_inertia"]
-    return np.concatenate([coupled_branches, [twist_branch]])
-
-
-def analytic_folded_frequencies(wavenumber_x, wavenumber_y, length_x, length_y, constants,
-                                number_of_bands, harmonic_range=6):
-    """Lowest bands of the infinite plate folded into the cell: kappa = k + G, G = 2 pi (m / Lx, n / Ly)."""
-    omega_squared = []
-    for m in range(-harmonic_range, harmonic_range + 1):
-        for n in range(-harmonic_range, harmonic_range + 1):
-            folded_magnitude = np.hypot(wavenumber_x + 2 * np.pi * m / length_x,
-                                        wavenumber_y + 2 * np.pi * n / length_y)
-            omega_squared.extend(plane_wave_omega_squared(folded_magnitude, constants))
-    omega_squared = np.sort(np.clip(omega_squared, 0.0, None))[:number_of_bands]
-    return np.sqrt(omega_squared) / (2 * np.pi)
 
 
 def setup_cell(length_x, length_y, elements_x, elements_y, shear_quadrature_degree=None):
