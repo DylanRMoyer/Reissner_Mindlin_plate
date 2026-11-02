@@ -43,7 +43,7 @@ def scipy_to_petsc_complex(matrix, comm):
 
 def solve_bloch_evp(stiffness_reduced, mass_reduced, number_of_bands: int = 10,
                     target_omega_squared: float = -1.0, ncv_factor: int = 4,
-                    guard_eigenpairs: int = 4, comm=MPI.COMM_SELF):
+                    guard_eigenpairs: int = 4, factorization_package: str = "mumps", comm=MPI.COMM_SELF):
     """Lowest Bloch bands of the reduced (complex Hermitian) problem K_r q = omega^2 M_r q.
 
     Needs the complex PETSc build (fenicsx-env-complex). Returns frequencies in Hz (sorted ascending)
@@ -53,6 +53,7 @@ def solve_bloch_evp(stiffness_reduced, mass_reduced, number_of_bands: int = 10,
         where K_r has a rigid-body null space.
     guard_eigenpairs: extra pairs requested beyond number_of_bands, so a degenerate partner of the
         last returned band is not cut off. Only number_of_bands are returned.
+    factorization_package: sparse LU used by shift-invert, "mumps" or "petsc" (PETSc's built-in LU).
     """
     if not np.issubdtype(PETSc.ScalarType, np.complexfloating):
         raise RuntimeError("solve_bloch_evp needs complex PETSc; run in fenicsx-env-complex")
@@ -66,6 +67,11 @@ def solve_bloch_evp(stiffness_reduced, mass_reduced, number_of_bands: int = 10,
     eigensolver.setProblemType(SLEPc.EPS.ProblemType.GHEP)   # complex Hermitian K_r, Hermitian positive definite M_r
     spectral_transform = eigensolver.getST()
     spectral_transform.setType(SLEPc.ST.Type.SINVERT)
+    linear_solver = spectral_transform.getKSP()
+    linear_solver.setType(PETSc.KSP.Type.PREONLY)          # one direct solve per application, no iterations
+    preconditioner = linear_solver.getPC()
+    preconditioner.setType(PETSc.PC.Type.LU)
+    preconditioner.setFactorSolverType(factorization_package)
     eigensolver.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
     eigensolver.setTarget(target_omega_squared)
     eigensolver.setDimensions(nev=number_requested, ncv=ncv_factor * number_requested)
