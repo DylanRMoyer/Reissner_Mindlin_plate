@@ -4,7 +4,8 @@ Run in fenicsx-env-complex. Checks:
 1. SLEPc bands agree with a dense eigensolver (no missed degenerate partners).
 2. FE bands match the analytic folded bands at points on Gamma-X-M-Gamma (including points close
    to Gamma) and at a generic k, for a square and a rectangular cell.
-3. Halving the element size reduces the error at close to the expected rate. Q2 eigenvalues converge
+3. The production mesh (16 elements per metre) stays within PRODUCTION_MESH_TOLERANCE of the
+   analytic bands, and halving the element size reduces the error at close to the expected rate. Q2 eigenvalues converge
    with order 4 asymptotically; full shear integration locks mildly on coarse meshes, so the observed
    order between 16x16 and 32x32 elements per metre is about 3.3 and the meshes are one level finer
    than with the reduced rule.
@@ -22,6 +23,7 @@ from bloch_solver import assemble_unit_cell_matrices, reduce_to_bloch, solve_blo
 
 NUMBER_OF_BANDS = 10
 RELATIVE_TOLERANCE = 5e-3          # FE vs analytic, finest mesh
+PRODUCTION_MESH_TOLERANCE = 1e-2   # FE vs analytic, coarse mesh = production density (16 elements per metre)
 MINIMUM_CONVERGENCE_ORDER = 3.0    # observed log2(coarse error / fine error); asymptotic theory gives 4
 ZERO_FREQUENCY_HZ = 1e-2
 
@@ -141,7 +143,7 @@ if __name__ == "__main__":
 
     # 2. + 3. analytic comparison with refinement, square and rectangular cell
     for length_x, length_y, coarse_elements, fine_elements in [(1.0, 1.0, (16, 16), (32, 32)),
-                                                               (1.3, 0.7, (24, 12), (48, 24))]:
+                                                               (1.3, 0.7, (21, 11), (42, 22))]:
         coarse_errors = compare_cell(length_x, length_y, *coarse_elements)
         fine_errors = compare_cell(length_x, length_y, *fine_elements)
         print(f"\ncell {length_x} x {length_y}: max relative error over the lowest {NUMBER_OF_BANDS - 1} bands")
@@ -150,6 +152,8 @@ if __name__ == "__main__":
             convergence_order = np.log2(coarse_errors[name] / fine_errors[name])
             print(f"{name:<16}{coarse_errors[name]:>12.2e}{fine_errors[name]:>12.2e}{convergence_order:>8.2f}")
             assert convergence_order > MINIMUM_CONVERGENCE_ORDER, f"{name}: convergence order {convergence_order:.2f}"
+        worst_coarse = max(coarse_errors.values())
+        assert worst_coarse < PRODUCTION_MESH_TOLERANCE, f"production mesh error {worst_coarse:.2e} too large"
         worst_fine = max(fine_errors.values())
         assert worst_fine < RELATIVE_TOLERANCE, f"FE vs analytic error {worst_fine:.2e} too large"
     print("\nbare-cell bands match the analytic folded Reissner-Mindlin dispersion")

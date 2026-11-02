@@ -43,7 +43,7 @@ def scipy_to_petsc_complex(matrix, comm):
 
 def solve_bloch_evp(stiffness_reduced, mass_reduced, number_of_bands: int = 10,
                     target_omega_squared: float = -1.0, ncv_factor: int = 4,
-                    guard_eigenpairs: int = 4, factorization_package: str = "mumps", comm=MPI.COMM_SELF):
+                    guard_eigenpairs: int = 4, factorization_package: str = "petsc", comm=MPI.COMM_SELF):
     """Lowest Bloch bands of the reduced (complex Hermitian) problem K_r q = omega^2 M_r q.
 
     Needs the complex PETSc build (fenicsx-env-complex). Returns frequencies in Hz (sorted ascending)
@@ -53,7 +53,9 @@ def solve_bloch_evp(stiffness_reduced, mass_reduced, number_of_bands: int = 10,
         where K_r has a rigid-body null space.
     guard_eigenpairs: extra pairs requested beyond number_of_bands, so a degenerate partner of the
         last returned band is not cut off. Only number_of_bands are returned.
-    factorization_package: sparse LU used by shift-invert, "mumps" or "petsc" (PETSc's built-in LU).
+    factorization_package: sparse LU used by shift-invert, "petsc" (built-in LU) or "mumps".
+        PETSc LU is faster up to about 16x16 elements (production mesh); MUMPS wins from about 32x32
+        (timings in the commit history).
     """
     if not np.issubdtype(PETSc.ScalarType, np.complexfloating):
         raise RuntimeError("solve_bloch_evp needs complex PETSc; run in fenicsx-env-complex")
