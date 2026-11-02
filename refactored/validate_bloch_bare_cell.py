@@ -2,12 +2,16 @@
 
 Run in fenicsx-env-complex. Checks:
 1. SLEPc bands agree with a dense eigensolver (no missed degenerate partners).
-2. FE bands match the analytic folded bands at points on Gamma-X-M-Gamma and at a generic k,
-   for a square and a rectangular cell.
-3. Halving the element size reduces the error at the expected rate (Q2 eigenvalues: order 4).
-4. Known spurious mode: Lagrange Q2 with 2x2 reduced shear quadrature has one extra zero-energy
-   (hourglass) mode at Gamma whose branch rises steeply away from Gamma. It is excluded at Gamma and
-   the comparison points keep |k| >= 0.25 pi / L, where the branch lies above the compared bands.
+2. FE bands match the analytic folded bands at points on Gamma-X-M-Gamma (including points close
+   to Gamma) and at a generic k, for a square and a rectangular cell.
+3. Halving the element size reduces the error at close to the expected rate. Q2 eigenvalues converge
+   with order 4 asymptotically; full shear integration locks mildly on coarse meshes, so the observed
+   order between 16x16 and 32x32 elements per metre is about 3.3 and the meshes are one level finer
+   than with the reduced rule.
+4. Spurious mode: Lagrange Q2 with the reduced 2x2 shear quadrature has one extra zero-energy
+   (hourglass) mode at Gamma whose branch rises steeply out of Gamma. The unit cell therefore uses full
+   3x3 shear integration (assemble_unit_cell_matrices default); this check confirms that the extra mode
+   exists with 2x2 and is gone with 3x3.
 """
 import numpy as np
 from scipy.linalg import eigh
@@ -18,7 +22,7 @@ from bloch_solver import assemble_unit_cell_matrices, reduce_to_bloch, solve_blo
 
 NUMBER_OF_BANDS = 10
 RELATIVE_TOLERANCE = 5e-3          # FE vs analytic, finest mesh
-MINIMUM_CONVERGENCE_ORDER = 3.0    # observed log2(coarse error / fine error); theory gives 4
+MINIMUM_CONVERGENCE_ORDER = 3.0    # observed log2(coarse error / fine error); asymptotic theory gives 4
 ZERO_FREQUENCY_HZ = 1e-2
 
 
@@ -64,23 +68,28 @@ def analytic_folded_frequencies(wavenumber_x, wavenumber_y, length_x, length_y, 
     return np.sqrt(omega_squared) / (2 * np.pi)
 
 
-def setup_cell(length_x, length_y, elements_x, elements_y):
+def setup_cell(length_x, length_y, elements_x, elements_y, shear_quadrature_degree=None):
     plate_config = PlateConfig(length=length_x, width=length_y, thickness=0.02, nx=elements_x, ny=elements_y,
                                rho=7850, mu=77e9, lambda_=115e9)
     _, function_space, _, problem = build_plate_problem(plate_config, deg=2, el_type="Lagrange")
-    stiffness, mass = assemble_unit_cell_matrices(function_space, problem)
+    stiffness, mass = assemble_unit_cell_matrices(function_space, problem,
+                                                  shear_quadrature_degree=shear_quadrature_degree)
     pairs = build_pairs(function_space, length_x, length_y)
     return plate_config, stiffness, mass, pairs
 
 
 def wavevector_samples(length_x, length_y):
-    """Gamma, points on Gamma-X-M-Gamma (all with |k| >= 0.25 pi / L) and one generic point."""
+    """Gamma, points on Gamma-X-M-Gamma (including two close to Gamma, where the hourglass branch
+    used to mix with the physical bands) and one generic point."""
     gamma, x_point, m_point = np.zeros(2), np.array([np.pi / length_x, 0]), np.array([np.pi / length_x, np.pi / length_y])
     samples = {"Gamma": gamma, "X": x_point, "M": m_point, "generic": np.array([0.3 * np.pi / length_x, 0.7 * np.pi / length_y])}
     for fraction in (0.25, 0.5, 0.75):
         samples[f"Gamma-X {fraction}"] = fraction * x_point
         samples[f"X-M {fraction}"] = x_point + fraction * (m_point - x_point)
         samples[f"M-Gamma {fraction}"] = m_point + fraction * (gamma - m_point)
+    for fraction in (0.05, 0.1):
+        samples[f"Gamma-X {fraction}"] = fraction * x_point
+        samples[f"Gamma-M {fraction}"] = fraction * m_point
     return samples
 
 
@@ -98,9 +107,9 @@ def compare_cell(length_x, length_y, elements_x, elements_y):
         if name == "Gamma":
             fe_zero_count = int(np.sum(fe_frequencies < ZERO_FREQUENCY_HZ))
             analytic_zero_count = int(np.sum(analytic_frequencies < ZERO_FREQUENCY_HZ))
-            assert (fe_zero_count, analytic_zero_count) == (2, 1), \
-                f"expected rigid + one hourglass zero mode in FE, got {fe_zero_count} vs analytic {analytic_zero_count}"
-            fe_frequencies, analytic_frequencies = fe_frequencies[2:], analytic_frequencies[1:]   # drop zeros
+            assert fe_zero_count == analytic_zero_count == 1, \
+                f"expected only the rigid zero mode, got FE {fe_zero_count} vs analytic {analytic_zero_count}"
+            fe_frequencies, analytic_frequencies = fe_frequencies[1:], analytic_frequencies[1:]   # drop rigid mode
         fe_frequencies, analytic_frequencies = fe_frequencies[:NUMBER_OF_BANDS - 1], analytic_frequencies[:NUMBER_OF_BANDS - 1]
         nonzero = analytic_frequencies > ZERO_FREQUENCY_HZ
         absolute_error = np.abs(fe_frequencies - analytic_frequencies)
@@ -121,9 +130,18 @@ if __name__ == "__main__":
             (wavenumber_x, wavenumber_y, slepc_frequencies, dense_frequencies)
     print("SLEPc matches dense eigh (including degenerate groups)")
 
+    # 4. hourglass mode: two zero modes at Gamma with reduced 2x2 shear integration, one with full 3x3
+    for shear_quadrature_degree, expected_zero_modes in [(2, 2), (4, 1)]:
+        _, stiffness, mass, pairs = setup_cell(1.0, 1.0, 8, 8, shear_quadrature_degree=shear_quadrature_degree)
+        gamma_frequencies, _ = solve_bloch_evp(*reduce_to_bloch(stiffness, mass, pairs, 0.0, 0.0, 1.0, 1.0),
+                                               number_of_bands=4)
+        zero_mode_count = int(np.sum(gamma_frequencies < ZERO_FREQUENCY_HZ))
+        assert zero_mode_count == expected_zero_modes, (shear_quadrature_degree, gamma_frequencies)
+    print("hourglass mode present with 2x2 shear quadrature, removed with 3x3")
+
     # 2. + 3. analytic comparison with refinement, square and rectangular cell
-    for length_x, length_y, coarse_elements, fine_elements in [(1.0, 1.0, (8, 8), (16, 16)),
-                                                               (1.3, 0.7, (12, 6), (24, 12))]:
+    for length_x, length_y, coarse_elements, fine_elements in [(1.0, 1.0, (16, 16), (32, 32)),
+                                                               (1.3, 0.7, (24, 12), (48, 24))]:
         coarse_errors = compare_cell(length_x, length_y, *coarse_elements)
         fine_errors = compare_cell(length_x, length_y, *fine_elements)
         print(f"\ncell {length_x} x {length_y}: max relative error over the lowest {NUMBER_OF_BANDS - 1} bands")

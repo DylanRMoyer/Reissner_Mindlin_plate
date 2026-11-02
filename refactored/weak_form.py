@@ -90,15 +90,20 @@ def shear_force(u, F):
 
 # --- Define weak form ---
 
-def define_weak_form(function_space, problem: PlateProblemConstants):
+def define_weak_form(function_space, problem: PlateProblemConstants, shear_quadrature_degree: int | None = None):
+    """shear_quadrature_degree: None keeps the reduced rule 2*deg - 2 (2x2 Gauss for deg 2), used by the
+    validated forced-response pipeline. Pass 2*deg (3x3 for deg 2) for full integration: removes the
+    spurious hourglass mode of Lagrange Q2 at the cost of mild shear locking (needed for the Bloch cell)."""
 
     u_ = ufl.TestFunction(function_space)
     du = ufl.TrialFunction(function_space)
 
     deg = function_space.ufl_element().degree
+    if shear_quadrature_degree is None:
+        shear_quadrature_degree = 2 * deg - 2
 
     dx = ufl.Measure("dx")
-    dx_shear = ufl.Measure("dx", metadata={"quadrature_degree": 2 * deg - 2})
+    dx_shear = ufl.Measure("dx", metadata={"quadrature_degree": shear_quadrature_degree})
 
     m = (problem.rho_const * problem.thick * ufl.inner(du[0], u_[0]) * dx
          + problem.rho_const * problem.thick**3/12 * ufl.inner(extract_theta(du), extract_theta(u_)) * dx)

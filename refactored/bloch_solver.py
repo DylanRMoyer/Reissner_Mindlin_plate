@@ -8,10 +8,17 @@ from augmented_system import petsc_to_scipy
 from periodic_bc import build_T
 
 
-def assemble_unit_cell_matrices(function_space, problem):
+def assemble_unit_cell_matrices(function_space, problem, shear_quadrature_degree=None):
     """Stiffness and mass of the free unit cell (no Dirichlet BCs) as scipy CSR matrices.
-    The periodic coupling is applied afterwards through the reduction matrix T(k)."""
-    mass_form, _, stiffness_form = define_weak_form(function_space, problem)
+    The periodic coupling is applied afterwards through the reduction matrix T(k).
+
+    shear_quadrature_degree: None means full integration (2 * degree, i.e. 3x3 Gauss for degree 2).
+    The reduced 2x2 rule of the forced-response pipeline gives Lagrange Q2 a zero-energy hourglass mode
+    that repeats every element, fits any periodic cell and shows up as a spurious branch out of Gamma."""
+    if shear_quadrature_degree is None:
+        shear_quadrature_degree = 2 * function_space.ufl_element().degree
+    mass_form, _, stiffness_form = define_weak_form(function_space, problem,
+                                                    shear_quadrature_degree=shear_quadrature_degree)
     stiffness = petsc_to_scipy(assemble_plate_matrix(stiffness_form, [])).tocsr()
     mass = petsc_to_scipy(assemble_plate_matrix(mass_form, [])).tocsr()
     return stiffness, mass
