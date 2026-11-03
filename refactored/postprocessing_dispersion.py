@@ -5,13 +5,18 @@ import matplotlib.pyplot as plt
 
 
 def plot_dispersion(result, analytic_frequencies=None, frequency_limit=None,
-                    title="Dispersion diagram", save_path=None):
+                    title="Dispersion diagram", save_path=None, analytic_label="analytic (folded plate)",
+                    bare_frequencies=None, resonator_frequencies_hz=None):
     """Band diagram along the wavevector path (Gamma-X-M-Gamma or Gamma-X-M-Y-Gamma).
 
     result: DispersionResult from dispersion.dispersion_sweep.
     analytic_frequencies: optional, shape (n_k, n_bands) on the same path (dispersion.analytic_dispersion),
         drawn as thin grey lines underneath as a check for the bare cell. Compute it slightly beyond the
         y-limit so the lines reach the top edge.
+    analytic_label: legend label of the analytic overlay (e.g. the plane-wave expansion for a resonator cell).
+    bare_frequencies: optional bare-plate bands on the same path, drawn as light dashed lines, to show what
+        the resonators change.
+    resonator_frequencies_hz: optional list of resonator frequencies sqrt(k/m)/2pi, drawn as horizontal lines.
     frequency_limit: optional upper y-limit in Hz; defaults to the sweep's maximum_frequency_hz, if set.
     save_path: if given, saves the figure instead of showing it.
 
@@ -24,7 +29,16 @@ def plot_dispersion(result, analytic_frequencies=None, frequency_limit=None,
     if analytic_frequencies is not None:
         for band_index in range(analytic_frequencies.shape[1]):
             ax.plot(path.path_coordinate, analytic_frequencies[:, band_index], color="0.6", linewidth=0.8,
-                    zorder=1, label="analytic (folded plate)" if band_index == 0 else None)
+                    zorder=1, label=analytic_label if band_index == 0 else None)
+
+    if bare_frequencies is not None:
+        for band_index in range(bare_frequencies.shape[1]):
+            ax.plot(path.path_coordinate, bare_frequencies[:, band_index], color="0.75", linewidth=0.8,
+                    linestyle="--", zorder=0, label="bare plate" if band_index == 0 else None)
+
+    for resonator_index, resonator_frequency in enumerate(resonator_frequencies_hz or []):
+        ax.axhline(resonator_frequency, color="C3", linewidth=0.8, linestyle=":", zorder=0,
+                   label="resonator frequency $f_r$" if resonator_index == 0 else None)
 
     for band_index in range(result.frequencies.shape[1]):
         ax.plot(path.path_coordinate, result.frequencies[:, band_index].real, linestyle="none", marker="o",

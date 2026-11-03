@@ -87,8 +87,8 @@ def pad_with_nan(rows, width):
 
 
 def dispersion_sweep(function_space, problem, plate_config, wavevector_path, maximum_frequency_hz=None,
-                     number_of_bands=None, keep_eigenvectors=False, factorization_package="petsc"):
-    """Solve the Bloch eigenproblem at every wavevector of the path for the bare unit cell.
+                     number_of_bands=None, vamm_list=None, keep_eigenvectors=False, factorization_package="petsc"):
+    """Solve the Bloch eigenproblem at every wavevector of the path for the unit cell, bare or with resonators.
 
     Give exactly one of
       maximum_frequency_hz: all bands below this frequency. The band count starts from estimate_band_count
@@ -98,26 +98,32 @@ def dispersion_sweep(function_space, problem, plate_config, wavevector_path, max
 
     The cell is plate_config.length x plate_config.width; function_space must be Lagrange (nodal DOFs for
     the periodic pairing) and the run needs fenicsx-env-complex. Everything k-independent (K, M, DOF pairs)
-    is built once before the loop. keep_eigenvectors stores the reduced eigenvectors for branch tracking."""
+    is built once before the loop. keep_eigenvectors stores the reduced eigenvectors for branch tracking;
+    with resonators, the last len(vamm_list) entries of each eigenvector are the resonator displacements.
+
+    vamm_list: optional resonators in the cell (cell coordinates, registered indices); undamped here."""
     if (maximum_frequency_hz is None) == (number_of_bands is None):
         raise ValueError("give exactly one of maximum_frequency_hz and number_of_bands")
     length_x, length_y = plate_config.length, plate_config.width
-    stiffness, mass = assemble_unit_cell_matrices(function_space, problem)
+    number_of_resonators = len(vamm_list) if vamm_list else 0
+    stiffness, mass = assemble_unit_cell_matrices(function_space, problem, vamm_list=vamm_list)
     pairs = build_pairs(function_space, length_x, length_y)
 
     bands_to_request = number_of_bands if number_of_bands is not None \
-        else estimate_band_count(plate_config, maximum_frequency_hz) + 2
+        else estimate_band_count(plate_config, maximum_frequency_hz) + number_of_resonators + 2
     number_of_wavevectors = len(wavevector_path.wavevectors)
     print(f"Dispersion sweep: {number_of_wavevectors} wavevectors, "
           + (f"bands below {maximum_frequency_hz:.0f} Hz" if maximum_frequency_hz else f"{number_of_bands} bands")
-          + f", {len(pairs['independent'])} independent DOFs")
+          + f", {len(pairs['independent']) + number_of_resonators} independent DOFs"
+          + (f" ({number_of_resonators} resonator)" if number_of_resonators else ""))
 
     frequency_rows, eigenvector_rows = [], []
     sweep_start = time.perf_counter()
     for step, (wavenumber_x, wavenumber_y) in enumerate(wavevector_path.wavevectors):
         step_start = time.perf_counter()
         stiffness_reduced, mass_reduced = reduce_to_bloch(stiffness, mass, pairs, wavenumber_x, wavenumber_y,
-                                                          length_x, length_y)
+                                                          length_x, length_y,
+                                                          number_of_extra_dofs=number_of_resonators)
         while True:
             band_frequencies, band_vectors = solve_bloch_evp(stiffness_reduced, mass_reduced,
                                                              number_of_bands=bands_to_request,
@@ -234,3 +240,106 @@ def bare_cell_relative_error(result, analytic_frequencies, frequency_margin=0.05
             relative_error = np.abs(fe_row - analytic_row)[nonzero] / analytic_row[nonzero]
             worst_relative_error = max(worst_relative_error, relative_error.max())
     return worst_relative_error
+
+
+# --- Analytic reference with resonators: plane-wave expansion (PWE), one point resonator per cell ---
+
+def resonator_force_factor(resonator_stiffness, resonator_mass, angular_frequency):
+    """Z(omega) = k m omega^2 / (k - m omega^2): force on the plate per unit plate deflection at the attachment
+    (= dynamic effective mass m_eff(omega) times omega^2). Derivation: resonator -m w^2 u = k (w0 - u)."""
+    return resonator_stiffness * resonator_mass * angular_frequency ** 2 \
+        / (resonator_stiffness - resonator_mass * angular_frequency ** 2)
+
+
+def plane_wave_point_compliance(wavenumber_magnitude, angular_frequency, constants, theory):
+    """w response per unit point force for one plane wave (before dividing by the cell area).
+    kirchhoff: 1 / (D k^4 - rho h w^2). reissner_mindlin: w-entry of (K(k) - w^2 M)^-1 for the coupled
+    (w, theta_parallel) 2x2 system of plane_wave_omega_squared; the twist branch does not couple to a point force."""
+    bending, shear = constants["bending_rigidity"], constants["shear_stiffness"]
+    if theory == "kirchhoff":
+        return 1.0 / (bending * wavenumber_magnitude ** 4 - constants["mass_per_area"] * angular_frequency ** 2)
+    dynamic_ww = shear * wavenumber_magnitude ** 2 - constants["mass_per_area"] * angular_frequency ** 2
+    dynamic_rotation = bending * wavenumber_magnitude ** 2 + shear - constants["rotary_inertia"] * angular_frequency ** 2
+    return dynamic_rotation / (dynamic_ww * dynamic_rotation - (shear * wavenumber_magnitude) ** 2)
+
+
+def resonator_dispersion_function(angular_frequency, wavenumber_x, wavenumber_y, length_x, length_y, constants,
+                                  resonator_stiffness, resonator_mass, theory, harmonic_cutoff):
+    """h(omega) = 1 - Z(omega)/A * sum_G g(|k + G|, omega); its roots are the Bloch frequencies of a plate with
+    one point resonator per cell. For Reissner-Mindlin the sum diverges like log(cutoff) (point force on a
+    shear-deformable plate); harmonic_cutoff (max |m|, |n|) then sets the effective attachment size."""
+    harmonics = np.arange(-harmonic_cutoff, harmonic_cutoff + 1)
+    folded_x = wavenumber_x + 2 * np.pi * harmonics[:, None] / length_x
+    folded_y = wavenumber_y + 2 * np.pi * harmonics[None, :] / length_y
+    with np.errstate(divide="ignore"):          # exactly on a pole the term is infinite; h is then not a root
+        compliance_sum = plane_wave_point_compliance(np.hypot(folded_x, folded_y), angular_frequency, constants,
+                                                     theory).sum()
+    cell_area = length_x * length_y
+    return 1.0 - resonator_force_factor(resonator_stiffness, resonator_mass, angular_frequency) \
+        / cell_area * compliance_sum
+
+
+def analytic_resonator_frequencies(wavenumber_x, wavenumber_y, plate_config, resonator_stiffness, resonator_mass,
+                                   maximum_frequency_hz, theory="reissner_mindlin", harmonic_cutoff=12,
+                                   points_per_interval=200):
+    """Bloch frequencies (Hz, sorted) below maximum_frequency_hz of the plate with one point resonator per cell.
+
+    Roots of resonator_dispersion_function lie between its poles (bare folded frequencies and the resonator
+    frequency); each interval is scanned and sign changes with a small |h| are refined with brentq.
+    Degenerate bare frequencies: a point resonator couples to one combination of the degenerate plane waves;
+    the other (multiplicity - 1) combinations vanish at the attachment and keep the bare frequency, so they
+    are added explicitly."""
+    from scipy.optimize import brentq
+    constants = plate_constants(plate_config)
+    length_x, length_y = plate_config.length, plate_config.width
+    harmonics = np.arange(-harmonic_cutoff, harmonic_cutoff + 1)
+    folded = np.hypot(wavenumber_x + 2 * np.pi * harmonics[:, None] / length_x,
+                      wavenumber_y + 2 * np.pi * harmonics[None, :] / length_y).ravel()
+    bare_frequencies = np.array(sorted(np.sqrt(max(plane_wave_omega_squared(magnitude, constants)[0], 0.0))
+                                       / (2 * np.pi) for magnitude in folded))
+    bare_frequencies = bare_frequencies[bare_frequencies < 1.2 * maximum_frequency_hz]
+    resonator_frequency = np.sqrt(resonator_stiffness / resonator_mass) / (2 * np.pi)
+
+    distinct_poles, multiplicities = [], []
+    for frequency in bare_frequencies:
+        if distinct_poles and np.isclose(frequency, distinct_poles[-1], rtol=1e-9, atol=1e-9):
+            multiplicities[-1] += 1
+        else:
+            distinct_poles.append(frequency)
+            multiplicities.append(1)
+    poles = np.sort(np.concatenate([distinct_poles, [resonator_frequency]]))
+
+    def dispersion_function(frequency_hz):
+        return resonator_dispersion_function(2 * np.pi * frequency_hz, wavenumber_x, wavenumber_y, length_x,
+                                             length_y, constants, resonator_stiffness, resonator_mass, theory,
+                                             harmonic_cutoff)
+
+    roots = []
+    interval_edges = np.concatenate([[0.0], poles, [1.2 * maximum_frequency_hz]])
+    for lower, upper in zip(interval_edges[:-1], interval_edges[1:]):
+        if upper - lower < 1e-9:
+            continue
+        span = upper - lower
+        grid = np.linspace(lower + 1e-9 * span, upper - 1e-9 * span, points_per_interval)
+        values = np.array([dispersion_function(frequency) for frequency in grid])
+        for index in np.flatnonzero(np.sign(values[:-1]) != np.sign(values[1:])):
+            root = brentq(dispersion_function, grid[index], grid[index + 1], xtol=1e-10)
+            if abs(dispersion_function(root)) < 1e-6:            # a root, not a jump across a pole
+                roots.append(root)
+    unchanged = [pole for pole, multiplicity in zip(distinct_poles, multiplicities) for _ in range(multiplicity - 1)]
+    if distinct_poles[0] < 1e-9:
+        # Gamma: plate and resonator translating together (w = u = const) is a zero mode; h(omega) was divided
+        # by omega^2 in the derivation, so this root has to be added by hand
+        unchanged.append(0.0)
+    frequencies = np.sort(np.concatenate([roots, unchanged]))
+    return frequencies[frequencies <= maximum_frequency_hz]
+
+
+def analytic_resonator_dispersion(wavevector_path, plate_config, resonator_stiffness, resonator_mass,
+                                  maximum_frequency_hz, theory="reissner_mindlin", harmonic_cutoff=24):
+    """analytic_resonator_frequencies along the whole path, NaN-padded, shape (n_k, n_bands), Hz."""
+    rows = [analytic_resonator_frequencies(wavenumber_x, wavenumber_y, plate_config, resonator_stiffness,
+                                           resonator_mass, maximum_frequency_hz, theory=theory,
+                                           harmonic_cutoff=harmonic_cutoff)
+            for wavenumber_x, wavenumber_y in wavevector_path.wavevectors]
+    return pad_with_nan(rows, max(len(row) for row in rows))

@@ -1,32 +1,64 @@
+import dataclasses
 import numpy as np
+import scipy.sparse as sp
 from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 from weak_form import define_weak_form
 from solve import assemble_plate_matrix
-from augmented_system import petsc_to_scipy
+from augmented_system import (petsc_to_scipy, augment_stiffness_matrix, augment_mass_matrix,
+                              validate_augmented_system)
+from point_coupling import compute_phi_and_dofs_for_vamm_list
 from periodic_bc import build_T
 
 
-def assemble_unit_cell_matrices(function_space, problem, shear_quadrature_degree=None):
+def assemble_unit_cell_matrices(function_space, problem, shear_quadrature_degree=None, vamm_list=None):
     """Stiffness and mass of the free unit cell (no Dirichlet BCs) as scipy CSR matrices.
     The periodic coupling is applied afterwards through the reduction matrix T(k).
 
     shear_quadrature_degree: None means full integration (2 * degree, i.e. 3x3 Gauss for degree 2).
     The reduced 2x2 rule of the forced-response pipeline gives Lagrange Q2 a zero-energy hourglass mode
-    that repeats every element, fits any periodic cell and shows up as a spurious branch out of Gamma."""
+    that repeats every element, fits any periodic cell and shows up as a spurious branch out of Gamma.
+
+    vamm_list: optional resonators inside the cell (positions in cell coordinates, indices registered).
+    The plate matrices are augmented first, with the validated augment_stiffness_matrix/augment_mass_matrix,
+    one extra DOF per resonator appended after the plate DOFs; reduce_to_bloch then passes those DOFs through
+    unchanged. The Bloch eigenproblem is undamped, so the resonators' gamma is set to 0 here."""
     if shear_quadrature_degree is None:
         shear_quadrature_degree = 2 * function_space.ufl_element().degree
     mass_form, _, stiffness_form = define_weak_form(function_space, problem,
                                                     shear_quadrature_degree=shear_quadrature_degree)
-    stiffness = petsc_to_scipy(assemble_plate_matrix(stiffness_form, [])).tocsr()
-    mass = petsc_to_scipy(assemble_plate_matrix(mass_form, [])).tocsr()
-    return stiffness, mass
+    stiffness_petsc = assemble_plate_matrix(stiffness_form, [])
+    mass_petsc = assemble_plate_matrix(mass_form, [])
+
+    if vamm_list:
+        if any(vamm.gamma != 0 for vamm in vamm_list):
+            print("Note: Bloch eigenproblem is undamped; resonator gamma set to 0 for the unit cell.")
+        undamped_vamm_list = [dataclasses.replace(vamm, gamma=0.0) for vamm in vamm_list]
+        phi_list, global_dofs_parent_list, _ = compute_phi_and_dofs_for_vamm_list(
+            domain=function_space.mesh, function_space=function_space, vamm_list=undamped_vamm_list)
+        plate_stiffness_petsc = stiffness_petsc
+        stiffness_petsc, number_of_plate_dofs = augment_stiffness_matrix(
+            K=plate_stiffness_petsc, vamm_list=undamped_vamm_list, phi_list=phi_list,
+            global_dofs_parent_list=global_dofs_parent_list)
+        mass_petsc = augment_mass_matrix(M=mass_petsc, vamm_list=undamped_vamm_list)
+        validate_augmented_system(
+            K_aug=stiffness_petsc, M_aug=mass_petsc, K=plate_stiffness_petsc, n_plate=number_of_plate_dofs,
+            vamm_list=undamped_vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list)
+
+    return petsc_to_scipy(stiffness_petsc).tocsr(), petsc_to_scipy(mass_petsc).tocsr()
 
 
-def reduce_to_bloch(stiffness, mass, pairs, wavenumber_x, wavenumber_y, length_x, length_y):
-    """K_r = T^H K T and M_r = T^H M T for the Bloch wavevector (wavenumber_x, wavenumber_y)."""
+def reduce_to_bloch(stiffness, mass, pairs, wavenumber_x, wavenumber_y, length_x, length_y,
+                    number_of_extra_dofs=0):
+    """K_r = T^H K T and M_r = T^H M T for the Bloch wavevector (wavenumber_x, wavenumber_y).
+
+    number_of_extra_dofs: DOFs appended after the plate DOFs (one per resonator). They lie inside the cell,
+    have no periodic partner and stay independent: T is extended to blockdiag(T(k), I)."""
     reduction_matrix = build_T(pairs, wavenumber_x, wavenumber_y, length_x, length_y)
+    if number_of_extra_dofs:
+        reduction_matrix = sp.block_diag([reduction_matrix, sp.identity(number_of_extra_dofs, dtype=complex)],
+                                         format="csr")
     reduction_matrix_hermitian = reduction_matrix.conj().T
     stiffness_reduced = (reduction_matrix_hermitian @ stiffness @ reduction_matrix).tocsr()
     mass_reduced = (reduction_matrix_hermitian @ mass @ reduction_matrix).tocsr()
