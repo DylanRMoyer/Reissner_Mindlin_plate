@@ -236,7 +236,9 @@ Hysteretic convention K(1 + iγ).
 - **Resonator damping (non-proportional):** first-order change of λ purely imaginary (undamped problem is
   Hermitian), real shift O(γ²); can be larger near avoided crossings (second-order term divided by the frequency
   difference).
-- **Measured** (dense non-Hermitian solve, 0.1 m cell, f_r 1.2 kHz, μ 0.25, whole path, bands < 5 kHz):
+- **Measured** (0.1 m cell, f_r 1.2 kHz, μ 0.25, whole path, bands < 5 kHz; reproducible with
+  `validate_bloch_damping.py`, report `validation_bloch_damping.md`, which adds the exact bare-cell limit, γ² scaling
+  and a second-order perturbation check explaining the excess over γ²/8 at hybridized modes):
 
 | plate γ | resonator γ | max shift Re f | γ²/8 |
 |---|---|---|---|
