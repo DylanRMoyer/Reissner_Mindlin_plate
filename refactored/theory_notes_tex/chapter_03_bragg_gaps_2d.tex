@@ -1,0 +1,166 @@
+% =====================================================================
+% Chapter 3: Bragg gaps in 2D -- why X and M do not line up
+% Theory session, dispersion branch (Nov 2026)
+% Requires: amsmath, amssymb
+% Include in the main file with  \include{chapter_03_bragg_gaps_2d}
+% =====================================================================
+
+\chapter{Bragg gaps in 2D: why $X$ and $M$ do not line up}
+\label{ch:bragg_2d}
+
+This chapter applies the two-level model of Chapter~\ref{ch:two_level} to
+the two-dimensional lattice. The model is the same: a rigid point mass $m$ per
+cell, mass ratio $\mu = m/(\rho h A) = 0.25$, bare frequencies $f^0$, and the
+rule that \emph{only the combination of degenerate waves with an antinode at
+the mass is affected}; all other combinations have a node at the mass and
+keep their bare frequency.
+
+% ---------------------------------------------------------------------
+\section{The symmetry points $X$ and $M$}
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+ & $X$ & $M$ \\
+\hline
+bare degeneracy & 2 waves $(\pm\pi/a, 0)$ & 4 waves $(\pm\pi/a, \pm\pi/a)$ \\
+bare frequency & $1190\,\mathrm{Hz}$ & $2380\,\mathrm{Hz}$ \\
+coupling combination & $\cos(\pi x/a)$ & $\cos(\pi x/a)\cos(\pi y/a)$ \\
+$|w(\mathbf{x}_0)|^2$ & $2/(\rho h A)$ & $4/(\rho h A)$ \\
+mass-loaded value & $\lambda^0/(1+2\mu)$: $972\,\mathrm{Hz}$ & $\lambda^0/(1+4\mu)$: $1683\,\mathrm{Hz}$ \\
+unchanged & 1 mode at $1190\,\mathrm{Hz}$ & 3 modes at $2380\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{Where the factor 4 at $M$ comes from.}
+At the mass, all four plane waves add in phase. Normalized over the cell,
+$\cos^2(\pi x/a)\cos^2(\pi y/a)$ averages to $1/4$, so the squared peak value
+is $|w(\mathbf{x}_0)|^2 = 4/(\rho h A)$. The Rayleigh quotient
+$\omega^2 = \text{stiffness}/\text{mass}$ then gives
+\begin{align}
+  \lambda &= \frac{\lambda^0}{1 + m\,|w(\mathbf{x}_0)|^2} = \frac{\lambda^0}{1 + 4\mu}, \\
+  f &= \frac{2380\,\mathrm{Hz}}{\sqrt{1 + 4\cdot 0.25}} = \frac{2380\,\mathrm{Hz}}{\sqrt{2}} \approx 1683\,\mathrm{Hz}.
+\end{align}
+The stiffness of the mode is unchanged ($\lambda^0$); only its effective mass
+grows, from $1$ to $1 + 4\mu$, compared with $1 + 2\mu$ at $X$.
+
+\paragraph{Where the three unchanged modes come from.}
+These are the other three combinations of the four waves; each has a node at
+the mass. This is the general ``$d - 1$ unchanged modes'' rule: of a
+$d$-fold degenerate group, only one combination couples to a single point
+resonator.
+
+% ---------------------------------------------------------------------
+\section{Directional gap versus complete gap}
+
+\begin{itemize}
+  \item \textbf{Directional gap:} no band in a frequency interval for
+        $\mathbf{k}$ along one direction. At $X$, waves travelling along $x$
+        have nothing between $972$ and $1190\,\mathrm{Hz}$.
+  \item \textbf{Complete gap:} no band in the interval for \emph{any}
+        $\mathbf{k}$, i.e.\ nothing anywhere on $\Gamma$--$X$--$M$--$\Gamma$.
+\end{itemize}
+For a complete gap, the \emph{maximum} of band 1 over all $\mathbf{k}$ must
+lie below the \emph{minimum} of band 2 over all $\mathbf{k}$. Bare band 1
+peaks at $M$; band 2 starts lowest at $X$. In the two-level model:
+\begin{equation}
+  \text{band 1 at } M:\ 1683\,\mathrm{Hz} \;>\; \text{band 2 at } X:\ 1190\,\mathrm{Hz},
+\end{equation}
+so the bands overlap and there is no complete gap.
+Between $1190$ and $1683\,\mathrm{Hz}$ diagonally travelling waves still
+propagate, although waves along $x$ are blocked.
+
+% ---------------------------------------------------------------------
+\section{Why bending plates make complete Bragg gaps hard}
+
+The Bragg frequency at $M$ is higher than at $X$ because
+$|\mathbf{k}_M| = \sqrt{2}\,|\mathbf{k}_X|$.
+\begin{itemize}
+  \item Non-dispersive waves ($f \propto \kappa$; membrane, sound): $M$ lies
+        only $\sqrt{2} \approx 1.41\times$ above $X$.
+  \item Bending waves ($f \propto \kappa^2$): $M$ lies $2\times$ above $X$.
+\end{itemize}
+The directional gaps therefore lie much further apart in frequency and overlap
+less easily. With a rigid mass alone, band 1 at $M$ drops below band 2 at $X$
+only if
+\begin{equation}
+  \frac{2380\,\mathrm{Hz}}{\sqrt{1 + 4\mu}} < 1190\,\mathrm{Hz}
+  \;\Longleftrightarrow\; \sqrt{1+4\mu} > 2
+  \;\Longleftrightarrow\; 1 + 4\mu > 4
+  \;\Longleftrightarrow\; \mu > 0.75,
+\end{equation}
+i.e.\ a resonator mass of three quarters of the plate mass.
+
+\emph{Caveat:} these are two-level-model estimates for a rigid mass. At
+$\mu = 0.25$ the model is rough, and FE would differ; the point is the
+mechanism, not the numbers.
+
+\paragraph{Link to the actual result.}
+With the $1.2\,\mathrm{kHz}$ \emph{resonator} ($\mu = 0.25$), FE gives band 1
+at $M$ at $1031\,\mathrm{Hz}$, not $1683\,\mathrm{Hz}$. Something pulls band 1
+down in all directions at once: the local resonance
+(next chapter).
+
+% ---------------------------------------------------------------------
+\section{Check questions with answers}
+
+\paragraph{Question 1.} \emph{Why does the antinode combination at $M$ lose
+more frequency than the one at $X$, although the mass is the same?}
+
+\emph{Answer.} At $M$ four waves overlap instead of two. The normalized
+pattern $\cos(\pi x/a)\cos(\pi y/a)$ averages to $1/4$ in $\cos^2\cos^2$, so
+its peak is higher: $|w(\mathbf{x}_0)|^2 = 4/(\rho h A)$ instead of
+$2/(\rho h A)$. With $\omega^2 = \text{stiffness}/\text{mass}$, the stiffness
+$\lambda^0$ stays, and the effective mass grows to $1 + 4\mu$ instead of
+$1 + 2\mu$. In short: at the mass, four plane waves add in phase.
+
+\paragraph{Question 2.} \emph{A rigid point mass can never create a gap below
+the first Bragg frequency ($\approx 1190\,\mathrm{Hz}$). Why not, and what does
+a spring-mounted resonator have that a rigid mass does not?}
+
+\emph{Answer.} Gaps need crossings. Below about $1190\,\mathrm{Hz}$, band 1 has
+no partner at the same $\mathbf{k}$ and frequency (the lowest crossing is at
+$X$). Without a crossing there is no first-order coupling, only the uniform
+mass loading, which lowers band 1 smoothly but cannot open a gap.
+
+A resonator brings its own oscillation: a flat branch at $f_r$. The plate band
+crosses it at every $\mathbf{k}$ where it passes $f_r$, independently of the
+lattice spacing; each crossing becomes an avoided crossing, giving a gap set
+by the tuning instead of the spacing. (Terminology: ``interference'' belongs
+to the Bragg picture, reflections adding in phase; for the resonator the
+mechanism is \emph{coupling at a crossing}.) Equivalently: a constant $m$
+cannot change sign, but the effective mass $m_\mathrm{eff}(\omega)$ of a
+resonator becomes large and negative just above $f_r$.
+
+\paragraph{Question 3.} \emph{With a rectangular lattice,
+$0.1 \times 0.15\,\mathrm{m}$, is a complete Bragg gap easier or harder?}
+
+\emph{Answer.} Harder, but not because $M$ loses waves to $Y$: at $M$ of a
+rectangle the four waves $(\pm\pi/L_x, \pm\pi/L_y)$ still have equal length,
+so $M$ stays 4-fold. What changes is that the Bragg frequencies spread apart.
+Bare estimates with $f \propto \kappa^2$, scaled from $1190\,\mathrm{Hz}$ at
+$X$:
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+Point & $\kappa^2$ & Bare $f$ (estimate) \\
+\hline
+$Y = (0, \pi/0.15)$ & $(\pi/0.15)^2$ & $1190 \cdot (0.1/0.15)^2 \approx 529\,\mathrm{Hz}$ \\
+$X = (\pi/0.1, 0)$ & $(\pi/0.1)^2$ & $1190\,\mathrm{Hz}$ \\
+$M$ & sum of both & $1190 + 529 \approx 1719\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+For a complete gap, the maximum of band 1 (at $M$, $1719\,\mathrm{Hz}$) would
+have to fall below the minimum of band 2, now at $Y$ ($529\,\mathrm{Hz}$): a
+ratio of $3.25$, compared with $2$ for the square cell.
+
+\paragraph{General rule.} Complete Bragg gaps favour lattices whose
+Brillouin zone is as close to a circle as possible, so that all zone-edge
+points have similar $|\mathbf{k}|$. For a triangular (hexagonal) lattice the
+ratio between the farthest and the nearest zone-edge point is
+$2/\sqrt{3} \approx 1.15$ in $|\mathbf{k}|$, about $1.33$ in $f$ for bending
+waves, compared with $2$ for the square lattice (candidate for the stage~7
+parameter study). Local-resonance gaps care much less about lattice shape,
+because the flat resonator branch is the same in every direction.

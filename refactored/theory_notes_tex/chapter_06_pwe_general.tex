@@ -1,0 +1,428 @@
+% =====================================================================
+% Chapter 6: The plane-wave condition as a general tool
+% Theory session, dispersion branch (Nov 2026)
+% Requires: amsmath, amssymb
+% Include in the main file with  \include{chapter_06_pwe_general}
+% =====================================================================
+
+\chapter{The plane-wave condition as a general tool}
+\label{ch:pwe_general}
+
+This chapter takes the plane-wave expansion (PWE) condition of
+Chapter~\ref{ch:gap_position} and asks what can be read off it without solving
+it: how many bands exist, where they can lie, what happens to them when the
+resonator is detuned, and what changes with more than one resonator per cell.
+Numbers come from the Reissner--Mindlin (RM) plane-wave model with $\mu = 0.25$
+and $f_r = 1200\,\mathrm{Hz}$ unless stated otherwise.
+
+\begin{center}
+\begin{tabular}{|l|p{0.62\textwidth}|}
+\hline
+Symbol & Meaning \\
+\hline
+$\lambda = \omega^2$ & eigenvalue of one dot in the diagram \\
+$\lambda_n^0$ & bare plate eigenvalue of wave $n$ at this $\mathbf{k}$ \\
+$\lambda_r = k_s/m$ & the resonator's own eigenvalue ($k_s$ spring, $m$ mass) \\
+$\mu = m/(\rho h A)$ & resonator mass over plate mass per cell ($\rho h$ mass per area, $A$ cell area) \\
+$\beta = \lambda/\lambda_r$ & squared frequency relative to the resonator \\
+$w_0$ & plate deflection at the resonator \\
+$Z$, $C$ & force per deflection of the resonator; deflection per force of the plate \\
+$P(\lambda)$ & plate curve, Eq.~\eqref{eq:plate_curve} \\
+$Y(\lambda)$ & resonator line, Eq.~\eqref{eq:resonator_line} \\
+$S$ & at $\Gamma$: the part of $P$ from all waves except $\mathbf{G}=0$ \\
+$g(\kappa, \omega)$ & deflection per unit point force of one plane wave of wavenumber $\kappa$ \\
+$D$, $D_s$ & bending stiffness and shear stiffness of the plate \\
+$I_r = \rho h^3/12$ & rotary inertia per area \\
+$f_X$ & bare plate frequency at $X$, $1194.4\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{Recap of the condition}
+
+Three facts combine:
+\begin{itemize}
+  \item A resonator exerts a force on the plate like a mass that depends on
+        frequency: $F = m_\mathrm{eff}\,\lambda\, w_0$, with
+        $m_\mathrm{eff} = m/(1-\beta)$.
+  \item A point force excites every mass-normalized bare wave $\varphi_n$ with
+        amplitude
+        \[ q_n = \frac{F\,\varphi_n(\mathbf{x}_0)^*}{\lambda_n^0 - \lambda} . \]
+  \item Adding up all waves at $\mathbf{x}_0$ must give back $w_0$.
+\end{itemize}
+Inserting one into the other, with
+$|\varphi_n(\mathbf{x}_0)|^2 = 1/(\rho h A)$ and
+$\mu_\mathrm{eff} = \mu/(1-\beta)$, gave
+\begin{equation}
+  1 = \mu_\mathrm{eff}\,\sum_n \frac{\lambda}{\lambda_n^0 - \lambda} .
+  \label{eq:pwe_recap}
+\end{equation}
+
+% ---------------------------------------------------------------------
+\section{Separating resonator and plate}
+
+Name the sum:
+\begin{equation}
+  P(\lambda) = \sum_n \frac{\lambda}{\lambda_n^0 - \lambda} .
+  \label{eq:plate_curve}
+\end{equation}
+Then Eq.~\eqref{eq:pwe_recap} reads $1 = \mu P/(1-\beta)$. Multiply both sides
+by $(1-\beta)/\mu$:
+\begin{equation}
+  \frac{1-\beta}{\mu} = P(\lambda) .
+\end{equation}
+Name the left side:
+\begin{equation}
+  Y(\lambda) = \frac{1 - \lambda/\lambda_r}{\mu} .
+  \label{eq:resonator_line}
+\end{equation}
+The condition is then simply
+\begin{equation}
+  \boxed{\;Y(\lambda) = P(\lambda)\;}
+  \label{eq:Y_equals_P}
+\end{equation}
+The two sides have separate origins:
+\begin{itemize}
+  \item $Y$ contains only the resonator ($\lambda_r$, $\mu$). It is a falling
+        straight line in $\lambda$, with $Y = 1/\mu$ at $\lambda = 0$ and
+        $Y = 0$ at $\lambda = \lambda_r$.
+  \item $P$ contains only the plate and $\mathbf{k}$. It does not know about
+        the resonator.
+\end{itemize}
+
+\paragraph{$P$ rises everywhere.} With the quotient rule, for one term,
+\begin{equation}
+  \frac{\mathrm{d}}{\mathrm{d}\lambda}\,\frac{\lambda}{\lambda_n^0 - \lambda}
+  = \frac{(\lambda_n^0 - \lambda) + \lambda}{(\lambda_n^0 - \lambda)^2}
+  = \frac{\lambda_n^0}{(\lambda_n^0 - \lambda)^2} \ge 0 .
+\end{equation}
+
+\paragraph{$P$ has a pole at every distinct bare value.}
+Just below $\lambda_n^0$ the denominator is small and positive, so
+$P \to +\infty$. Just above it, $P \to -\infty$. Between two neighbouring bare
+values, $P$ therefore climbs from $-\infty$ to $+\infty$.
+
+The dots of the diagram at this $\mathbf{k}$ are the intersections of a falling
+line with these rising branches.
+
+% ---------------------------------------------------------------------
+\section{What follows from that picture}
+
+Consider $Y - P$ between two neighbouring bare values. It is a falling function
+minus a rising one, so it falls strictly, from $+\infty$ to $-\infty$, and
+crosses zero \emph{exactly once}. The same holds below the lowest bare value,
+where $Y - P$ starts positive.
+
+\paragraph{Consequence 1: bands are trapped.}
+There is exactly one root between neighbouring bare frequencies. A single point
+resonator cannot push a band past a bare frequency. Example at $X$:
+\begin{center}
+\begin{tabular}{|p{0.5\textwidth}|p{0.33\textwidth}|}
+\hline
+Interval & Root \\
+\hline
+below $1194.4\,\mathrm{Hz}$ & $835.6\,\mathrm{Hz}$ \\
+exactly at $1194.4\,\mathrm{Hz}$ & sin pattern (node at the resonator) \\
+between $1194.4\,\mathrm{Hz}$ and the next bare value & $1652.4\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{Consequence 2: the stuck modes.}
+A $d$-fold bare value is one pole, so it supplies only one interval boundary. The
+remaining $d-1$ combinations have $w_0 = 0$ and sit exactly on the pole. Counting
+all roots gives all bare modes plus one extra root per $\mathbf{k}$: the extra
+band of the one extra resonator degree of freedom.
+
+\paragraph{Consequence 3: which side of $f_r$ a root is on.}
+At a root, $Y = P$, and $Y > 0$ exactly when $\lambda < \lambda_r$. Therefore:
+\begin{itemize}
+  \item $P > 0$ at the root: the root is \emph{below} $f_r$; the plate at the
+        attachment acts spring-like overall;
+  \item $P < 0$ at the root: the root is \emph{above} $f_r$; the plate at the
+        attachment acts mass-like overall.
+\end{itemize}
+Below the lowest bare value every term is positive, so $P > 0$ and band 1 lies
+below $f_r$. At $\Gamma$, $P = -1 + S$, where $-1$ is the $\mathbf{G}=0$ wave
+(rigid cell) and $S$ is the sum over all others. The band at $\Gamma$ sits above
+$f_r$ only while $S < 1$.
+
+% ---------------------------------------------------------------------
+\section{The sum for Reissner--Mindlin}
+
+In the code (\texttt{plane\_wave\_point\_compliance}) each wave enters through
+$g(\kappa, \omega)$. For Kirchhoff,
+\begin{equation}
+  g = \frac{1}{D\kappa^4 - \rho h\,\omega^2} .
+\end{equation}
+For RM a wave has two coupled unknowns, the deflection and the rotation along
+the wave, with dynamic stiffness matrix
+\begin{equation}
+  \begin{pmatrix}
+    D_s\kappa^2 - \rho h\,\omega^2 & -D_s\kappa \\
+    -D_s\kappa & D\kappa^2 + D_s - I_r\omega^2
+  \end{pmatrix}
+  =
+  \begin{pmatrix} a & b \\ b & c \end{pmatrix} ,
+\end{equation}
+and $g$ is the deflection entry of its inverse, $g = c/(ac - b^2)$. At large
+$\kappa$ the inertia terms are negligible:
+\begin{align}
+  ac - b^2 &= D_s\kappa^2\,(D\kappa^2 + D_s) - D_s^2\kappa^2 = D\,D_s\,\kappa^4 , \\
+  g &\approx \frac{D\kappa^2 + D_s}{D\,D_s\,\kappa^4}
+     = \frac{1}{D\kappa^4} + \frac{1}{D_s\kappa^2} .
+\end{align}
+Bending and shear compliance simply add. Kirchhoff is the limit
+$D_s \to \infty$.
+
+\paragraph{Why this matters for the sum.}
+In 2D the number of waves with wavenumber between $\kappa$ and $\kappa +
+\mathrm{d}\kappa$ is proportional to the area of the ring, $\kappa\,\mathrm{d}\kappa$.
+The tail of the sum therefore behaves like
+\begin{itemize}
+  \item Kirchhoff: $\int \kappa\,\mathrm{d}\kappa/\kappa^4$, which \emph{converges};
+  \item RM shear term: $\int \kappa\,\mathrm{d}\kappa/\kappa^2 = \int \mathrm{d}\kappa/\kappa = \ln\kappa$,
+        which \emph{diverges slowly}.
+\end{itemize}
+Physically, a true point force on a shear-deformable plate gives infinite local
+deflection. Real attachments have a finite size; the cutoff in the sum, or the
+mesh in FE, plays that role.
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+Cutoff & $\Gamma$ band 2, RM & $M$ band 1, RM & $\Gamma$ band 2, Kirchhoff \\
+\hline
+6 & 1276.1 & 1033.1 & 1280.2 \\
+12 & 1274.7 & 1032.1 & 1279.8 \\
+24 & 1273.5 & 1031.4 & 1279.7 \\
+48 & 1272.4 & 1030.7 & 1279.6 \\
+96 & 1271.3 & 1030.0 & -- \\
+\hline
+\end{tabular}
+\end{center}
+All values are in Hz; ``cutoff'' is the largest harmonic index kept in the sum.
+Each doubling lowers the RM values by about the same amount
+($\approx 1.1\,\mathrm{Hz}$ at $\Gamma$, $\approx 0.7\,\mathrm{Hz}$ at $M$), the
+signature of a logarithm. The Kirchhoff values settle. FE shows the same effect
+under mesh refinement ($1273.5$ / $1271.7$ / $1270.5\,\mathrm{Hz}$ for $10$/$20$/$40$
+elements). It is about $0.1\,\%$ per doubling, so small in practice. The upper
+gap edge at $X$ is not affected, because the sin pattern does not feel the point
+force.
+
+% ---------------------------------------------------------------------
+\section{More resonators per cell}
+
+Take resonators at positions $\mathbf{x}_j$, with forces $F_j$ and plate
+deflections $w_j$. The steps are the same as for one resonator:
+\begin{enumerate}
+  \item Each wave feels all the forces:
+        $(\lambda_n^0 - \lambda)\, q_n = \sum_l F_l\,\varphi_n(\mathbf{x}_l)^*$.
+  \item Solve for $q_n$ and insert into
+        $w_j = \sum_n \varphi_n(\mathbf{x}_j)\, q_n$:
+        \begin{equation}
+          w_j = \sum_l C_{jl}\, F_l ,
+          \qquad
+          C_{jl} = \sum_n \frac{\varphi_n(\mathbf{x}_j)\,\varphi_n(\mathbf{x}_l)^*}{\lambda_n^0 - \lambda} .
+        \end{equation}
+  \item Each resonator gives $F_l = Z_l\, w_l$. In matrix form $w = C Z w$, with
+        $Z$ diagonal, so a nonzero solution needs
+        \begin{equation}
+          \boxed{\;\det(I - C Z) = 0\;}
+        \end{equation}
+\end{enumerate}
+With one resonator this is $1 = ZC$. $C_{jl}$ is the deflection at resonator $j$
+per unit force at resonator $l$. Each added resonator adds one band and can
+couple to patterns that the others cannot.
+
+\paragraph{Where the plane-wave model stops being valid.}
+It assumes a uniform plate and point attachments. Cutouts, stiffeners or real
+attachment patches need FE. Inside its validity it is nearly free to evaluate, so
+it is both the check on FE and a fast design tool.
+
+% ---------------------------------------------------------------------
+\section{How detuning moves the edges}
+
+\paragraph{Raising $f_r$.}
+$Y = (1 - \lambda/\lambda_r)/\mu$ keeps its value $1/\mu$ at $\lambda = 0$, while
+its zero moves to the right, so $Y$ increases at every $\lambda > 0$. At the old
+root $Y - P$ is now positive, and since $Y - P$ falls with $\lambda$, the root
+moves right: \emph{every coupled root rises with $f_r$}.
+
+\paragraph{Raising $\mu$.}
+$Y$ is zero at $\lambda = \lambda_r$ for any $\mu$, so raising $\mu$ turns the
+line about that point. Below $\lambda_r$, $Y$ is positive and shrinks, so roots
+below $f_r$ go \emph{down}. Above $\lambda_r$, $Y$ is negative and gets closer to
+zero, so roots above $f_r$ go \emph{up}. A heavier resonator pushes roots
+\emph{away from} $f_r$, which is level repulsion. Check at $f_r = 1200\,\mathrm{Hz}$,
+$\mu = 0.25 \to 0.5$: band 3 at $X$ goes from $1653$ to $1842\,\mathrm{Hz}$, band 1
+at $M$ from $1032$ to $927\,\mathrm{Hz}$.
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+$f_r$ [Hz] & $M$ band 1 [Hz] & $\Gamma$ band 2 [Hz] & $\Gamma$ band 2 $/\, f_r$ \\
+\hline
+300 & 297 & 334 & 1.11 \\
+800 & 748 & 874 & 1.09 \\
+1200 & 1031 & 1273 & 1.06 \\
+1500 & 1188 & 1546 & 1.03 \\
+2000 & 1360 & 1940 & 0.97 \\
+5000 & 1600 & 2957 & 0.59 \\
+200000 & 1648 & 3279 & 0.02 \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{Limits.}
+\begin{itemize}
+  \item $f_r \to 0$: $Y$ falls very steeply, so the root sits at
+        $\lambda \approx \lambda_r$, and band 1 at $M$ follows $f_r$.
+  \item $f_r \to \infty$: $Y$ becomes the horizontal line $1/\mu$, so
+        Eq.~\eqref{eq:Y_equals_P} is the rigid-mass condition. The spring is
+        infinitely stiff, and band 1 at $M$ saturates at $1648\,\mathrm{Hz}$. The
+        four-wave rigid-mass formula $2378/\sqrt{1+4\mu}$ gives
+        $1682\,\mathrm{Hz}$; the other waves account for the rest.
+\end{itemize}
+
+\paragraph{Three tuning values mark the changes.}
+\begin{center}
+\begin{tabular}{|l|p{0.62\textwidth}|}
+\hline
+$f_r$ & What happens \\
+\hline
+$\approx 1118\,\mathrm{Hz}$ & $\Gamma$ band 2 reaches $f_X$, and the upper edge becomes pinned \\
+$\approx 1513\,\mathrm{Hz}$ & $M$ band 1 reaches $f_X$, and the gap closes \\
+$\approx 1765\,\mathrm{Hz}$ & $\Gamma$ band 2 equals $f_r$: $S$ reaches $1$, and the plate at $\Gamma$ turns from mass-like to spring-like \\
+\hline
+\end{tabular}
+\end{center}
+\paragraph{Why the gap is widest near $1118\,\mathrm{Hz}$.}
+Below it, both edges move up with $f_r$, the upper one faster, so the width
+grows. Above it, the upper edge is frozen while the lower one keeps rising, so
+the width shrinks.
+
+% ---------------------------------------------------------------------
+\section{Two resonators per cell: numbers}
+\label{sec:two_resonators}
+
+Identical resonators, $f_r = 1200\,\mathrm{Hz}$, plane-wave model on
+$\Gamma$--$X$--$M$--$Y$--$\Gamma$ with $15$ $\mathbf{k}$-points per segment. The
+model reproduces the one-resonator values to about $1\,\mathrm{Hz}$, but it is not
+FE. The path needs $Y$ because a resonator at $(a/2, 0)$ breaks the square
+symmetry. The two-resonator gaps lie between bands 2 and 3, because each resonator
+adds a band.
+\begin{center}
+\begin{tabular}{|p{0.23\textwidth}|p{0.15\textwidth}|p{0.18\textwidth}|l|l|}
+\hline
+Resonators per cell & At $X$ [Hz] & At $Y$ [Hz] & Gap [Hz] & Width \\
+\hline
+one at $(0,0)$, $\mu = 0.25$ & 835, \textbf{1194}, 1653 & 835, \textbf{1194}, 1653 & 1031--1194 & 163 \\
+one at $(0,0)$, $\mu = 0.5$ & 724, \textbf{1194}, 1841 & 724, \textbf{1194}, 1841 & 926--1194 & 269 \\
+$(0,0) + (a/2, 0)$, $\mu = 0.25$ each & 835 $\times 2$, 1653 $\times 2$ & 735, 1137, \textbf{1194}, 1913 & 1137--1194 & 58 \\
+$(0,0) + (a/2, a/2)$, $\mu = 0.25$ each & 835 $\times 2$, 1653 $\times 2$ & 835 $\times 2$, 1653 $\times 2$ & 1114--1429 & 315 \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{The diagonal arrangement is a smaller lattice.}
+Two identical resonators at $(0,0)$ and $(a/2, a/2)$ form a square lattice rotated
+by $45^\circ$ with spacing $a/\sqrt{2}$. The first Bragg frequency moves up, from
+$X$ at $1194\,\mathrm{Hz}$ to the old $M$ at $2378\,\mathrm{Hz}$. A second resonator
+and a smaller cell are therefore the same physics here. The gap then contains
+$f_r$, so it is a local-resonance gap.
+
+\paragraph{Extra question: why is the $(0,0)+(a/2,0)$ gap so narrow?}
+Sorted values at $Y$:
+\begin{center}
+\begin{tabular}{|l|l|p{0.58\textwidth}|}
+\hline
+Band at $Y$ & $f$ [Hz] & Mode \\
+\hline
+1 & 735 & $\cos(\pi y/a)$, both resonators moving together, lower branch \\
+2 & \textbf{1137} & the two resonators moving in antiphase, new mode \\
+3 & \textbf{1194.4} & $\sin(\pi y/a)$, node at both resonators, bare \\
+4 & 1913 & $\cos(\pi y/a)$, both resonators moving together, upper branch \\
+\hline
+\end{tabular}
+\end{center}
+$1137\,\mathrm{Hz}$ is the \emph{maximum} of band 2, so it is the new lower edge;
+the upper edge is the minimum of band 3, the pinned mode. The gap shrinks because
+the second resonator adds a band, and at $Y$ that band lands inside the old gap.
+
+Why it sits at $1137\,\mathrm{Hz}$: both resonators have $y = 0$, so the waves at
+$Y$, which vary only in $y$, have the same value at both. If the resonators move
+in antiphase, $F_1 = -F_2$, their forces on those waves cancel exactly, and the $Y$
+waves stay at rest. The opposite forces do excite waves that alternate in $x$
+between the two resonators: $(\pm 2\pi/a, \pm\pi/a)$, at about
+$5868\,\mathrm{Hz}$, and higher waves with odd multiples of $2\pi/a$ in $x$. For
+such a wave the two resonators contribute with opposite sign and the antiphase
+forces add up, giving a factor $2$:
+\begin{equation}
+  1 = 2\,\mu_\mathrm{eff}\, P_\mathrm{odd},
+  \qquad
+  P_\mathrm{odd} = \sum_{\text{odd waves}} \frac{\lambda}{\lambda_n^0 - \lambda} .
+\end{equation}
+Insert $\mu_\mathrm{eff} = \mu/(1-\beta)$ and multiply by $(1-\beta)$:
+\begin{equation}
+  1 - \beta = 2\mu\, P_\mathrm{odd} .
+\end{equation}
+All of these waves lie far above $1137\,\mathrm{Hz}$, so $P_\mathrm{odd} > 0$ and
+the plate acts like a soft spring, which pulls the mode below $f_r$. The four waves
+at $5868\,\mathrm{Hz}$ give $P_\mathrm{odd} \approx 0.16$, and the higher waves
+bring it to about $0.2$, so
+\begin{equation}
+  \beta \approx 1 - 2\cdot 0.25\cdot 0.205 = 0.897 ,
+  \qquad
+  f \approx 1200\cdot\sqrt{0.897} \approx 1137\,\mathrm{Hz}.
+\end{equation}
+
+% ---------------------------------------------------------------------
+\section{Check questions with answers}
+
+\paragraph{Question 1.} \emph{As $f_r$ goes up, band 1 at $M$ rises but saturates
+near $1650\,\mathrm{Hz}$, well below its bare value of $2378\,\mathrm{Hz}$. Why does
+it stop there, and what has the resonator physically become?}
+
+\emph{Answer.} With $f_r \to \infty$ the spring cannot deform, so the resonator is
+a rigid mass glued to the plate. Band 1 at $M$ settles at the mass-loaded value:
+$1682\,\mathrm{Hz}$ from the four-wave formula, $1648\,\mathrm{Hz}$ with all waves.
+A rigid mass can only lower a frequency, so stiffening the spring further changes
+nothing.
+
+\paragraph{Question 2.} \emph{A heavier resonator pushes roots away from $f_r$.
+Where in the $Y$--$P$ picture do you see this, and what does it mean for a gap that
+contains $f_r$ compared with one lying entirely below $f_r$?}
+
+\emph{Answer.} Raising $\mu$ turns $Y$ about its zero at $\lambda = \lambda_r$.
+Roots left of that point move left, roots right of it move right.
+\begin{center}
+\begin{tabular}{|p{0.25\textwidth}|l|l|p{0.17\textwidth}|}
+\hline
+Tuning & Gap at $\mu = 0.25$ & Gap at $\mu = 0.5$ & What moved \\
+\hline
+$f_r = 800\,\mathrm{Hz}$ (contains $f_r$) & 748--874\,Hz & 707--936\,Hz & both edges, in opposite directions \\
+$f_r = 1200\,\mathrm{Hz}$ (below $f_r$) & 1032--1194\,Hz & 927--1194\,Hz & lower edge only \\
+\hline
+\end{tabular}
+\end{center}
+Widening does not make the $1200\,\mathrm{Hz}$ gap a local-resonance gap. A gap that
+contains $f_r$ has one edge on each side of the pivot and is a true local-resonance
+gap. The $1200\,\mathrm{Hz}$ gap lies entirely below it, and its upper edge is the
+sin pattern at $X$, which is not a root of $Y = P$ at all because it has a node at
+the resonator. It stays a Bragg gap with a resonance-boosted mass.
+
+\paragraph{Question 3.} \emph{Add a second resonator in each cell at $(a/2, 0)$, same
+$f_r$. What happens to the sin pattern at $X$, and would you expect the upper edge to
+stay pinned at $1194\,\mathrm{Hz}$?}
+
+\emph{Answer.} At $X$, $\cos(\pi x/a)$ has its antinode at the first resonator and a
+node at the second, and $\sin(\pi x/a)$ the reverse. That makes two identical
+plate-plus-resonator pairs. The sin pattern does not simply rise; it \emph{splits}
+into a lower and an upper branch, like cos, and the $1194.4\,\mathrm{Hz}$ mode is
+gone from $X$.
+
+But $X$ is not the only point that matters. At $Y$ the pattern $\sin(\pi y/a)$ is
+zero at $y = 0$, where both resonators sit, so it stays at $1194.4\,\mathrm{Hz}$ and
+the upper edge stays pinned. Moving the second resonator to the cell centre removes
+the pinning at both $X$ and $Y$ (Section~\ref{sec:two_resonators}).

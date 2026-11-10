@@ -1,0 +1,570 @@
+% =====================================================================
+% Chapter 2: The two-level model -- where every gap comes from
+% Theory session, dispersion branch (Nov 2026)
+% Requires: amsmath, amssymb
+% Include in the main file with  \include{chapter_02_two_level_model}
+% =====================================================================
+
+\chapter{The two-level model: where every gap comes from}
+\label{ch:two_level}
+
+This chapter derives the mathematical mechanism behind every band gap: two
+modes with nearly equal frequency, coupled by the attached mass, push each
+other apart. To keep the algebra short, the ``resonator'' in this chapter is a
+\emph{rigid point mass} $m$, attached at one point of every cell. A real
+mass--spring resonator acts like this well below its tuning frequency. Later
+chapters replace $m$ by the frequency-dependent effective mass; the
+mathematics stays the same.
+
+% ---------------------------------------------------------------------
+\section{What one $\mathbf{k}$ means in the dispersion diagram}
+
+Fix a wavevector $\mathbf{k}$, i.e.\ one point on the horizontal axis of the
+diagram (for example $X$). The unit cell then has a list of free-vibration
+frequencies: the dots on one vertical line above that $\mathbf{k}$. The bands
+are these dots connected as $\mathbf{k}$ moves along
+$\Gamma$--$X$--$M$--$\Gamma$. Each dot comes from the eigenproblem
+\begin{equation}
+  K_r(\mathbf{k})\, q = \lambda\, M_r(\mathbf{k})\, q,
+  \qquad \lambda = \omega^2 = (2\pi f)^2 .
+\end{equation}
+$\lambda$ is simply the squared angular frequency of one dot. We use $\lambda$
+instead of $f$ because the equations are linear in $\lambda$; back in the
+diagram, $f = \sqrt{\lambda}/(2\pi)$.
+
+% ---------------------------------------------------------------------
+\section{The bare plate}
+
+\begin{center}
+\begin{tabular}{|l|p{0.45\textwidth}|l|}
+\hline
+Symbol & Meaning & Units / value \\
+\hline
+$a$, $A = a^2$ & cell size, cell area & $0.1\,\mathrm{m}$, $0.01\,\mathrm{m^2}$ \\
+$\rho h$ & plate mass per area & $39.3\,\mathrm{kg/m^2}$ \\
+$\rho h A$ & plate mass per cell & $0.393\,\mathrm{kg}$ \\
+$\mathbf{G}_n$ & reciprocal lattice vector of mode $n$ & rad/m \\
+$n$, $j$ & mode labels (which bare wave, i.e.\ which $\mathbf{G}$) & -- \\
+$\lambda_n^0(\mathbf{k})$ & $\omega^2$ of bare mode $n$ at this $\mathbf{k}$ & $\mathrm{rad^2/s^2}$ \\
+$\varphi_n(\mathbf{x})$ & mode shape of bare mode $n$ (deflection $w$) & $1/\sqrt{\mathrm{kg}}$ \\
+\hline
+\end{tabular}
+\end{center}
+The superscript $0$ always means \emph{bare plate, no mass}. For the bare
+plate at fixed $\mathbf{k}$ the modes are the folded plane waves of
+Chapter~\ref{ch:bloch}:
+\begin{equation}
+  \varphi_n(\mathbf{x}) = \frac{e^{i(\mathbf{k} + \mathbf{G}_n)\cdot\mathbf{x}}}{\sqrt{\rho h A}},
+  \qquad
+  \lambda_n^0 = \omega^2 \text{ of a plate wave with wavenumber } |\mathbf{k} + \mathbf{G}_n| .
+\end{equation}
+The factor $1/\sqrt{\rho h A}$ is a \emph{mass normalization}:
+\begin{equation}
+  \int_\mathrm{cell} \rho h\, \varphi_n^*\, \varphi_j \,\mathrm{d}A = \delta_{nj} .
+  \label{eq:orthonormal}
+\end{equation}
+For $n \neq j$ the product $\varphi_n^*\varphi_j \propto
+e^{i(\mathbf{G}_j - \mathbf{G}_n)\cdot\mathbf{x}}$ oscillates a whole number of
+times across the cell and integrates to zero; for $n = j$ it is one because of
+the normalization. Every mode then has ``mass one'', and kinetic and strain
+energy in mode coordinates carry no extra factors. (The RM plate also has
+rotary inertia; it is a small correction below $5\,\mathrm{kHz}$ and left out
+here.)
+
+\emph{In the diagram:} each $n$ is one bare band. At $X$, mode 1 is
+$\mathbf{G}_1 = (0,0)$ and mode 2 is $\mathbf{G}_2 = (-2\pi/a, 0)$. Both have
+$|\mathbf{k} + \mathbf{G}| = \pi/a$, hence
+$\lambda_1^0 = \lambda_2^0 = (2\pi \cdot 1190\,\mathrm{Hz})^2$: the meeting
+point at $X$.
+
+\emph{In the FE code:} the $\varphi_n$ are the eigenvectors of the bare
+$K_r(\mathbf{k})$, $M_r(\mathbf{k})$, and $\varphi_n(\mathbf{x}_0)$ is the
+value of $w$ at the attachment point.
+
+% ---------------------------------------------------------------------
+\section{Adding the point mass: the modal equation}
+
+\begin{center}
+\begin{tabular}{|l|p{0.45\textwidth}|l|}
+\hline
+Symbol & Meaning & Value \\
+\hline
+$m$ & point mass per cell & e.g.\ $98\,\mathrm{g}$ \\
+$\mathbf{x}_0$ & attachment point in the cell & here $\mathbf{x}_0 = 0$ (corner) \\
+$\mu = m/(\rho h A)$ & mass ratio: added mass / plate mass per cell & $0.25$ \\
+$q_n$ & amount of bare mode $n$ in the new mode shape & -- \\
+$\lambda$ & \textbf{unknown}: $\omega^2$ of a mode \emph{with} the mass & $\mathrm{rad^2/s^2}$ \\
+\hline
+\end{tabular}
+\end{center}
+The bands do not depend on $\mathbf{x}_0$ (position invariance, see the
+questions at the end of this chapter), so the corner is a convenient choice.
+
+\subsection{Derivation}
+
+\paragraph{1. Plate equation with a point mass.}
+At frequency $\omega$ the bare plate satisfies
+$\mathcal{L} w - \omega^2 \rho h\, w = f(\mathbf{x})$, where $\mathcal{L}$ is
+the stiffness operator of the plate ($D\nabla^4$ for Kirchhoff, the RM
+operator in our case) and $f$ an external force per area. The mass moves with
+the plate, so its displacement is $w(\mathbf{x}_0)$ and its acceleration
+$-\omega^2 w(\mathbf{x}_0)$. To accelerate it, the plate must push on it with
+$-m\omega^2 w(\mathbf{x}_0)$. By Newton's third law the mass pushes back on the
+plate with
+\begin{equation}
+  f(\mathbf{x}) = m\,\omega^2\, w(\mathbf{x}_0)\, \delta(\mathbf{x} - \mathbf{x}_0) .
+\end{equation}
+This is a point force (hence the $\delta$), proportional to how much the plate
+moves at $\mathbf{x}_0$. Inserting it and moving all $\omega^2$ terms to the
+right:
+\begin{equation}
+  \mathcal{L} w = \omega^2 \left[ \rho h\, w + m\, w(\mathbf{x}_0)\, \delta(\mathbf{x} - \mathbf{x}_0) \right] .
+  \label{eq:plate_with_mass}
+\end{equation}
+By Bloch's theorem this is needed on one cell only, with one mass per cell.
+
+\paragraph{2. Two properties of the bare modes.}
+They solve the bare problem, $\mathcal{L}\varphi_j = \lambda_j^0\, \rho h\,
+\varphi_j$, and they are orthonormal, Eq.~\eqref{eq:orthonormal}.
+
+\paragraph{3. Expand and project (Galerkin).}
+Write $w = \sum_j q_j \varphi_j$, insert into Eq.~\eqref{eq:plate_with_mass},
+multiply by $\varphi_n^*(\mathbf{x})$ and integrate over the cell.
+\begin{align}
+  \text{left side:} \quad
+  & \int \varphi_n^*\, \mathcal{L} w \,\mathrm{d}A
+    = \sum_j q_j \lambda_j^0 \int \rho h\, \varphi_n^* \varphi_j \,\mathrm{d}A
+    = \lambda_n^0\, q_n , \\
+  \text{plate term:} \quad
+  & \omega^2 \sum_j q_j \int \rho h\, \varphi_n^* \varphi_j \,\mathrm{d}A
+    = \lambda\, q_n , \\
+  \text{mass term:} \quad
+  & \omega^2 m\, w(\mathbf{x}_0) \int \varphi_n^*(\mathbf{x})\, \delta(\mathbf{x} - \mathbf{x}_0)\,\mathrm{d}A
+    = \lambda\, m\, \varphi_n(\mathbf{x}_0)^* \sum_j \varphi_j(\mathbf{x}_0)\, q_j .
+\end{align}
+Together, with the mass term moved to the left:
+\begin{equation}
+  \boxed{\;\lambda_n^0\, q_n - \lambda\, m\, \varphi_n(\mathbf{x}_0)^* \sum_j \varphi_j(\mathbf{x}_0)\, q_j = \lambda\, q_n\;}
+  \label{eq:modal_equation}
+\end{equation}
+
+\subsection{Physical reading of the mass term}
+Read it from right to left:
+\begin{enumerate}
+  \item $\sum_j \varphi_j(\mathbf{x}_0)\, q_j = w(\mathbf{x}_0)$: how much
+        the plate moves at the mass, summed over all modes;
+  \item $\lambda\, m\, w(\mathbf{x}_0)$: the inertia force of the mass;
+  \item $\varphi_n(\mathbf{x}_0)^* \cdot (\text{force})$: how strongly a
+        point force at $\mathbf{x}_0$ drives mode $n$. This is the
+        \emph{modal force}, the same $\varphi_n(\mathbf{x}_0)^* F$ as for the
+        shaker in modal superposition. The conjugate comes from projecting
+        with $\varphi_n^*$ (the same reason UFL's \texttt{inner()} conjugates
+        the test function).
+\end{enumerate}
+So: mode $j$ moves the mass, the mass pushes on the plate at $\mathbf{x}_0$,
+and that push drives mode $n$. This chain is the coupling between two modes.
+It vanishes if either mode has a node at $\mathbf{x}_0$.
+
+\subsection{Matrix form and link to the FE code}
+Collecting all $n$, with $\Lambda = \mathrm{diag}(\lambda_n^0)$ and
+$\boldsymbol{\varphi} = (\varphi_1(\mathbf{x}_0), \varphi_2(\mathbf{x}_0), \dots)^T$:
+\begin{equation}
+  \Lambda\, q = \lambda \left( I + m\, \boldsymbol{\varphi}^*\boldsymbol{\varphi}^T \right) q .
+\end{equation}
+This is $K q = \lambda M q$ in modal coordinates: diagonal stiffness, and a
+mass matrix equal to identity plus a rank-one term from the point mass. The FE
+code does the same with nodal degrees of freedom: adding $m$ to the diagonal
+of $M$ at the $w$-DOF of the attachment node and transforming with the bare
+eigenvectors gives exactly $I + m\,\boldsymbol{\varphi}^*\boldsymbol{\varphi}^T$.
+
+For plane waves $|\varphi_n(\mathbf{x}_0)|^2 = 1/(\rho h A)$, hence
+$m|\varphi_n(\mathbf{x}_0)|^2 = \mu$. With $\mathbf{x}_0 = 0$ all phase
+factors are one, so $m\, \varphi_n(\mathbf{x}_0)^* \varphi_j(\mathbf{x}_0) = \mu$
+for every pair $n, j$.
+
+\subsection{Three kinds of $\lambda$}
+\begin{itemize}
+  \item $\lambda$ (no index, no superscript): the \textbf{unknown}, $\omega^2$
+        of a mode of the plate \emph{with} the mass, i.e.\ one dot of the
+        diagram with the mass. It appears on both sides of
+        Eq.~\eqref{eq:modal_equation} because the inertia force of the mass,
+        $m\omega^2 w(\mathbf{x}_0) = \lambda\, m\, w(\mathbf{x}_0)$, depends on
+        the frequency we solve for.
+  \item $\lambda_n^0$: \textbf{known}, $\omega^2$ of bare mode $n$ at this
+        $\mathbf{k}$; the dots of the bare diagram.
+  \item $\lambda^0$ (no index): shorthand at a degeneracy, e.g.\ at $X$:
+        $\lambda^0 = \lambda_1^0 = \lambda_2^0 = (2\pi\cdot 1190\,\mathrm{Hz})^2$.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section{The two-level model}
+
+Keep only modes 1 and 2, the two bare bands close in frequency (why two are
+enough is shown in Section~\ref{sec:far}). Eq.~\eqref{eq:modal_equation}
+becomes $H q = \lambda q$ with
+\begin{equation}
+  H = \begin{pmatrix} \lambda_1^0 - \mu\lambda & c \\ c^* & \lambda_2^0 - \mu\lambda \end{pmatrix},
+  \qquad
+  c = -\lambda\, m\, \varphi_1(\mathbf{x}_0)^* \varphi_2(\mathbf{x}_0)
+  \;\overset{\mathbf{x}_0 = 0}{=}\; -\mu\lambda .
+\end{equation}
+\begin{itemize}
+  \item \textbf{Diagonal}, $d_n = \lambda_n^0 - \mu\lambda$: mode $n$ alone
+        becomes heavier. Uniform \emph{mass loading}: every band shifts
+        slightly down, at every $\mathbf{k}$.
+  \item \textbf{Off-diagonal}, $c$: the \emph{coupling}. Both modes move the
+        same point $\mathbf{x}_0$, so the inertia force from mode 1 drives
+        mode 2 and vice versa. $c$ has the units of $\lambda$, is proportional
+        to $\mu$, and is zero if either mode has a node at $\mathbf{x}_0$.
+\end{itemize}
+The eigenvalues of a $2\times 2$ Hermitian matrix are
+\begin{equation}
+  \lambda = \frac{d_1 + d_2}{2} \pm \sqrt{\left(\frac{d_1 - d_2}{2}\right)^2 + |c|^2} .
+  \label{eq:two_level}
+\end{equation}
+Since $\lambda$ also appears inside $H$, one inserts an approximate $\lambda$
+on the right for small $\mu$. At $X$ the problem can be solved exactly.
+
+% ---------------------------------------------------------------------
+\section{At a crossing ($X$): the gap opens}
+
+\subsection{Where the eigenvectors come from}
+At $X$, $\lambda_1^0 = \lambda_2^0 = \lambda^0$, so both diagonal entries are
+equal. With $a_H = \lambda^0 - \mu\lambda$ (diagonal) and $b_H = c = -\mu\lambda$
+(coupling), $H$ has the form
+\begin{equation}
+  H = \begin{pmatrix} a_H & b_H \\ b_H & a_H \end{pmatrix} .
+\end{equation}
+\emph{Every} matrix of this shape has the same two eigenvectors, whatever the
+values of $a_H$ and $b_H$. Multiplying out:
+\begin{align}
+  H \begin{pmatrix} 1 \\ +1 \end{pmatrix} &= \begin{pmatrix} a_H + b_H \\ b_H + a_H \end{pmatrix} = (a_H + b_H) \begin{pmatrix} 1 \\ +1 \end{pmatrix}, \\
+  H \begin{pmatrix} 1 \\ -1 \end{pmatrix} &= \begin{pmatrix} a_H - b_H \\ b_H - a_H \end{pmatrix} = (a_H - b_H) \begin{pmatrix} 1 \\ -1 \end{pmatrix} .
+\end{align}
+The eigenvectors follow from the \emph{symmetry} of $H$: exchanging mode 1 and
+mode 2 leaves $H$ unchanged, so the solutions are the symmetric and the
+antisymmetric combination. Only the eigenvalues $a_H \pm b_H$ depend on the
+numbers. As mode shapes (mass at $x = 0$):
+\begin{align}
+  (1, +1) &: \quad \varphi_1 + \varphi_2 \propto e^{i\pi x/a} + e^{-i\pi x/a} = 2\cos(\pi x/a), \\
+  (1, -1) &: \quad \varphi_1 - \varphi_2 \propto e^{i\pi x/a} - e^{-i\pi x/a} = 2i\sin(\pi x/a).
+\end{align}
+The cosine has its maximum at the mass (pattern A), the sine is zero there
+(pattern B).
+
+\subsection{The eigenvalues}
+Each eigenvalue relation is an \emph{equation for the unknown $\lambda$},
+because $\lambda$ also sits in $a_H$ and $b_H$.
+
+\emph{Pattern A}, eigenvector $(1, +1)$:
+\begin{align}
+  \lambda &= a_H + b_H = \lambda^0 - \mu\lambda - \mu\lambda = \lambda^0 - 2\mu\lambda \\
+  \lambda + 2\mu\lambda &= \lambda^0 \\
+  \lambda\,(1 + 2\mu) &= \lambda^0 \\
+  \lambda &= \frac{\lambda^0}{1 + 2\mu}, \qquad f = \frac{f^0}{\sqrt{1 + 2\mu}} .
+\end{align}
+Check with numbers ($\mu = 0.25$, $\lambda^0 = 1$ in units of
+$(2\pi\cdot 1190\,\mathrm{Hz})^2$): solution $\lambda = 1/1.5 = 0.667$;
+inserted into the right side, $1 - 0.5 \cdot 0.667 = 0.667$.
+
+\emph{Pattern B}, eigenvector $(1, -1)$:
+\begin{equation}
+  \lambda = a_H - b_H = \lambda^0 - \mu\lambda + \mu\lambda = \lambda^0 .
+\end{equation}
+Mass loading and coupling cancel exactly.
+
+\begin{center}
+\begin{tabular}{|l|p{0.3\textwidth}|l|l|}
+\hline
+Eigenvector & Mode shape & $\lambda$ & $f$ for $\mu = 0.25$ \\
+\hline
+$(1,+1)$ & $\cos(\pi x/a)$, antinode at the mass & $\lambda^0/(1+2\mu)$ & $1190/\sqrt{1.5} = 972\,\mathrm{Hz}$ \\
+$(1,-1)$ & $\sin(\pi x/a)$, node at the mass & $\lambda^0$ & $1190\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+At $X$ one bare frequency becomes two, and between $972$ and
+$1190\,\mathrm{Hz}$ no wave travelling in $x$ exists: a \emph{directional}
+Bragg gap (not yet a complete gap). The factor $\sqrt{2/3} \approx 0.816$
+holds only for $\mu = 0.25$; in general it is $1/\sqrt{1+2\mu}$ in frequency
+and $1/(1+2\mu)$ in $\lambda$.
+
+\subsection{Physical reason}
+The inertia force of the mass is proportional to
+$w(\mathbf{x}_0) = \sum_j \varphi_j(\mathbf{x}_0)\, q_j$.
+\begin{itemize}
+  \item Pattern B: $w(\mathbf{x}_0) = (1 - 1)/\sqrt{\rho h A} = 0$. The mass
+        sits on a node, does not move, exerts no force; the mode does not
+        notice it.
+  \item Pattern A: $w(\mathbf{x}_0) = (1 + 1)/\sqrt{\rho h A}$, the largest
+        possible value. The mass moves fully and makes the mode heavier.
+\end{itemize}
+
+\subsection{Cross-check without matrices: why $2\mu$ and not $\mu$}
+The Rayleigh quotient gives $\omega^2 = \text{stiffness}/\text{mass}$ for one
+mode shape. $\cos(\pi x/a)$, normalized over the cell, has
+$|w(\mathbf{x}_0)|^2 = 2/(\rho h A)$: twice the plane-wave value, because
+$\cos^2$ averages to $1/2$ over the cell, so the normalized peak is higher.
+The added mass therefore counts twice relative to the plate mass,
+$\omega^2 = \lambda^0/(1+2\mu)$. In the matrix picture: pattern A receives
+$\mu$ from the diagonal and another $\mu$ from the coupling; pattern B
+receives $\mu - \mu = 0$.
+
+% ---------------------------------------------------------------------
+\section{Far from a crossing: almost nothing happens}
+\label{sec:far}
+
+Let mode 1 be the lower bare mode, $\lambda_1^0 < \lambda_2^0$, and assume
+$|\lambda_1^0 - \lambda_2^0| \gg |c|$. The square root in
+Eq.~\eqref{eq:two_level} can then be expanded.
+
+\paragraph{1. Starting point.}
+\begin{equation}
+  \lambda = \frac{d_1 + d_2}{2} \pm \sqrt{\left(\frac{d_1 - d_2}{2}\right)^2 + |c|^2},
+  \qquad d_1 = \lambda_1^0 - \mu\lambda, \quad d_2 = \lambda_2^0 - \mu\lambda .
+\end{equation}
+
+\paragraph{2. Simplify the difference.}
+The mass loading is the same on both diagonal entries and cancels:
+\begin{equation}
+  d_1 - d_2 = \lambda_1^0 - \lambda_2^0 =: \Delta, \qquad \Delta < 0, \quad |\Delta| = \lambda_2^0 - \lambda_1^0 .
+\end{equation}
+
+\paragraph{3. Factor $|\Delta|/2$ out of the root.}
+\begin{equation}
+  \sqrt{\left(\frac{\Delta}{2}\right)^2 + |c|^2} = \frac{|\Delta|}{2}\sqrt{1 + \varepsilon},
+  \qquad \varepsilon = \frac{4|c|^2}{\Delta^2} .
+\end{equation}
+``Far from a crossing'' now has a precise meaning: $|\Delta| \gg 2|c|$, i.e.\
+$\varepsilon \ll 1$.
+
+\paragraph{4. Taylor expansion of the root.}
+For small $\varepsilon$, $\sqrt{1+\varepsilon} \approx 1 + \varepsilon/2 - \varepsilon^2/8 + \dots$
+Keeping the first two terms:
+\begin{equation}
+  \frac{|\Delta|}{2}\left(1 + \frac{\varepsilon}{2}\right)
+  = \frac{|\Delta|}{2} + \frac{|\Delta|}{2}\cdot\frac{2|c|^2}{\Delta^2}
+  = \frac{|\Delta|}{2} + \frac{|c|^2}{|\Delta|} .
+\end{equation}
+
+\paragraph{5. Choose the root belonging to mode 1.}
+Mode 1 is the lower one, so take the minus sign. (Check: for $c \to 0$ this
+root must tend to $d_1$.)
+\begin{equation}
+  \lambda \approx \frac{d_1 + d_2}{2} - \frac{|\Delta|}{2} - \frac{|c|^2}{|\Delta|} .
+\end{equation}
+The first two terms combine to $d_1$, because
+$(d_1 + d_2)/2 - (d_2 - d_1)/2 = d_1$. Hence
+\begin{equation}
+  \boxed{\;\lambda \approx d_1 - \frac{|c|^2}{|\Delta|}
+  = \underbrace{(\lambda_1^0 - \mu\lambda)}_{\text{mass loading}}
+  + \underbrace{\frac{|c|^2}{\lambda_1^0 - \lambda_2^0}}_{\text{repulsion from mode 2}}\;}
+\end{equation}
+using $\lambda_1^0 - \lambda_2^0 = -|\Delta|$. The second term is negative:
+the lower mode is pushed \emph{down}. The plus sign gives mode 2, pushed
+\emph{up} by the same amount, $\lambda \approx d_2 + |c|^2/|\Delta|$. This is
+level repulsion.
+
+\paragraph{6. Size of each term.}
+Insert $c = -\mu\lambda$. Inside $c$, $\lambda$ is mode 1's own eigenvalue, so
+$\lambda \approx \lambda_1^0$ to leading order.
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+Term & Expression & Order \\
+\hline
+mass loading & $-\mu\lambda \approx -\mu\lambda_1^0$ & $\mu^1$ \\
+repulsion from mode 2 & $-\mu^2 (\lambda_1^0)^2/(\lambda_2^0 - \lambda_1^0)$ & $\mu^2 \times \lambda_1^0/(\lambda_2^0 - \lambda_1^0)$ \\
+next term (from $-\varepsilon^2/8$, dropped) & $+|c|^4/|\Delta|^3$ & $\mu^4$ \\
+\hline
+\end{tabular}
+\end{center}
+Relative to $\lambda_1^0$, the repulsion is
+$\mu^2\, \lambda_1^0/(\lambda_2^0 - \lambda_1^0)$: small because
+$\mu^2 \ll \mu$ \emph{and} because the ratio is small when mode 2 lies far
+above. The mass-loading term alone gives $\lambda = \lambda_1^0 - \mu\lambda$,
+i.e.\ $\lambda \approx \lambda_1^0/(1+\mu)$: one factor $\mu$, compared with
+$2\mu$ for pattern A at $X$.
+
+\paragraph{Correction made during the session.}
+A first version of this chapter claimed that the resonators change the
+diagram noticeably \emph{only} near crossings. That was too strong: the
+diagonal term $m|\varphi_n(\mathbf{x}_0)|^2 = \mu$ is first order and acts on
+\emph{every} band (uniform mass loading $\rho h \to \rho h(1+\mu)$; for a real
+resonator the frequency-dependent effective mass). Correct statement:
+\emph{the shape of the diagram (gaps, repulsion) changes only near crossings;
+the uniform mass loading acts everywhere.}
+
+% ---------------------------------------------------------------------
+\section{Following $\mathbf{k}$ through a crossing}
+
+Moving $\mathbf{k}$ along the path, $\lambda_1^0(\mathbf{k})$ and
+$\lambda_2^0(\mathbf{k})$ change, and at some $\mathbf{k}$ the bare bands
+cross. Evaluating Eq.~\eqref{eq:two_level} at each $\mathbf{k}$ gives:
+\begin{itemize}
+  \item far from the crossing: two bands following the (slightly mass-loaded)
+        bare bands;
+  \item near the crossing: the bands bend away from each other (a hyperbola)
+        and never touch; their minimum spacing is set by $|c|$;
+  \item mode character: the lower band starts as pure mode 1, is a 50/50 mix
+        at the crossing, and ends as pure mode 2; the upper band does the
+        reverse.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{|l|p{0.38\textwidth}|p{0.32\textwidth}|}
+\hline
+ & Far from a crossing, $|\lambda_1^0 - \lambda_2^0| \gg |c|$ & At a crossing, $\lambda_1^0 = \lambda_2^0$ \\
+\hline
+shift & $|c|^2/(\lambda_1^0 - \lambda_2^0)$, second order, tiny & $\pm|c|$, first order \\
+eigenvectors & almost pure mode 1 or mode 2 & 50/50 mixtures $(1, \pm 1)/\sqrt{2}$ \\
+picture & bands barely move & bands push apart: gap of $2|c|$ in $\lambda$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{True crossings ($c = 0$ by symmetry).}
+The resonator couples to the plate only through one number, $w(\mathbf{x}_0)$.
+Any mode with a node at the attachment point does not see the resonator at
+all. Example on $\Gamma$--$X$, $\mathbf{k} = (k_x, 0)$: the waves with
+$\mathbf{G} = (0, \pm 2\pi/a)$ combine into
+\begin{itemize}
+  \item $\cos(2\pi y/a)\, e^{i k_x x}$: antinode line through the mass, couples
+        and is pushed;
+  \item $\sin(2\pi y/a)\, e^{i k_x x}$: node line through the mass, $c = 0$,
+        completely unchanged.
+\end{itemize}
+The sine band truly crosses every band it meets, including the flat resonator
+band. In general, a degenerate group of $d$ modes keeps $d - 1$ unchanged
+modes; only one combination couples.
+
+Note the difference: \emph{far from a crossing} $c$ is not zero, only its
+effect is small (second order). $c = 0$ \emph{by symmetry} means the coupling
+vanishes exactly, and the bands pass through each other even where they meet.
+
+% ---------------------------------------------------------------------
+\section{Mode tracking with the MAC}
+
+\subsection{Definition}
+The Modal Assurance Criterion measures how similar two mode shapes are:
+\begin{equation}
+  \mathrm{MAC}(\varphi_a, \varphi_b) = \frac{|\varphi_a^H M \varphi_b|^2}{(\varphi_a^H M \varphi_a)(\varphi_b^H M \varphi_b)} .
+\end{equation}
+It is the squared cosine of the angle between the two vectors (here weighted
+with $M$; the unweighted version is also common), between 0 (orthogonal) and
+1 (same shape up to a scale factor). The vectors are complex, hence the
+Hermitian transpose $H$.
+
+\subsection{Tracking}
+Plain sorting labels the bands at each $\mathbf{k}$ by frequency order.
+\emph{MAC tracking} instead walks along the path and, at each new
+$\mathbf{k}$, assigns every mode to the band at the previous $\mathbf{k}$
+whose eigenvector it matches best (highest MAC). A branch then keeps its
+identity through a crossing instead of swapping labels with its neighbour.
+Two complications for stage~5:
+\begin{itemize}
+  \item degenerate groups (4-fold at $\Gamma$ and $M$): any rotation within
+        the group is an equally valid eigenbasis, so the MAC between single
+        vectors is arbitrary; subspaces have to be compared;
+  \item the vectors at neighbouring $\mathbf{k}$ differ slightly through
+        $T(\mathbf{k})$; harmless for small steps.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section{Check questions with answers}
+
+\paragraph{Question 1: moving the mass.} \emph{Put the mass at
+$\mathbf{x}_0 = (a/2, 0)$ instead of the corner. What changes at $X$?}
+
+\emph{Answer.} With $\mathbf{k} + \mathbf{G}_1 = (+\pi/a, 0)$ and
+$\mathbf{k} + \mathbf{G}_2 = (-\pi/a, 0)$:
+\begin{equation}
+  \varphi_1(\mathbf{x}_0) = \frac{e^{i(\pi/a)(a/2)}}{\sqrt{\rho h A}} = \frac{+i}{\sqrt{\rho h A}}, \qquad
+  \varphi_2(\mathbf{x}_0) = \frac{e^{-i(\pi/a)(a/2)}}{\sqrt{\rho h A}} = \frac{-i}{\sqrt{\rho h A}},
+\end{equation}
+\begin{equation}
+  c = -\lambda\, m\, \varphi_1(\mathbf{x}_0)^* \varphi_2(\mathbf{x}_0)
+    = -\lambda\, m\, \frac{(-i)(-i)}{\rho h A} = +\mu\lambda .
+\end{equation}
+The coupling flips sign. With $b_H = +\mu\lambda$:
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+Eigenvector & Mode shape & At $x_0 = a/2$ & $\lambda$ & $f$ ($\mu = 0.25$) \\
+\hline
+$(1,+1)$ & $\cos(\pi x/a)$ & node & $\lambda^0 - \mu\lambda + \mu\lambda$ & $1190\,\mathrm{Hz}$ \\
+$(1,-1)$ & $\sin(\pi x/a)$ & antinode & $\lambda^0/(1+2\mu)$ & $972\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+The labels swap (relative to the coordinate origin, the antinode pattern is
+now the sine), but the physics does not: the pattern with its antinode at the
+mass drops, the one with its node there stays. Both frequencies are
+unchanged. This is the position invariance found in the stage~4 validation:
+moving the mass only moves the lattice origin.
+
+\paragraph{Question 2: are two modes enough?} \emph{At the midpoint of
+$\Gamma$--$X$ the two lowest bare bands are at $f_1 \approx 300\,\mathrm{Hz}$
+and $f_2 \approx 2700\,\mathrm{Hz}$ (Kirchhoff). For $\mu = 0.25$, which
+contribution of Section~\ref{sec:far} dominates?}
+
+\emph{Answer.} Mass loading dominates, as expected from the large frequency
+separation. Note that $\Delta\lambda$ is a difference of $\omega^2$, not of
+frequencies, and $|c|^2$ has units of $\lambda^2$; compare $|c|$ with
+$|\Delta\lambda|$, or the two shift terms with each other. With
+$\lambda_1^0/\lambda_2^0 = (300/2700)^2 \approx 1/81$:
+\begin{itemize}
+  \item mass loading relative to $\lambda_1^0$: $\mu = 0.25$;
+  \item repulsion relative to $\lambda_1^0$:
+        $\mu^2\,\lambda_1^0/(\lambda_2^0 - \lambda_1^0) \approx 0.0625/80 \approx 8\cdot 10^{-4}$.
+\end{itemize}
+Mass loading dominates by a factor of about 300 (two and a half orders of
+magnitude).
+
+\paragraph{Question 3: MAC at an avoided crossing.} \emph{Band 1 changes
+character over a $\mathbf{k}$-range $\Delta k_c$. Compare band 1 at $k_1$ with
+band 1 at $k_2$ when the step is (a) much smaller than $\Delta k_c$, (b) much
+larger, with $k_1$ well before and $k_2$ well after the crossing.}
+
+\emph{Answer.}
+\begin{itemize}
+  \item (a) Fine steps: $\mathrm{MAC}(\text{band 1 at } k_1, \text{band 1 at } k_2) \approx 1$,
+        not because of the 50/50 mixing but because the character changes
+        only a little from one step to the next. Tracking follows the
+        continuous band and concludes \emph{no crossing}. Correct: the bands
+        repel, there is a gap.
+  \item (b) Coarse step: band 1 at $k_1$ is pure mode 1 and band 1 at $k_2$
+        is pure mode 2, so their MAC $\approx 0$, while band 1 at $k_1$ versus
+        band 2 at $k_2$ gives MAC $\approx 1$. Tracking concludes that the
+        branches \emph{crossed} and swaps the labels, drawing a line straight
+        through the gap. Wrong.
+\end{itemize}
+Consequences for stages 5 and 6:
+\begin{itemize}
+  \item the $\mathbf{k}$-step must be finer than $\Delta k_c$; narrow gaps
+        (small $|c|$) need finer steps there;
+  \item an avoided crossing seen with too coarse a step looks exactly like a
+        true crossing;
+  \item for \emph{gap detection}, plain sorting is the right tool: a gap is
+        defined by sorted frequencies (maximum of band $n$, minimum of band
+        $n+1$), not by branch identity. Tracking is for drawing curves and
+        following mode character.
+\end{itemize}
+
+\paragraph{Earlier question: why $\mu^2$ away from crossings?} \emph{Why does
+the formula shift $\approx |c|^2/\Delta\lambda$ mean that far from crossings
+the resonator lattice moves the bands by an amount scaling like $\mu^2$, and
+why is the mass-limit deviation of about $2\mu$ (first order) found in the
+stage~4 validation still consistent with that?}
+
+\emph{Answer.} The maths of the regimes was answered correctly: for
+$|\Delta\lambda| \gg |c|$ the square root reduces to $|\Delta\lambda|/2$ plus
+a term in $|c|^2$; for $\Delta\lambda \to 0$ the square root tends to $|c|$.
+One wording fix: near a crossing $|c|$ does not grow; $c$ stays the same and
+$\Delta\lambda$ shrinks below $|c|$. The regime is set by the ratio
+$|c|/|\Delta\lambda|$. Since $c \propto \mu$, the repulsion scales like
+$\mu^2$ away from crossings and like $\mu$ at a crossing. The $2\mu$ of the
+mass limit is consistent: at $X$ both the diagonal term and the coupling are
+first order and add up (pattern A: $\mu + \mu$; pattern B: $\mu - \mu = 0$).
+(Whether the stage~4 value was measured in $\lambda$ or in $f$ was not
+re-checked in this session.)

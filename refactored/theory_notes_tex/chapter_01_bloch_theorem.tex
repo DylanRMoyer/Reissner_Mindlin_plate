@@ -1,0 +1,198 @@
+% =====================================================================
+% Chapter 1: Bloch's theorem and band folding
+% Theory session, dispersion branch (Nov 2026)
+% Requires: amsmath, amssymb
+% Include in the main file with  \include{chapter_01_bloch_theorem}
+% =====================================================================
+
+\chapter{Bloch's theorem and band folding}
+\label{ch:bloch}
+
+Numbers in this chapter refer to the production configuration of the Bloch
+unit cell: steel plate, thickness $h = 5\,\mathrm{mm}$, square unit cell of
+size $a = 0.1\,\mathrm{m}$, Reissner--Mindlin (RM) plate theory, bands below
+$5\,\mathrm{kHz}$. Plate data: $\rho h \approx 39.3\,\mathrm{kg/m^2}$,
+$D \approx 2.3\,\mathrm{kN\,m}$, plate mass per cell
+$\rho h a^2 \approx 0.39\,\mathrm{kg}$.
+
+% ---------------------------------------------------------------------
+\section{What Bloch's theorem says}
+
+A periodic structure repeats along the lattice vectors
+$\mathbf{a}_1 = (L_x, 0)$ and $\mathbf{a}_2 = (0, L_y)$. A lattice vector is
+any $\mathbf{R} = m\,\mathbf{a}_1 + n\,\mathbf{a}_2$ with integers $m, n$.
+Bloch's theorem states that every free wave can be written in the form
+\begin{equation}
+  u(\mathbf{x} + \mathbf{R}) = e^{i\,\mathbf{k}\cdot\mathbf{R}}\, u(\mathbf{x}),
+  \label{eq:bloch}
+\end{equation}
+or equivalently $u(\mathbf{x}) = e^{i\mathbf{k}\cdot\mathbf{x}}\,p(\mathbf{x})$
+with $p$ periodic in the cell. Moving one cell over does not change the shape
+of the wave, it only multiplies it by a phase. Therefore one cell, with the
+conditions ``right edge = left edge $\cdot\, e^{i k_x L_x}$'' and
+``top edge = bottom edge $\cdot\, e^{i k_y L_y}$'', describes the whole
+infinite structure.
+
+% ---------------------------------------------------------------------
+\section{Why it holds: the argument in four steps}
+
+\paragraph{Step 1: the structure is unchanged by a lattice shift.}
+Define the translation operator $\mathcal{T}_{\mathbf{R}}$ by
+$(\mathcal{T}_{\mathbf{R}} u)(\mathbf{x}) = u(\mathbf{x} + \mathbf{R})$.
+The equations of motion of the plate have periodic coefficients (the resonator
+sits at the same place in every cell). It therefore makes no difference
+whether we first shift and then apply the equations, or the other way round:
+the two operators \emph{commute}.
+
+\paragraph{Step 2: a shifted solution is again a solution.}
+If $u$ is a free wave at frequency $\omega$, then $\mathcal{T}_{\mathbf{R}}u$
+is also a free wave at the same $\omega$. Operators that commute share
+eigenfunctions. Within the space of solutions at that $\omega$ we can
+therefore \emph{choose} solutions that $\mathcal{T}_{\mathbf{R}}$ only
+multiplies by a number:
+\begin{equation}
+  \mathcal{T}_{\mathbf{R}} u = c(\mathbf{R})\, u .
+\end{equation}
+
+\paragraph{Step 3: the multiplier must be an exponential.}
+Shifting by $\mathbf{R}_1$ and then by $\mathbf{R}_2$ equals shifting by
+$\mathbf{R}_1 + \mathbf{R}_2$, so
+$c(\mathbf{R}_1 + \mathbf{R}_2) = c(\mathbf{R}_1)\,c(\mathbf{R}_2)$.
+The only continuous functions with this property are exponentials:
+\begin{equation}
+  c(\mathbf{R}) = e^{i\,\mathbf{k}\cdot\mathbf{R}} .
+\end{equation}
+
+\paragraph{Step 4: what $\mathbf{k}$ can be.}
+\begin{itemize}
+  \item If the wave stays bounded over the infinite lattice, then $|c| = 1$
+        and $\mathbf{k}$ is \emph{real}. These are the propagating waves,
+        and they form the bands.
+  \item If $|c| \neq 1$, then $\mathbf{k}$ is \emph{complex}: the wave grows
+        or decays from cell to cell (evanescent wave).
+\end{itemize}
+Keep the second case in mind: inside a band gap no real-$\mathbf{k}$
+solutions exist, but complex-$\mathbf{k}$ solutions do. The proof itself does
+not restrict $\mathbf{k}$ to real values; restricting to real $\mathbf{k}$ is
+our choice, because we want to know which waves propagate.
+
+% ---------------------------------------------------------------------
+\section{Consequences}
+
+\begin{itemize}
+  \item \textbf{One cell is enough, but only for an infinite lattice.} A finite
+        plate has edges; a shift no longer leaves it unchanged, and Step 1
+        fails. The band diagram describes the \emph{material}, not the finite
+        $1.1 \times 1.0\,\mathrm{m}$ plate.
+  \item \textbf{$\mathbf{k}$ only matters modulo $\mathbf{G}$.} The phase
+        $e^{i\mathbf{k}\cdot\mathbf{R}}$ does not change when we add a
+        reciprocal lattice vector
+        $\mathbf{G} = 2\pi\,(m/L_x,\; n/L_y)$, because
+        $\mathbf{G}\cdot\mathbf{R}$ is a multiple of $2\pi$. This is the origin
+        of the Brillouin zone and of folding.
+  \item \textbf{At each $\mathbf{k}$ the problem is finite.} The cell has
+        finitely many degrees of freedom, so it has a discrete list of
+        frequencies. Sorted, they are bands $1, 2, 3, \dots$ at that
+        $\mathbf{k}$.
+\end{itemize}
+
+\paragraph{Brillouin zone and symmetry points.}
+All distinct wavevectors lie in the first Brillouin zone
+$-\pi/L_x \le k_x \le \pi/L_x$, $-\pi/L_y \le k_y \le \pi/L_y$. Reciprocity
+($\omega(\mathbf{k}) = \omega(-\mathbf{k})$) and the mirror symmetries of the
+cell reduce this to the irreducible Brillouin zone, and band diagrams follow its
+edge.
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+Point & $\mathbf{k}$ & Phase per cell & Picture \\
+\hline
+$\Gamma$ & $(0,0)$ & $1,\ 1$ & all cells move identically \\
+$X$ & $(\pi/L_x, 0)$ & $-1$ in $x$ & neighbours in $x$ move oppositely \\
+$M$ & $(\pi/L_x, \pi/L_y)$ & $-1,\ -1$ & checkerboard \\
+$Y$ & $(0, \pi/L_y)$ & $-1$ in $y$ & only needed for rectangular cells \\
+\hline
+\end{tabular}
+\end{center}
+Path: $\Gamma$--$X$--$M$--$\Gamma$ for a square cell,
+$\Gamma$--$X$--$M$--$Y$--$\Gamma$ for a rectangular cell.
+
+% ---------------------------------------------------------------------
+\section{Band folding with our numbers}
+
+For the uniform plate (no cells) each plane wave $e^{i\boldsymbol{\kappa}\cdot\mathbf{x}}$
+has one frequency, set by the physical wavenumber $\kappa = |\boldsymbol{\kappa}|$.
+Thin-plate (Kirchhoff) estimate for the $5\,\mathrm{mm}$ plate:
+\begin{equation}
+  f \approx 1.215\,\kappa^2\ \mathrm{Hz}\qquad(\kappa \text{ in rad/m}).
+\end{equation}
+Described with cells of size $a$, the Bloch wavevector only sees
+$\boldsymbol{\kappa}$ modulo $\mathbf{G}$. At a fixed $\mathbf{k}$ the cell
+therefore carries all waves $\boldsymbol{\kappa} = \mathbf{k} + \mathbf{G}$,
+each with its own frequency. Folding is a relabelling, nothing physical
+changes.
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+Point & $\kappa$ folding there & Kirchhoff & RM (FE) & Multiplicity \\
+\hline
+$X$ & $\pi/a = 31.4$ & $1199\,\mathrm{Hz}$ & $\approx 1190\,\mathrm{Hz}$ & 2: $(\pm\pi/a, 0)$ \\
+$M$ & $\sqrt{2}\,\pi/a = 44.4$ & $2398\,\mathrm{Hz}$ & $\approx 2380\,\mathrm{Hz}$ & 4: $(\pm\pi/a, \pm\pi/a)$ \\
+$\Gamma$ & $2\pi/a = 62.8$ & $4797\,\mathrm{Hz}$ & $\approx 4730\,\mathrm{Hz}$ & 4: $(\pm 2\pi/a, 0), (0, \pm 2\pi/a)$ \\
+\hline
+\end{tabular}
+\end{center}
+The difference between Kirchhoff and RM grows with frequency
+($0.8\,\%$ at $X$, $1.4\,\%$ at $\Gamma$), because shear deformation and
+rotary inertia grow with $\kappa h$. This is also why the Kirchhoff
+plane-wave model was $1.6\,\%$ off in the stage~4 validation.
+
+% ---------------------------------------------------------------------
+\section{Check questions with answers}
+
+\paragraph{Question 1.} \emph{In Step 2, why can we only say that we can
+choose solutions that $\mathcal{T}_{\mathbf{R}}$ multiplies by a number,
+instead of claiming that every solution is like that?}
+
+\emph{Answer.} Bloch waves are a basis we choose; not every solution is one.
+Example: at a generic frequency the plate carries $e^{+i\kappa x}$ and
+$e^{-i\kappa x}$, which have \emph{different} phases per cell,
+$e^{\pm i\kappa a}$. Their sum $\cos(\kappa x)$ solves the equations at the
+same $\omega$, but shifting it by $a$ does not give a multiple of
+$\cos(\kappa x)$. It is a valid solution, but not a Bloch wave.
+
+\emph{At $X$ this changes:} $e^{+i\pi x/a}$ and $e^{-i\pi x/a}$ both have the
+phase $e^{\pm i\pi} = -1$ per cell. They differ by exactly one $\mathbf{G}$
+and are \emph{the same} Bloch $\mathbf{k}$. Every combination of them is
+therefore also a Bloch wave at $X$, including $\cos(\pi x/a)$ and
+$\sin(\pi x/a)$. This is why the standing waves A and B used in
+Chapter~\ref{ch:two_level} are legitimate Bloch modes, and why a resonator can
+split them.
+
+\paragraph{Question 2.} \emph{At $\Gamma$ the bare cell has a band at about
+$4.73\,\mathrm{kHz}$, although ``$\Gamma$ means infinite wavelength''. What is
+that wave physically?}
+
+\emph{Answer.} The Bloch wavevector is $\mathbf{k} = 0$, but the physical
+wavenumber is $\kappa = |\mathbf{k} + \mathbf{G}| = 2\pi/a$. Both describe the
+same mode because $\mathbf{k}$ only matters modulo $\mathbf{G}$. Physically
+it is a wave with wavelength $\lambda_\mathrm{wave} = a = 0.1\,\mathrm{m}$:
+exactly one full wiggle per cell, phase per cell $e^{i2\pi} = 1$. All cells
+look identical, which is why it sits at $\Gamma$. It appears four times, once
+for each direction $\pm x$, $\pm y$.
+
+\paragraph{Question 3.} \emph{What breaks first if Bloch's theorem is applied
+to the finite $1.1 \times 1.0\,\mathrm{m}$ plate, and what goes wrong
+physically?}
+
+\emph{Answer.} Step 1 already fails: a shifted solution no longer satisfies
+the edge conditions, so the operators no longer commute. Physically, waves
+reflect at the free edges, travelling waves become standing waves, and the
+finite plate has discrete modes. Two consequences (treated later):
+\begin{itemize}
+  \item the modes of the finite plate roughly \emph{sample} the bands at
+        discrete wavenumbers, about $n\pi/L$;
+  \item edges can carry localized modes, sometimes even inside a band gap.
+\end{itemize}

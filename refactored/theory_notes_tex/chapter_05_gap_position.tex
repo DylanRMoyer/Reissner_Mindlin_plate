@@ -1,0 +1,637 @@
+% =====================================================================
+% Chapter 5: Why the gap sits at 1031--1195 Hz and not at 1200--1342 Hz
+% Theory session, dispersion branch (Nov 2026)
+% Requires: amsmath, amssymb
+% Include in the main file with  \include{chapter_05_gap_position}
+% =====================================================================
+
+\chapter{Why the gap sits at 1031--1195\,Hz and not at 1200--1342\,Hz}
+\label{ch:gap_position}
+
+The effective-medium estimate of Chapter~\ref{ch:local_resonance} predicts a
+gap of $1200$--$1342\,\mathrm{Hz}$. The FE diagram shows a complete gap of
+$1031$--$1195\,\mathrm{Hz}$. This chapter explains the difference. Every
+equation is derived here, starting from Newton's law for the resonator, so the
+chapter can be read on its own.
+
+Unless stated otherwise, numbers come from the Reissner--Mindlin (RM)
+plane-wave model, which agrees with FE to within $0.33\,\%$. The exact bare
+frequency at $X$ is $1194.4\,\mathrm{Hz}$; earlier chapters round it to
+$1190\,\mathrm{Hz}$. No conclusion there changes.
+
+\begin{center}
+\begin{tabular}{|l|p{0.62\textwidth}|}
+\hline
+Symbol & Meaning \\
+\hline
+$\omega$, $f$ & angular frequency and frequency of a wave (one dot of the diagram) \\
+$\lambda = \omega^2$ & eigenvalue belonging to that dot \\
+$\mathbf{k}$ & Bloch wavevector, the horizontal axis of the diagram \\
+$\mathbf{x}$, $\mathbf{x}_0$ & position on the plate; position of the resonator (origin placed there, $\mathbf{x}_0 = 0$) \\
+$a$, $A = a^2$ & cell size ($0.1\,\mathrm{m}$) and cell area \\
+$\rho h$ & plate mass per area \\
+$m$, $k_s$ & resonator mass and spring stiffness \\
+$\lambda_r = \omega_r^2 = k_s/m$ & the resonator's own eigenvalue ($f_r = 1200\,\mathrm{Hz}$ unless stated) \\
+$\mu = m/(\rho h A)$ & resonator mass over plate mass per cell, $0.25$ \\
+$\beta = \lambda/\lambda_r = (f/f_r)^2$ & squared frequency relative to the resonator \\
+$\varphi_n(\mathbf{x})$ & bare plate wave $n$, defined below \\
+$\lambda_n^0$ & bare eigenvalue of wave $n$ (plate without resonator) \\
+$\lambda_p$ & $\lambda_n^0$ of the one wave, or group of waves, kept in a simplified model \\
+$q_n$ & amplitude of wave $n$ in the plate motion \\
+$w_0$ & plate deflection at the resonator \\
+$u$ & displacement of the resonator mass \\
+$F$ & force the resonator exerts on the plate \\
+$Z$, $C$ & force per deflection of the resonator; deflection per force of the plate \\
+$S$ & sum over all waves except a chosen group, defined where it is used \\
+$d$ & number of bare waves sharing the same $\lambda_n^0$ at a given $\mathbf{k}$ \\
+$f_X$ & bare plate frequency at $X$, $1194.4\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{Recap: what the diagram contains}
+
+A bare plate wave in the cell, for a given $\mathbf{k}$, is
+\begin{equation}
+  \varphi_n(\mathbf{x}) = \frac{e^{i(\mathbf{k}+\mathbf{G}_n)\cdot\mathbf{x}}}{\sqrt{\rho h A}} .
+\end{equation}
+The $\mathbf{G}_n = (2\pi/a)\,(\text{integer}, \text{integer})$ are the reciprocal
+lattice vectors. Several waves fit at the same $\mathbf{k}$ because adding
+$\mathbf{G}$ changes nothing from cell to cell. Each wave has its own bare
+eigenvalue $\lambda_n^0$, set by its wavenumber $|\mathbf{k}+\mathbf{G}_n|$.
+
+The factor $1/\sqrt{\rho h A}$ is chosen so that
+$\int \rho h\,|\varphi_n|^2\,\mathrm{d}A = 1$ over the cell. Since
+$|e^{i\dots}| = 1$,
+\begin{equation}
+  |\varphi_n(\mathbf{x}_0)|^2 = \frac{1}{\rho h A} \quad\text{for every wave } n.
+  \label{eq:phi_squared}
+\end{equation}
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+Point & $\mathbf{k}$ & Bare waves there ($d$ of them) & Bare frequency \\
+\hline
+$\Gamma$ & $(0,0)$ & 1 wave, $\mathbf{G} = 0$ & $0\,\mathrm{Hz}$ \\
+$\Gamma$ & $(0,0)$ & 4 waves, wavelength $a$ & $4715\,\mathrm{Hz}$ \\
+$X$ & $(\pi/a, 0)$ & 2 waves, $(\pm\pi/a, 0)$ & $1194.4\,\mathrm{Hz}$ \\
+$M$ & $(\pi/a, \pi/a)$ & 4 waves, $(\pm\pi/a, \pm\pi/a)$ & $2378.2\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+A \emph{complete gap} is a frequency interval with no dot at any $\mathbf{k}$.
+It runs from the highest point of band 1 to the lowest point of band 2.
+
+% ---------------------------------------------------------------------
+\section{The resonator as a mass that depends on frequency}
+
+Newton's law for the resonator mass: the spring force on it is
+$k_s(w_0 - u)$, and for harmonic motion $\ddot{u} = -\omega^2 u$, so
+\begin{align}
+  -m\omega^2 u &= k_s(w_0 - u) \\
+  u\,(k_s - m\omega^2) &= k_s w_0 \\
+  u &= w_0\,\frac{k_s}{k_s - m\omega^2} .
+\end{align}
+Divide numerator and denominator by $k_s$. Since
+$m\omega^2/k_s = \omega^2/\omega_r^2 = \beta$,
+\begin{equation}
+  u = \frac{w_0}{1 - \beta} .
+  \label{eq:u_over_w}
+\end{equation}
+The force on the plate is equal and opposite to the force on the mass (Newton's
+third law). The force on the mass is $m\ddot{u} = -m\omega^2 u$, so
+\begin{equation}
+  F = m\omega^2 u = \frac{m\,\omega^2 w_0}{1 - \beta} .
+\end{equation}
+A \emph{rigid} mass $M_\mathrm{rigid}$ glued to the plate moves with $w_0$, and
+by the same reasoning exerts $F = M_\mathrm{rigid}\,\omega^2 w_0$. The two forces
+have the same form. To the plate, the resonator therefore looks like a rigid
+mass of size
+\begin{equation}
+  \boxed{\;m_\mathrm{eff} = \frac{m}{1-\beta}\;}
+  \qquad\text{and, divided by } \rho h A, \qquad
+  \boxed{\;\mu_\mathrm{eff} = \frac{\mu}{1-\beta}\;}
+\end{equation}
+Since $1 - \beta = (\lambda_r - \lambda)/\lambda_r$, an equivalent form is
+\begin{equation}
+  \mu_\mathrm{eff} = \frac{\mu\,\lambda_r}{\lambda_r - \lambda} .
+  \label{eq:mu_eff_lambda}
+\end{equation}
+\begin{itemize}
+  \item $f$ far below $f_r$ ($\beta \to 0$): $m_\mathrm{eff} \to m$; the spring
+        is effectively rigid.
+  \item $f$ rising towards $f_r$ ($\beta \to 1$): $m_\mathrm{eff}$ becomes very
+        large and positive.
+  \item $f$ above $f_r$ ($\beta > 1$): $m_\mathrm{eff}$ is negative.
+\end{itemize}
+In short, with $\lambda = \omega^2$,
+\begin{equation}
+  F = m_\mathrm{eff}\,\lambda\, w_0 .
+  \label{eq:force}
+\end{equation}
+
+% ---------------------------------------------------------------------
+\section{The plate driven by that force}
+
+The plate with a point force $F$ at $\mathbf{x}_0$ obeys, with $\mathcal{L}$ the
+plate stiffness operator,
+\begin{equation}
+  \mathcal{L} w - \rho h\,\lambda\, w = F\,\delta(\mathbf{x} - \mathbf{x}_0) .
+\end{equation}
+Expand the plate motion in bare waves, $w(\mathbf{x}) = \sum_j q_j\,\varphi_j(\mathbf{x})$,
+multiply by $\varphi_n^*$ and integrate over the cell:
+\begin{itemize}
+  \item the stiffness term gives $\lambda_n^0\, q_n$ ($\varphi_n$ is a bare wave
+        and the waves are orthogonal);
+  \item the inertia term gives $\lambda\, q_n$ (normalization);
+  \item on the right, the delta function picks the value at $\mathbf{x}_0$,
+        giving $F\,\varphi_n(\mathbf{x}_0)^*$.
+\end{itemize}
+Therefore, for every wave $n$,
+\begin{equation}
+  (\lambda_n^0 - \lambda)\, q_n = F\,\varphi_n(\mathbf{x}_0)^* .
+  \label{eq:modal}
+\end{equation}
+This says how strongly each wave responds to the point force.
+
+\emph{Remark for Reissner--Mindlin:} there $\varphi_n$ also has rotation
+components, and Eq.~\eqref{eq:modal} holds with the deflection part of
+$\varphi_n$. The structure is identical, and the RM numbers include this.
+
+% ---------------------------------------------------------------------
+\section{Closing the loop: the plane-wave expansion condition}
+
+Eq.~\eqref{eq:modal} gives the amplitude of each wave,
+\begin{equation}
+  q_n = \frac{F\,\varphi_n(\mathbf{x}_0)^*}{\lambda_n^0 - \lambda} ,
+  \label{eq:qn}
+\end{equation}
+and the deflection at the resonator is the sum of all waves there,
+\begin{equation}
+  w_0 = \sum_n \varphi_n(\mathbf{x}_0)\, q_n .
+  \label{eq:w0_sum}
+\end{equation}
+
+\paragraph{Insert \eqref{eq:qn} into \eqref{eq:w0_sum}.}
+\begin{equation}
+  w_0 = \sum_n \varphi_n(\mathbf{x}_0)\cdot\frac{F\,\varphi_n(\mathbf{x}_0)^*}{\lambda_n^0 - \lambda} .
+\end{equation}
+$F$ does not depend on $n$, so it comes out of the sum, and
+$\varphi_n\varphi_n^* = |\varphi_n|^2$:
+\begin{equation}
+  w_0 = F\,\sum_n \frac{|\varphi_n(\mathbf{x}_0)|^2}{\lambda_n^0 - \lambda} .
+\end{equation}
+Define the sum as the \emph{compliance} $C$, the deflection per unit force:
+\begin{equation}
+  C = \sum_n \frac{|\varphi_n(\mathbf{x}_0)|^2}{\lambda_n^0 - \lambda} ,
+  \qquad
+  w_0 = C\,F .
+  \label{eq:compliance}
+\end{equation}
+Likewise call the factor in Eq.~\eqref{eq:force} $Z = m_\mathrm{eff}\,\lambda$,
+the force per unit deflection:
+\begin{equation}
+  F = Z\, w_0 .
+  \label{eq:Z}
+\end{equation}
+
+\paragraph{Insert \eqref{eq:Z} into \eqref{eq:compliance} and divide by $w_0$.}
+\begin{equation}
+  w_0 = C\, Z\, w_0
+  \quad\Longrightarrow\quad
+  1 = Z\, C \qquad (w_0 \neq 0).
+  \label{eq:ZC}
+\end{equation}
+The deflection creates a force, and that force creates exactly the same
+deflection: the condition for a wave that sustains itself.
+
+\paragraph{Rewriting $1 = ZC$ with mass ratios.}
+Insert the definitions of $Z$ and $C$:
+\begin{equation}
+  1 = m_\mathrm{eff}\,\lambda\,\sum_n \frac{|\varphi_n(\mathbf{x}_0)|^2}{\lambda_n^0 - \lambda} .
+\end{equation}
+By Eq.~\eqref{eq:phi_squared}, $|\varphi_n(\mathbf{x}_0)|^2 = 1/(\rho h A)$ for
+every $n$, so it comes out of the sum:
+\begin{equation}
+  1 = m_\mathrm{eff}\,\lambda\,\frac{1}{\rho h A}\,\sum_n \frac{1}{\lambda_n^0 - \lambda} .
+\end{equation}
+Group $m_\mathrm{eff}/(\rho h A) = \mu_\mathrm{eff}$ and move $\lambda$ into the
+sum:
+\begin{equation}
+  \boxed{\;1 = \mu_\mathrm{eff}\,\sum_n \frac{\lambda}{\lambda_n^0 - \lambda}\;}
+  \label{eq:pwe}
+\end{equation}
+This is the \emph{plane-wave expansion (PWE) condition}. At a given $\mathbf{k}$,
+every $\lambda$ that satisfies it is one dot of the diagram. ``Kirchhoff'' or
+``RM'' only decides which values $\lambda_n^0$ go into the sum; a ``Kirchhoff
+compliance'' is $C$ evaluated with Kirchhoff values. In the notes the same
+condition is written $1 = Z/A\cdot\sum_G g$, with
+$g = 1/(\rho h(\omega_n^2 - \omega^2))$.
+
+\paragraph{What if $w_0 = 0$?}
+Then $F = 0$ by Eq.~\eqref{eq:Z}, and Eq.~\eqref{eq:modal} becomes
+$(\lambda_n^0 - \lambda)\, q_n = 0$. A nonzero wave requires
+$\lambda = \lambda_n^0$. A mode with a node at the resonator keeps its bare
+frequency. Such modes do not appear in Eq.~\eqref{eq:pwe}, because we divided
+by $w_0$, and must be added by hand.
+
+% ---------------------------------------------------------------------
+\section{Why a wave acts like a spring or like a mass}
+
+Take one wave and write $g = F\,\varphi_n(\mathbf{x}_0)^*$ for the force it
+feels. Eq.~\eqref{eq:qn} reads
+\begin{equation}
+  q_n = \frac{g}{\lambda_n^0 - \lambda} .
+\end{equation}
+Compare with the two elementary elements (unit mass, deflection $s$):
+\begin{itemize}
+  \item a \emph{spring} of stiffness $\kappa_s$: $\kappa_s\, s = g$, so
+        $s = g/\kappa_s$. The deflection is along the force and does not depend
+        on frequency.
+  \item a \emph{mass} of $1$: $-\lambda\, s = g$, so $s = -g/\lambda$. The
+        deflection is against the force.
+\end{itemize}
+Now the denominator decides:
+\begin{itemize}
+  \item \textbf{Wave above the driving frequency,} $\lambda_n^0 \gg \lambda$:
+        $\lambda_n^0 - \lambda \approx \lambda_n^0 > 0$, so
+        $q_n \approx g/\lambda_n^0$. This is exactly the spring formula with
+        $\kappa_s = \lambda_n^0$.
+  \item \textbf{Wave below the driving frequency,} $\lambda_n^0 \ll \lambda$:
+        $\lambda_n^0 - \lambda \approx -\lambda < 0$, so
+        $q_n \approx -g/\lambda$. This is exactly the mass formula.
+\end{itemize}
+Physically, each wave is an oscillator with a stiffness part $\lambda_n^0$ and
+an inertia part $-\lambda$; the larger one decides its behaviour. For
+$\lambda_n^0 = 0$ (no stiffness at all) the formula is exactly a mass.
+
+% ---------------------------------------------------------------------
+\section{One wave: where 1200--1342\,Hz comes from}
+
+Keep only one term in Eq.~\eqref{eq:pwe}, with bare eigenvalue $\lambda_p$, and
+use Eq.~\eqref{eq:mu_eff_lambda}:
+\begin{equation}
+  1 = \frac{\mu\,\lambda_r}{\lambda_r - \lambda}\cdot\frac{\lambda}{\lambda_p - \lambda} .
+\end{equation}
+Multiply both sides by $(\lambda_r - \lambda)(\lambda_p - \lambda)$:
+\begin{equation}
+  \boxed{\;(\lambda_p - \lambda)(\lambda_r - \lambda) = \mu\,\lambda_r\,\lambda\;}
+  \label{eq:one_wave}
+\end{equation}
+
+\paragraph{Same equation as the determinant of Chapter~\ref{ch:local_resonance}.}
+The two-level model with matrix
+$H = \bigl(\begin{smallmatrix}\lambda_p+\mu\lambda_r & -\sqrt{\mu}\lambda_r\\ -\sqrt{\mu}\lambda_r & \lambda_r\end{smallmatrix}\bigr)$
+gave $(\lambda_p + \mu\lambda_r - \lambda)(\lambda_r - \lambda) - \mu\lambda_r^2 = 0$.
+Group the first bracket as $(\lambda_p - \lambda) + \mu\lambda_r$:
+\begin{align}
+  \bigl[(\lambda_p - \lambda) + \mu\lambda_r\bigr](\lambda_r - \lambda) - \mu\lambda_r^2 &= 0 \\
+  (\lambda_p - \lambda)(\lambda_r - \lambda) + \mu\lambda_r(\lambda_r - \lambda) - \mu\lambda_r^2 &= 0 \\
+  (\lambda_p - \lambda)(\lambda_r - \lambda) + \mu\lambda_r^2 - \mu\lambda_r\lambda - \mu\lambda_r^2 &= 0 \\
+  (\lambda_p - \lambda)(\lambda_r - \lambda) - \mu\lambda_r\lambda &= 0 ,
+\end{align}
+which is Eq.~\eqref{eq:one_wave}. This form is useful because the left side
+contains only the two uncoupled systems (it vanishes at $\lambda = \lambda_p$
+and $\lambda = \lambda_r$), and the right side contains the coupling. With
+$\mu = 0$ the uncoupled solutions come back.
+
+\paragraph{The two bands.}
+For each $\lambda_p$, Eq.~\eqref{eq:one_wave} has two solutions for $\lambda$.
+Multiplying out gives a quadratic,
+\begin{equation}
+  \lambda^2 - \bigl(\lambda_p + \lambda_r(1+\mu)\bigr)\lambda + \lambda_p\lambda_r = 0 .
+  \label{eq:quadratic}
+\end{equation}
+Call its two roots $\lambda_1 < \lambda_2$; they are the two bands at this $\mathbf{k}$. Writing the quadratic as $(\lambda - \lambda_1)(\lambda - \lambda_2) = \lambda^2 - (\lambda_1 + \lambda_2)\lambda + \lambda_1\lambda_2 = 0$ and comparing with Eq.~\eqref{eq:quadratic} gives $\lambda_1 + \lambda_2 = \lambda_p + \lambda_r(1+\mu)$ and $\lambda_1\lambda_2 = \lambda_p\lambda_r$. These two expressions are not the roots themselves, only their sum and their product.
+
+\paragraph{Why two limits?}
+The estimate pretends the plate is a uniform medium without a lattice. Then
+$\lambda_p$ simply grows with the wavenumber, from $0$ at $\mathbf{k}=0$ towards
+infinity. The bands as functions of $\lambda_p$, from Eq.~\eqref{eq:quadratic}:
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+Bare plate frequency & Lower band & Upper band \\
+\hline
+$0\,\mathrm{Hz}$ & $0\,\mathrm{Hz}$ & $1342\,\mathrm{Hz}$ \\
+$1000\,\mathrm{Hz}$ & $824\,\mathrm{Hz}$ & $1456\,\mathrm{Hz}$ \\
+$2378\,\mathrm{Hz}$ & $1153\,\mathrm{Hz}$ & $2475\,\mathrm{Hz}$ \\
+$10000\,\mathrm{Hz}$ & $1198\,\mathrm{Hz}$ & $10018\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+Both bands rise as $\lambda_p$ rises. The lower band is therefore \emph{highest}
+at $\lambda_p \to \infty$ and the upper band \emph{lowest} at $\lambda_p = 0$.
+These two ends bound the gap.
+
+\paragraph{Limit $\lambda_p = 0$.}
+Insert into Eq.~\eqref{eq:one_wave}:
+$(-\lambda)(\lambda_r - \lambda) = \mu\lambda_r\lambda$. One solution is
+$\lambda = 0$. Otherwise divide by $\lambda$:
+\begin{align}
+  -(\lambda_r - \lambda) &= \mu\lambda_r \\
+  \lambda &= \lambda_r(1+\mu) \\
+  f &= f_r\sqrt{1+\mu} = 1200\cdot\sqrt{1.25} = 1342\,\mathrm{Hz}.
+\end{align}
+
+\paragraph{Limit $\lambda_p \to \infty$.}
+For very large $\lambda_p$ the sum of the roots is dominated by $\lambda_p$, so
+the upper root is $\approx \lambda_p$. Then
+\begin{equation}
+  \text{lower root} = \frac{\text{product}}{\text{upper root}}
+  \approx \frac{\lambda_p\lambda_r}{\lambda_p} = \lambda_r ,
+\end{equation}
+that is, $1200\,\mathrm{Hz}$.
+
+\paragraph{The two hidden assumptions.}
+\begin{itemize}
+  \item \textbf{Assumption A:} $\lambda_p$ can grow without limit. In the
+        lattice the zone ends at $M$, where the bare value stops at
+        $2378\,\mathrm{Hz}$.
+  \item \textbf{Assumption B:} one wave per $\mathbf{k}$ is enough. A point
+        force excites all waves.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section{Several waves with the same bare frequency}
+
+If $d$ waves share the same $\lambda_p$ and the others are ignored, the $d$ terms
+in Eq.~\eqref{eq:pwe} are identical:
+\begin{equation}
+  1 = d\,\mu_\mathrm{eff}\,\frac{\lambda}{\lambda_p - \lambda} ,
+\end{equation}
+and the same multiplication gives
+\begin{equation}
+  \boxed{\;(\lambda_p - \lambda)(\lambda_r - \lambda) = d\,\mu\,\lambda_r\,\lambda\;}
+  \label{eq:d_waves}
+\end{equation}
+This is Eq.~\eqref{eq:one_wave} with $\mu$ replaced by $d\mu$: $d$ waves act like
+$d$ times the mass ratio. Of those $d$ waves, one combination has $w_0 \neq 0$;
+the other $d-1$ combinations have a node at the resonator and stay at the bare
+frequency.
+
+\paragraph{Plate share of the motion.}
+Let the coupling combination have amplitude $q$, normalized like the bare waves.
+With $d$ waves adding at $\mathbf{x}_0$, $|w_0|^2 = q^2\,d/(\rho h A)$. The
+kinetic energy in the plate is proportional to $q^2$, in the resonator to
+$m\,u^2$. Using Eq.~\eqref{eq:u_over_w},
+\begin{equation}
+  m\,u^2 = \frac{m\, q^2\, d/(\rho h A)}{(1-\beta)^2} = q^2\,\frac{d\,\mu}{(1-\beta)^2} .
+\end{equation}
+Therefore
+\begin{equation}
+  \text{plate share} = \frac{q^2}{q^2 + m\,u^2} = \frac{1}{1 + d\mu/(1-\beta)^2} .
+  \label{eq:plate_share}
+\end{equation}
+It is the same result as the eigenvector ratio of
+Chapter~\ref{ch:local_resonance}, written in terms of $\beta$.
+
+% ---------------------------------------------------------------------
+\section{Upper edge: 1342 $\to$ 1273.5 $\to$ 1194.4\,Hz}
+
+\paragraph{Step 1: stay at $\Gamma$, keep all waves.}
+The sum in Eq.~\eqref{eq:pwe} has two parts:
+\begin{itemize}
+  \item the $\mathbf{G}=0$ wave has $\lambda_n^0 = 0$, and its term is
+        $\lambda/(0-\lambda) = -1$: the mass-like part, the whole cell moving
+        rigidly;
+  \item all other waves lie far above ($4715\,\mathrm{Hz}$ and more). Their sum
+        is given the name
+        \begin{equation}
+          S = \sum_{n \neq 0} \frac{\lambda}{\lambda_n^0 - \lambda} > 0 ,
+        \end{equation}
+        which is spring-like.
+\end{itemize}
+Eq.~\eqref{eq:pwe} becomes $1 = \mu_\mathrm{eff}(-1 + S)$. Insert
+$\mu_\mathrm{eff} = \mu/(1-\beta)$ and multiply by $(1-\beta)$:
+\begin{equation}
+  1 - \beta = -\mu + \mu S
+  \quad\Longrightarrow\quad
+  \boxed{\;\beta = 1 + \mu - \mu S\;}
+\end{equation}
+$S$ itself depends on $\beta$, so the actual solving is numerical.
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+Model at $\Gamma$ & $S$ & $\beta$ & Band 2 \\
+\hline
+Only $\mathbf{G}=0$ (one wave) & $0$ & $1.25$ & $1342\,\mathrm{Hz}$ \\
+Kirchhoff, all waves & $0.45$ & $1.14$ & $1280\,\mathrm{Hz}$ \\
+RM, all waves & $0.50$ & $1.13$ & $1273.5\,\mathrm{Hz}$ \\
+\hline
+\end{tabular}
+\end{center}
+The plate bends under the resonator. That bending is a soft spring in series with
+the resonator's spring, so the frequency drops. Of the Kirchhoff value $0.45$,
+the first four waves contribute about $0.31$; each gives
+$1/\bigl((4797/1280)^2 - 1\bigr) \approx 0.077$.
+
+\paragraph{Step 2: look at $X$.}
+At $X$ there are $d=2$ bare waves at $1194.4\,\mathrm{Hz}$,
+$e^{+i\pi x/a}$ and $e^{-i\pi x/a}$. Two combinations:
+\begin{itemize}
+  \item \emph{sum}, proportional to $\cos(\pi x/a)$: antinode at $x_0 = 0$,
+        couples to the resonator. Eq.~\eqref{eq:d_waves} with $d=2$ gives
+        $846$ and $1694\,\mathrm{Hz}$; the full Eq.~\eqref{eq:pwe} gives
+        $835.6$ and $1652.4\,\mathrm{Hz}$.
+  \item \emph{difference}, proportional to $\sin(\pi x/a)$: node at $x_0 = 0$,
+        so $w_0 = 0$ and the frequency stays bare, $1194.4\,\mathrm{Hz}$.
+\end{itemize}
+Sorted at $X$: $835.6$, $\mathbf{1194.4}$, $1652.4\,\mathrm{Hz}$. Band 2 at $X$ is
+the sin pattern, and $1194.4 < 1273.5\,\mathrm{Hz}$, so $X$ is the lowest point
+of band 2. \textbf{The upper edge is a pure Bragg frequency}: it contains neither
+$m$ nor $k_s$.
+
+% ---------------------------------------------------------------------
+\section{Lower edge: from 1200 down to 1031.4\,Hz}
+
+Band 1 peaks at $M$, where $d = 4$ and $\lambda_p = (2378.2\,\mathrm{Hz})^2$.
+\begin{center}
+\begin{tabular}{|p{0.36\textwidth}|l|l|p{0.08\textwidth}|}
+\hline
+Step & Equation & Band 1 at $M$ & Plate share \\
+\hline
+No lattice & \eqref{eq:one_wave}, $\lambda_p\to\infty$ & $1200\,\mathrm{Hz}$ & \\
+Zone ends at $M$ (fixes A) & \eqref{eq:d_waves}, $d=1$ & $1153\,\mathrm{Hz}$ & \\
+All four waves (fixes part of B) & \eqref{eq:d_waves}, $d=4$ & $1046\,\mathrm{Hz}$ & $5\,\%$ \\
+All other waves too, RM (fixes B) & \eqref{eq:pwe} & $1031.4\,\mathrm{Hz}$ & \\
+\hline
+\end{tabular}
+\end{center}
+In the last step, Eq.~\eqref{eq:pwe} at $M$ reads
+\begin{equation}
+  1 = \mu_\mathrm{eff}\left(\frac{4\lambda}{\lambda_p - \lambda} + S_M\right) ,
+\end{equation}
+where $S_M$ is the sum over all waves outside the group of four. They all lie far
+above $1031\,\mathrm{Hz}$, so $S_M > 0$ (spring-like). Back-calculated from the
+solution, $S_M \approx 0.12$. The effect is the same as at $\Gamma$: extra
+softness, lower frequency.
+
+With only $5\,\%$ of the motion in the plate (Eq.~\eqref{eq:plate_share} with
+$d=4$, $\beta = 0.760$), this state is almost pure resonator. That is why band 1
+is so flat near $M$ in Fig.~\ref{fig:dispersion_vamm_1200}.
+
+% ---------------------------------------------------------------------
+\section{What kind of gap is this?}
+
+Since the whole gap lies below $f_r$, we have $\beta < 1$ and
+$m_\mathrm{eff} > 0$. The negative-mass region above $f_r$ plays no role.
+
+\paragraph{Rigid-mass comparison.}
+With a rigid mass, $m_\mathrm{eff} = m$, so Eq.~\eqref{eq:pwe} for $d$ waves gives
+$1 = d\mu\lambda/(\lambda_p - \lambda)$. Multiplying out,
+\begin{equation}
+  \lambda_p - \lambda = d\mu\lambda
+  \quad\Longrightarrow\quad
+  \lambda = \frac{\lambda_p}{1 + d\mu} .
+  \label{eq:rigid}
+\end{equation}
+For a complete gap, band 1 at $M$ must fall below band 2 at $X$:
+\begin{equation}
+  \frac{2378.2}{\sqrt{1 + 4\mu}} < 1194.4
+  \;\Longleftrightarrow\; \sqrt{1+4\mu} > 1.991
+  \;\Longleftrightarrow\; 1 + 4\mu > 3.964
+  \;\Longleftrightarrow\; \mu > 0.74 .
+\end{equation}
+A rigid mass would need three quarters of the plate mass. The real $\mu$ is only
+$0.25$, but the plate sees $\mu_\mathrm{eff}$:
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+$f$ & $\beta$ & $\mu_\mathrm{eff} = 0.25/(1-\beta)$ \\
+\hline
+$1031.4\,\mathrm{Hz}$ & $0.739$ & $0.96$ \\
+$1046\,\mathrm{Hz}$ & $0.760$ & $1.04$ \\
+$1100\,\mathrm{Hz}$ & $0.840$ & $1.57$ \\
+$1190\,\mathrm{Hz}$ & $0.983$ & $15$ \\
+\hline
+\end{tabular}
+\end{center}
+All are above $0.74$. Inserting the value $1.04$ at $1046\,\mathrm{Hz}$ into
+Eq.~\eqref{eq:rigid} gives
+\begin{equation}
+  f = \frac{2378.2}{\sqrt{1 + 4\cdot 1.04}} = 1046\,\mathrm{Hz} .
+\end{equation}
+The $d=4$ line of the lower-edge table \emph{is} the rigid-mass formula, with the
+mass evaluated at the frequency where it acts.
+
+\paragraph{Result.}
+This is a \emph{Bragg gap with a resonance-boosted mass}:
+\begin{itemize}
+  \item the \textbf{upper edge} comes from the lattice (sin pattern at $X$,
+        untouched by the resonator);
+  \item the \textbf{lower edge} comes from the resonator's growing effective
+        mass pulling band 1 at $M$ down.
+\end{itemize}
+It works this well because $f_r$ sits just above the $X$ fold. The width is
+$164\,\mathrm{Hz}$ ($14.7\,\%$, FE), compared with $142\,\mathrm{Hz}$ ($11\,\%$)
+from the one-wave estimate.
+
+% ---------------------------------------------------------------------
+\section{When is the gap above or below $f_r$?}
+\label{sec:gap_regimes}
+
+A sweep of $f_r$ with the RM plane-wave model, $\mu = 0.25$, $12$ $\mathbf{k}$-points
+per path segment, gap between bands 1 and 2. Edges are good to a few Hz (this
+coarser sweep gives $1032\,\mathrm{Hz}$ where the converged value is
+$1031.4\,\mathrm{Hz}$).
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+$f_r$ [Hz] & Gap [Hz] & Width [Hz] & Gap relative to $f_r$ & Upper edge set by \\
+\hline
+500 & 487--554 & 67 & contains $f_r$ & resonator band \\
+800 & 748--874 & 126 & contains $f_r$ & resonator band \\
+1000 & 901--1076 & 176 & contains $f_r$ & resonator band \\
+1100 & 969--1170 & 201 & contains $f_r$ & resonator band \\
+1150 & 1001--1194 & 193 & contains $f_r$ & sin pattern at $X$ \\
+1200 & 1032--1194 & 162 & below $f_r$ & sin pattern at $X$ \\
+1300 & 1090--1194 & 105 & below $f_r$ & sin pattern at $X$ \\
+1400 & 1142--1194 & 52 & below $f_r$ & sin pattern at $X$ \\
+1500 & 1190--1194 & 5 & below $f_r$ & sin pattern at $X$ \\
+1600 & none & -- & -- & -- \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{Rule 1: this gap can never lie entirely above $f_r$.}
+Band 1 always stays below $f_r$. Take $\lambda$ between $0$ and the smaller of
+$\lambda_r$ and the lowest bare $\lambda_n^0$ at this $\mathbf{k}$. Then
+$\mu_\mathrm{eff} > 0$ and every term of the sum in Eq.~\eqref{eq:pwe} is
+positive. At $\lambda = 0$ the right side is $0$. As $\lambda$ approaches the
+smaller limit, the right side goes to $+\infty$, either through
+$\mu_\mathrm{eff}$ or through the lowest term. In between it rises steadily, so
+it equals $1$ exactly once. That root is band 1: below $f_r$ \emph{and} below the
+bare plate band, at every $\mathbf{k}$.
+
+\paragraph{Rule 2: the upper edge is the lower of two candidates.}
+\begin{itemize}
+  \item the resonator band near $\Gamma$, at about
+        $f_r\sqrt{1+\mu-\mu S}$, which moves with $f_r$ and lies above $f_r$ as
+        long as $S < 1$ (up to $f_r \approx 1765\,\mathrm{Hz}$ here);
+  \item the sin pattern at $X$, fixed at $f_X$ and independent of the resonator.
+\end{itemize}
+The switch happens at roughly $f_r \approx 1120\,\mathrm{Hz}$. (In the sweep the
+lowest point of the resonator band lies slightly off $\Gamma$ on $\Gamma$--$X$.)
+
+\paragraph{The three regimes.}
+\begin{enumerate}
+  \item \textbf{$f_r$ below $f_X$: the gap contains $f_r$.} Band 1 flattens below
+        $f_r$ and band 2 starts above it. This is the classical local-resonance
+        gap once $f_r$ is well below the switch.
+  \item \textbf{$f_r$ above $f_X$, up to about $1510\,\mathrm{Hz}$ here: the
+        whole gap is below $f_r$.} The upper edge is stuck at $f_X$, and the lower
+        edge is band 1 at $M$, pulled down by the growing $\mu_\mathrm{eff}$. The
+        production case $f_r = 1200\,\mathrm{Hz}$ is just past the boundary.
+  \item \textbf{$f_r$ above about $1510\,\mathrm{Hz}$: no complete gap.} Band 1
+        at $M$ has risen past $f_X$.
+\end{enumerate}
+A gap above $f_r$ could only be a higher one, between bands 2 and 3. That gap did
+not open for any tuning tested ($300$--$2000\,\mathrm{Hz}$), because band 2
+reaches $2378\,\mathrm{Hz}$ at $M$. The widest gap found was at
+$f_r = 1100\,\mathrm{Hz}$ ($201\,\mathrm{Hz}$), close to where the upper edge
+switches candidates (candidate for the stage~7 parameter study).
+
+% ---------------------------------------------------------------------
+\section{Check questions with answers}
+
+\paragraph{Question 1.} \emph{Double the resonator mass while keeping $f_r$
+($\mu = 0.5$). What happens to each gap edge, and why does one of them not move?}
+
+\emph{Answer.} The gap widens. The larger mass drags the lower edge down
+(mass loading through $\mu_\mathrm{eff}$), from $1032$ to $927\,\mathrm{Hz}$. The
+upper edge stays at $1194.4\,\mathrm{Hz}$. The reason is not that it is
+sinusoidal (the cos pattern is too), but that the sin pattern has a \emph{node at
+the resonator}: $w_0 = 0$, so no force acts on it. Width: $162 \to 268\,\mathrm{Hz}$.
+
+\paragraph{Question 2.} \emph{Tune the resonator to $f_r = 800\,\mathrm{Hz}$, well
+below the $X$ frequency of $1194\,\mathrm{Hz}$. Which mechanisms still act, what
+now determines the edges, and does the gap sit below or above $f_r$?}
+
+\emph{Answer.} This is different from the $1200\,\mathrm{Hz}$ case. The model
+gives $748$--$874\,\mathrm{Hz}$:
+\begin{itemize}
+  \item it is a local-resonance gap, not mostly Bragg: neither edge is a Bragg
+        frequency, and the sin pattern at $X$ lies far above the gap and plays no
+        role;
+  \item the gap \emph{straddles} $f_r$, starting below $800\,\mathrm{Hz}$ and
+        ending above it;
+  \item $\mu$ still matters, and now it moves \emph{both} edges: with
+        $\mu = 0.5$ the gap becomes $707$--$936\,\mathrm{Hz}$. The upper edge is
+        no longer pinned.
+\end{itemize}
+
+\paragraph{Question 3.} \emph{Why can the upper edge not rise above about
+$1194\,\mathrm{Hz}$, however heavy or stiff the resonator is? What would you have
+to change in the cell to raise it?}
+
+\emph{Answer.} The upper-edge mode does not see the resonator, because it has a
+node there. One option is a configuration where this mode does see a resonator.
+Moving the single resonator does not achieve that: the two waves at $X$ always
+have one combination that vanishes at $\mathbf{x}_0$, wherever $\mathbf{x}_0$ is.
+One would need a \emph{second resonator per cell} at a different position, where
+that pattern is not zero. The other route is to raise the bare frequency itself:
+for bending waves $f_X \propto h/a^2$, so a smaller cell or a thicker plate.

@@ -1,0 +1,577 @@
+% =====================================================================
+% Chapter 7: Eigenvectors, resonator participation and the MAC
+% Theory session, dispersion branch (Nov 2026)
+% Requires: amsmath, amssymb
+% Include in the main file with  \include{chapter_07_eigenvectors_mac}
+% =====================================================================
+
+\chapter{Eigenvectors, resonator participation and the MAC}
+\label{ch:eigenvectors}
+
+So far only the eigenvalues of the Bloch problem were used. This chapter looks at
+the eigenvectors: what they contain, how much of a mode sits in the resonator, how
+two modes at neighbouring wavevectors are compared with the Modal Assurance
+Criterion (MAC), and which situations a mode tracker has to handle. All FE numbers
+are measured on the production cell: $a = 0.1\,\mathrm{m}$, $h = 5\,\mathrm{mm}$,
+steel, $10\times 10$ Lagrange degree 2 elements, one resonator at the cell centre
+with $f_r = 1200\,\mathrm{Hz}$ and $\mu = 0.25$.
+
+\begin{center}
+\begin{tabular}{|l|p{0.68\textwidth}|}
+\hline
+Symbol & Meaning \\
+\hline
+$K_r$, $M_r$ & reduced stiffness and mass matrices at one $\mathbf{k}$, $K_r = T^H K T$, $M_r = T^H M T$ \\
+$T(\mathbf{k})$ & maps independent DOFs to all DOFs, with phase factors \\
+$\lambda = \omega^2$ & eigenvalue of one dot in the diagram \\
+$\psi$ & reduced eigenvector of one dot, the column returned by the solver \\
+$u$ & last entry of $\psi$: the resonator displacement \\
+$m$, $k_s$ & resonator mass and spring stiffness \\
+$\lambda_r = k_s/m$ & the resonator's own eigenvalue \\
+$\lambda_p$ & bare plate eigenvalue of one plate wave \\
+$\mu = m/(\rho h A)$ & resonator mass over plate mass per cell \\
+$\langle \psi_1, \psi_2\rangle$ & mass-weighted inner product $\psi_1^H M_r \psi_2$ \\
+$H$ & $2\times 2$ standard-form matrix of the two-level model \\
+$q$, $v$ & entries of the eigenvector of $H$: plate wave amplitude and $v = \sqrt{m}\,u$ \\
+$\bar{H}$, $\Delta$ & mean and half difference of the diagonal entries of $H$ \\
+$c$ & off-diagonal entry of $H$ \\
+$R$ & $\sqrt{\Delta^2 + c^2}$ \\
+$\chi$ & mixing angle of the $2\times 2$ eigenvector \\
+$k$ (in tables) & position on the diagonal, $k_x = k_y = k\,\pi/a$ \\
+\hline
+\end{tabular}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{What an eigenvector is at one wavevector}
+
+At each $\mathbf{k}$ the solver returns pairs $(\lambda, \psi)$ with
+\begin{equation}
+  K_r \psi = \lambda M_r \psi .
+\end{equation}
+Each dot in the diagram owns one $\psi$. Its entries are the plate unknowns
+(deflection and two rotations) at the independent nodes, and its last entry is the
+resonator displacement $u$. The resonator has no periodic partner, so $T$ acts on it
+as the identity, and the last row of $M_r$ contains only $m$ on the diagonal.
+
+$\psi$ is defined only up to a factor: if $\psi$ solves the equation, so does
+$\gamma\psi$ for any complex number $\gamma$. Its scale and its overall complex
+phase therefore carry no physical meaning, and everything computed from $\psi$ has
+to be independent of both.
+
+% ---------------------------------------------------------------------
+\section{Orthogonality and what a degeneracy does}
+\label{sec:orthogonality}
+
+Take two solutions at the same $\mathbf{k}$:
+\begin{equation}
+  K_r \psi_1 = \lambda_1 M_r \psi_1, \qquad K_r \psi_2 = \lambda_2 M_r \psi_2 .
+\end{equation}
+Multiply the first from the left by $\psi_2^H$:
+\begin{equation}
+  \psi_2^H K_r \psi_1 = \lambda_1\, \psi_2^H M_r \psi_1 .
+\end{equation}
+Take the conjugate transpose of the second. $K_r$ and $M_r$ are Hermitian and
+$\lambda_2$ is real, so $\psi_2^H K_r = \lambda_2\, \psi_2^H M_r$. Multiply from the
+right by $\psi_1$:
+\begin{equation}
+  \psi_2^H K_r \psi_1 = \lambda_2\, \psi_2^H M_r \psi_1 .
+\end{equation}
+The left sides are equal. Subtracting gives
+\begin{equation}
+  (\lambda_1 - \lambda_2)\, \psi_2^H M_r \psi_1 = 0 .
+\end{equation}
+Different eigenvalues therefore mean $\psi_2^H M_r \psi_1 = 0$: the vectors are
+orthogonal when weighted with $M_r$. That is why the mass matrix appears in
+everything below.
+
+If $\lambda_1 = \lambda_2 = \lambda$, the equation says nothing. Then every
+combination is also a solution,
+\begin{equation}
+  K_r(\alpha_1\psi_1 + \alpha_2\psi_2) = \lambda M_r(\alpha_1\psi_1 + \alpha_2\psi_2),
+\end{equation}
+so at a degenerate point the solver returns \emph{some arbitrary basis} of the
+group. The individual vectors of the group have no meaning of their own; only the
+space they span does.
+
+In this cell, degenerate groups appear where several bare plate waves share one
+frequency. One combination couples to the resonator and leaves the group; the rest
+do not see it. For example, $M$ has four plate waves at $2378\,\mathrm{Hz}$: one
+coupled combination moves away and three modes remain at $2379\,\mathrm{Hz}$.
+
+% ---------------------------------------------------------------------
+\section{Plate share in the FE model}
+
+The kinetic energy of a mode is $\tfrac12\omega^2\,\psi^H M_r\psi$, and the part in
+the resonator is $\tfrac12\omega^2\, m|u|^2$. Hence
+\begin{equation}
+  \text{plate share} = 1 - \frac{m|u|^2}{\psi^H M_r \psi} .
+\end{equation}
+Scale and phase of $\psi$ cancel, as required.
+
+\begin{center}
+\begin{tabular}{|l|p{0.72\textwidth}|}
+\hline
+Point & Frequency in Hz: plate share (FE) \\
+\hline
+$\Gamma$ & $0$: $80\,\%$;\quad $1274$: $20\,\%$;\quad $4730$: $100\,\%$ (three modes);\quad $4883$: $100\,\%$ \\
+$X$ & $836$: $31\,\%$;\quad $1195$: $100\,\%$;\quad $1653$: $69\,\%$;\quad $5881$: $100\,\%$ (three modes) \\
+$M$ & $1031$: $5\,\%$;\quad $2379$: $100\,\%$ (three modes);\quad $2712$: $95\,\%$;\quad $11567$: $100\,\%$ \\
+\hline
+\end{tabular}
+\end{center}
+
+The simple model of Chapter~\ref{ch:local_resonance} gave $34\,\%$ and $66\,\%$ at
+$X$; the shares at $\Gamma$ and $M$ agree with it.
+
+\paragraph{The sum rule for the resonator share.}
+Collect the eigenvectors of all bands at one $\mathbf{k}$ as columns of a matrix
+$\Psi$, normalized so that $\Psi^H M_r \Psi = I$. Then $\Psi^{-1} = \Psi^H M_r$, so
+\begin{equation}
+  \Psi\,\Psi^H M_r = I \quad\Rightarrow\quad \Psi\,\Psi^H = M_r^{-1} .
+\end{equation}
+The resonator has no mass coupling to the plate, so the last diagonal entry of
+$M_r^{-1}$ is $1/m$. The last diagonal entry of $\Psi\Psi^H$ is $\sum_n |u_n|^2$,
+with $n$ running over all bands. Therefore
+\begin{equation}
+  \sum_n m|u_n|^2 = 1 .
+\end{equation}
+With this normalization $m|u_n|^2$ is the resonator share of band $n$, so
+\emph{the resonator shares of all bands at one $\mathbf{k}$ add up to exactly
+$100\,\%$}. The FE values at the three symmetry points show it: $20 + 80$ at
+$\Gamma$, $69 + 31$ at $X$, $95 + 5$ at $M$. The plate shares of bands 1 and 2 alone
+need not add up to $100\,\%$: along $M$--$\Gamma$ their sum drifts from $100\,\%$ to
+about $104\,\%$ close to $M$, because other bands take part there.
+
+% ---------------------------------------------------------------------
+\section{The Modal Assurance Criterion}
+
+\subsection{Definition and properties}
+We need a number that says how alike two eigenvectors are and that ignores scale
+and phase. With $\langle \psi_1, \psi_2\rangle = \psi_1^H M_r \psi_2$,
+\begin{equation}
+  \mathrm{MAC}(\psi_1, \psi_2) = \frac{|\langle\psi_1, \psi_2\rangle|^2}{\langle\psi_1, \psi_1\rangle\,\langle\psi_2, \psi_2\rangle} .
+\end{equation}
+\begin{itemize}
+  \item Scale and phase drop out: replacing $\psi_1$ by $\gamma\psi_1$ multiplies
+        numerator and denominator both by $|\gamma|^2$.
+  \item By the Cauchy--Schwarz inequality it lies between 0 and 1. It is the squared
+        cosine of the angle between the two vectors.
+  \item $\mathrm{MAC} = 1$ for the same shape.
+  \item $\mathrm{MAC} = 0$ for $M_r$-orthogonal vectors, which by
+        Section~\ref{sec:orthogonality} holds for two different bands at the same
+        $\mathbf{k}$.
+\end{itemize}
+Two vectors at neighbouring $\mathbf{k}$ come with two slightly different $M_r$. The
+measurements below use $M_r$ of the first of the two points; the difference
+vanishes as the step shrinks.
+
+\subsection{How the step size enters}
+Normalize $\langle\psi,\psi\rangle = 1$ and write the vector at the next
+wavevector as
+\begin{equation}
+  \psi(\mathbf{k} + \delta\mathbf{k}) \approx \psi + \delta\,(\alpha\,\psi + p),
+  \qquad \langle\psi, p\rangle = 0,
+\end{equation}
+with $\delta$ the step length, $\alpha$ a number and $p$ the part of the change
+perpendicular to $\psi$. Then
+\begin{align}
+  \langle\psi, \psi(\mathbf{k} + \delta\mathbf{k})\rangle &= 1 + \delta\alpha, \\
+  \langle\psi(\mathbf{k} + \delta\mathbf{k}), \psi(\mathbf{k} + \delta\mathbf{k})\rangle &= |1 + \delta\alpha|^2 + \delta^2\langle p, p\rangle ,
+\end{align}
+and so
+\begin{equation}
+  \mathrm{MAC} = \frac{|1 + \delta\alpha|^2}{|1 + \delta\alpha|^2 + \delta^2\langle p,p\rangle}
+  \approx 1 - \delta^2\langle p, p\rangle .
+\end{equation}
+The part along $\psi$ only changes scale and phase and drops out. So
+$1 - \mathrm{MAC} \propto \delta^2$, and halving the step should reduce it by a
+factor of 4. Measured for band 1 at its worst step over the whole path (the point
+number refers to the segments $\Gamma$--$X$ and $X$--$M$; $M$--$\Gamma$ gets
+proportionally more):
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+Points/segment & Wavevectors & Lowest MAC, band 1 & $1 - \mathrm{MAC}$ \\
+\hline
+20 & 69 & 0.9622 & 0.0378 \\
+40 & 138 & 0.9898 & 0.0102 \\
+80 & 274 & 0.9974 & 0.0026 \\
+\hline
+\end{tabular}
+\end{center}
+
+The ratios are $3.7$ and $3.9$, as expected. At 20 points per segment this worst
+step lies just before $X$ on $\Gamma$--$X$, not at the resonator crossing on
+$M$--$\Gamma$.
+
+\subsection{Why only neighbours are compared}
+Band 1 at $\Gamma$ against band 1 at $M$ has $\mathrm{MAC} = 0.35$, because the mode
+legitimately changes from $80\,\%$ plate to $5\,\%$ plate. A low value over a long
+distance means nothing. Between neighbouring points on $M$--$\Gamma$ the same band
+never drops below $0.9974$ at 40 points per segment, even though it changes its
+character completely along that path.
+
+\subsection{Which vector and which weighting}
+Lowest neighbouring MAC of band 1 at 40 points per segment:
+
+\begin{center}
+\begin{tabular}{|l|l|}
+\hline
+Variant & Lowest value \\
+\hline
+Full vector, $M_r$-weighted & 0.990 \\
+Plate entries only, $M_r$-weighted & 0.969 \\
+Full vector, unweighted & 0.619 \\
+\hline
+\end{tabular}
+\end{center}
+
+The MAC normalizes, so what is left of the plate motion in a resonator-dominated mode
+still gives a usable comparison, only slightly worse. The clearly bad variant is
+leaving out $M_r$: it counts every entry equally, whether deflection, rotation or
+resonator, and falls to $0.62$ on a band that is perfectly smooth. Stage 5 therefore
+uses the full vector including $u$, weighted with $M_r$.
+
+% ---------------------------------------------------------------------
+\section{How fast a vector turns at an avoided crossing}
+\label{sec:mixing_angle}
+
+This section takes the $2\times 2$ matrix of the two-level model apart, to see how
+the eigenvector turns through an avoided crossing.
+
+\subsection{The matrix we start from}
+For one plate wave and one resonator, in mass-normalized coordinates, the eigenvector
+is $(q, v)$ with $q$ the plate wave amplitude and $v = \sqrt{m}\,u$, and
+Chapter~\ref{ch:local_resonance} gave
+\begin{equation}
+  H = \begin{pmatrix} H_{11} & c \\ c & H_{22} \end{pmatrix}
+    = \begin{pmatrix} \lambda_p + \mu\lambda_r & -\sqrt{\mu}\,\lambda_r \\ -\sqrt{\mu}\,\lambda_r & \lambda_r \end{pmatrix} .
+\end{equation}
+
+\subsection{Mean and half difference}
+Define the mean and the half difference of the diagonal,
+\begin{equation}
+  \bar{H} = \frac{H_{11} + H_{22}}{2}, \qquad \Delta = \frac{H_{11} - H_{22}}{2} .
+\end{equation}
+Adding and subtracting these gives $H_{11} = \bar{H} + \Delta$ and
+$H_{22} = \bar{H} - \Delta$, so
+\begin{equation}
+  H = \bar{H}\, I + B, \qquad B = \begin{pmatrix} \Delta & c \\ c & -\Delta \end{pmatrix} .
+\end{equation}
+Inserting the entries:
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+Symbol & In terms of $H$ & For plate wave and resonator \\
+\hline
+$\bar{H}$ & $(H_{11} + H_{22})/2$ & $\tfrac12\left[\lambda_p + \lambda_r(1+\mu)\right]$ \\
+$\Delta$ & $(H_{11} - H_{22})/2$ & $\tfrac12\left[\lambda_p - \lambda_r(1-\mu)\right]$ \\
+$c$ & off-diagonal entry & $-\sqrt{\mu}\,\lambda_r$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{Why split it.} If $Bz = rz$ for a vector $z$, then
+$Hz = \bar{H}z + Bz = (\bar{H} + r)z$. The part $\bar{H}I$ only shifts the
+eigenvalues. \emph{The eigenvectors depend on $B$ alone}, so only $\Delta$ and $c$
+matter. $\Delta = 0$ at $\lambda_p = \lambda_r(1-\mu)$, where the diagonal entries
+are equal: the centre of the avoided crossing.
+
+\subsection{Eigenvalues}
+\begin{align}
+  \det(B - rI) &= (\Delta - r)(-\Delta - r) - c^2 = r^2 - \Delta^2 - c^2 = 0, \\
+  \Rightarrow\quad r &= \pm R, \qquad R = \sqrt{\Delta^2 + c^2} .
+\end{align}
+The eigenvalues of $H$ are $\bar{H} \pm R$. This is the familiar two-level formula
+\begin{equation}
+  \lambda = \frac{H_{11} + H_{22}}{2} \pm \sqrt{\left(\frac{H_{11} - H_{22}}{2}\right)^2 + |c|^2} .
+\end{equation}
+Their sum is $2\bar{H} = \lambda_p + \lambda_r(1+\mu)$ and their product is
+\begin{equation}
+  \bar{H}^2 - R^2 = \bar{H}^2 - \Delta^2 - c^2 = H_{11}H_{22} - c^2
+  = (\lambda_p + \mu\lambda_r)\lambda_r - \mu\lambda_r^2 = \lambda_p\lambda_r .
+\end{equation}
+
+\subsection{Eigenvectors and the mixing angle}
+$(\Delta, c)$ is a point in a plane at distance $R$ from the origin. Call its polar
+angle $2\chi$:
+\begin{equation}
+  \Delta = R\cos 2\chi, \qquad c = R\sin 2\chi, \qquad \tan 2\chi = \frac{c}{\Delta} .
+\end{equation}
+This is always possible because $\Delta^2 + c^2 = R^2$. Then
+\begin{equation}
+  B = R \begin{pmatrix} \cos 2\chi & \sin 2\chi \\ \sin 2\chi & -\cos 2\chi \end{pmatrix} .
+\end{equation}
+Apply $B$ to $(\cos\chi, \sin\chi)$ and use the addition theorems for
+$\cos(2\chi - \chi)$ and $\sin(2\chi - \chi)$:
+\begin{align}
+  \text{row 1:} \quad & R(\cos 2\chi\cos\chi + \sin 2\chi\sin\chi) = R\cos(2\chi - \chi) = R\cos\chi, \\
+  \text{row 2:} \quad & R(\sin 2\chi\cos\chi - \cos 2\chi\sin\chi) = R\sin(2\chi - \chi) = R\sin\chi .
+\end{align}
+So $(\cos\chi, \sin\chi)$ belongs to $+R$. Applying $B$ to $(-\sin\chi, \cos\chi)$
+in the same way:
+\begin{align}
+  \text{row 1:} \quad & R(-\cos 2\chi\sin\chi + \sin 2\chi\cos\chi) = R\sin\chi = -R\,(-\sin\chi), \\
+  \text{row 2:} \quad & R(-\sin 2\chi\sin\chi - \cos 2\chi\cos\chi) = -R\cos\chi ,
+\end{align}
+so it belongs to $-R$. In summary,
+\begin{equation}
+  \text{upper band: } (q, v) = (\cos\chi, \sin\chi), \qquad
+  \text{lower band: } (q, v) = (-\sin\chi, \cos\chi) .
+\end{equation}
+The plate share is $|q|^2$. With $\cos^2\chi = (1 + \cos 2\chi)/2$ and
+$\cos 2\chi = \Delta/R$,
+\begin{equation}
+  \boxed{\;\begin{aligned}
+  \text{upper band: plate share} &= \tfrac12\left(1 + \frac{\Delta}{R}\right), \\
+  \text{lower band: plate share} &= \tfrac12\left(1 - \frac{\Delta}{R}\right)
+  \end{aligned}\;}
+\end{equation}
+Because $c < 0$ here, $\chi$ is negative. That only sets the relative sign of $q$ and
+$v$; the shares do not depend on it.
+
+\subsection{One worked point: $\Gamma$}
+At $\Gamma$, $\lambda_p = 0$, and with $\mu = 0.25$:
+\begin{align}
+  H_{11} &= 0.25\,\lambda_r, \quad H_{22} = \lambda_r, \quad c = -0.5\,\lambda_r, \\
+  \bar{H} &= 0.625\,\lambda_r, \quad \Delta = -0.375\,\lambda_r, \\
+  R &= \sqrt{0.1406 + 0.25}\,\lambda_r = 0.625\,\lambda_r .
+\end{align}
+The eigenvalues are $\bar{H} \pm R = 0$ and $1.25\,\lambda_r$, the known $0$ and
+$\lambda_r(1+\mu)$. With $\Delta/R = -0.6$, the lower band has plate share
+$\tfrac12(1 + 0.6) = 80\,\%$ and the upper band $\tfrac12(1 - 0.6) = 20\,\%$.
+Further, $2\chi = -126.9^\circ$, so $\chi = -63.4^\circ$.
+
+This agrees with the ratio formula of Chapter~\ref{ch:local_resonance},
+$q/v = (\lambda_r - \lambda)/(\sqrt{\mu}\,\lambda_r)$: for the upper band it gives
+$-0.25/0.5 = -0.5$, and $\cot(-63.4^\circ) = -0.5$.
+
+It also explains why band 1 starts at $80\,\%$ and not at $100\,\%$. Since $\lambda_p$
+cannot go below 0, $\Delta$ cannot go below $-0.375\,\lambda_r$, and the far end of
+the turn is never reached.
+
+\subsection{Along $M$--$\Gamma$: model against FE}
+Plate shares in percent, for bands 1 and 2 (B1, B2), one-wave model (mod.)\ against
+the FE cell:
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|l|l|}
+\hline
+$k$ & $\lambda_p/\lambda_r$ & $\Delta/\lambda_r$ & $\chi$ & B1 mod. & B1 FE & B2 mod. & B2 FE \\
+\hline
+0.018 & 0.000 & $-0.375$ & $-63.4^\circ$ & 80.0 & 80.0 & 20.0 & 20.4 \\
+0.509 & 0.267 & $-0.242$ & $-57.9^\circ$ & 71.8 & 70.3 & 28.2 & 31.2 \\
+0.649 & 0.705 & $-0.023$ & $-46.3^\circ$ & 52.3 & 46.3 & 47.7 & 56.1 \\
+0.719 & 1.060 & $0.155$ & $-36.4^\circ$ & 35.2 & 27.7 & 64.8 & 75.2 \\
+0.789 & 1.536 & $0.393$ & $-25.9^\circ$ & 19.1 & 14.2 & 80.9 & 89.2 \\
+0.930 & 2.943 & $1.096$ & $-12.3^\circ$ & 4.5 & 5.6 & 95.5 & 98.9 \\
+1.000 & 3.928 & $1.589$ & $-8.7^\circ$ & 2.3 & 5.1 & 97.7 & 100.0 \\
+\hline
+\end{tabular}
+\end{center}
+
+The model has $\Delta = 0$ at $k \approx 0.667$, and the FE band 1 passes $50\,\%$
+shortly before $k = 0.649$. The agreement fades towards $M$, as it should: at $M$
+four plate waves take part, and this matrix holds only one. The band frequencies show
+the same (band 1 at $M$: $1153\,\mathrm{Hz}$ in the model, $1031\,\mathrm{Hz}$ in
+FE). With these values $\chi$ runs from $-63.4^\circ$ at $\Gamma$ to $-8.7^\circ$ at
+$M$, about $55^\circ$ in total, not the idealized full turn of $90^\circ$.
+
+\subsection{From the angle to the MAC}
+Two normalized vectors at angles $\chi_1$ and $\chi_2$ have the inner product
+$\cos\chi_1\cos\chi_2 + \sin\chi_1\sin\chi_2 = \cos(\chi_1 - \chi_2)$, so
+\begin{equation}
+  \mathrm{MAC} = \cos^2(\chi_1 - \chi_2) .
+\end{equation}
+To see how fast $\chi$ turns, differentiate $2\chi = \arctan(c/\Delta)$ with respect
+to $\Delta$:
+\begin{equation}
+  2\,\frac{\mathrm{d}\chi}{\mathrm{d}\Delta}
+  = \frac{1}{1 + c^2/\Delta^2}\cdot\left(-\frac{c}{\Delta^2}\right)
+  = -\frac{c}{\Delta^2 + c^2}
+  = -\frac{c}{R^2} .
+\end{equation}
+The turn is fastest at $\Delta = 0$, where $R = |c|$ and
+$|\mathrm{d}\chi/\mathrm{d}\Delta| = 1/(2|c|)$. Since $\Delta$ contains $\lambda_p/2$,
+\begin{equation}
+  \left|\frac{\mathrm{d}\chi}{\mathrm{d}\lambda_p}\right|_{\Delta = 0}
+  = \frac{1}{4|c|} = \frac{1}{4\sqrt{\mu}\,\lambda_r} .
+\end{equation}
+Half of the full $90^\circ$ turn happens while $|\Delta| < |c|$: at $\Delta = |c|$ one
+has $2\chi = -45^\circ$, at $\Delta = -|c|$ one has $2\chi = -135^\circ$, so $\chi$
+changes by $45^\circ$. In terms of $\lambda_p$ this window has the width
+$4\sqrt{\mu}\,\lambda_r$: $2.0\,\lambda_r$ for $\mu = 0.25$, $0.4\,\lambda_r$ for
+$\mu = 0.01$. A lighter resonator has a narrower crossing and needs smaller steps.
+
+Measured for band 1 on $M$--$\Gamma$, with the spacing $0.0175\,\pi/a$ of the 40-point
+path (57 steps on this segment):
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+ & Lowest MAC on $M$--$\Gamma$ & at $k$ \\
+\hline
+Model, $\cos^2(\chi_1 - \chi_2)$ & 0.99778 & 0.737 \\
+FE & 0.99736 & 0.702 \\
+\hline
+\end{tabular}
+\end{center}
+
+The minimum lies a little past $\Delta = 0$ because $\lambda_p$ also changes faster
+with $k$ as $k$ grows. The change from $69\,\%$ to $24\,\%$ plate takes 12 steps, and
+the change from $80\,\%$ to $5\,\%$ takes practically all 57.
+
+\paragraph{The baseline of the FE value.}
+Close to $\Gamma$ the FE MAC stays at $0.99961$ while the model gives $1.00000$. The
+model uses ``the plate wave at this $\mathbf{k}$'' as a basis vector, so it cannot see
+that the pattern $e^{i\mathbf{k}\cdot\mathbf{x}}$ itself changes between neighbouring
+points. One step changes the phase at $\mathbf{x}$ by $\theta(\mathbf{x}) =
+\delta\mathbf{k}\cdot\mathbf{x}$, and $1 - \mathrm{MAC}$ is approximately the variance
+of $\theta$ over the mass of the mode. With $\delta k_x = \delta k_y = 0.0175\,\pi/a$,
+a variance of $a^2/12$ of each coordinate over the cell, and $80\,\%$ of the mass
+motion in the plate (the resonator sits at the mean position):
+\begin{equation}
+  1 - \mathrm{MAC} \approx 0.8\cdot (0.0175\,\pi)^2\cdot\frac{2}{12} \approx 0.0004 ,
+\end{equation}
+which matches the measured $1 - 0.99961 = 0.00039$.
+
+\subsection{The other two-level matrix: two plate waves and a rigid mass}
+Chapter~\ref{ch:two_level} used the same structure with
+$H_{11} = \lambda_1^0 - \mu\lambda$, $H_{22} = \lambda_2^0 - \mu\lambda$ and
+$c = -\mu\lambda$. Then
+\begin{equation}
+  \bar{H} = \frac{\lambda_1^0 + \lambda_2^0}{2} - \mu\lambda, \qquad
+  \Delta = \frac{\lambda_1^0 - \lambda_2^0}{2},
+\end{equation}
+because the mass loading cancels in the difference. At $X$, $\Delta = 0$, so
+$2\chi = -90^\circ$ and $\chi = -45^\circ$. That gives the eigenvectors
+$(1, -1)/\sqrt{2}$ and $(1, 1)/\sqrt{2}$ of that chapter, with $a_H = \bar{H}$ and
+$b_H = c$.
+
+% ---------------------------------------------------------------------
+\section{The three situations a tracker meets}
+
+Lowest neighbouring MAC between \emph{sorted} bands along the whole path:
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|p{0.32\textwidth}|}
+\hline
+Band & 20 points & 40 points & 80 points & Where \\
+\hline
+1 & 0.9622 & 0.9898 & 0.9974 & smooth band \\
+2 & 0.2301 & 0.2325 & 0.2322 & next to $M$, three modes at $2379\,\mathrm{Hz}$ \\
+3 & 0.1755 & 0.1954 & 0.2117 & next to $\Gamma$, three modes at $4730\,\mathrm{Hz}$ \\
+4 & 0.0601 & 0.0610 & 0.0615 & next to $X$, three modes at $5881\,\mathrm{Hz}$ \\
+5 & 0.0000 & 0.0000 & 0.0000 & near $k \approx 0.33$ on $M$--$\Gamma$, about $6.5\,\mathrm{kHz}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{1. Smooth continuation.} Band 1: the MAC is close to 1 and improves with a
+finer step.
+
+\paragraph{2. A degenerate point.} Bands 2 to 4: the value barely changes with a finer
+step. That is the signature of a degeneracy and not of a coarse step. At the
+degenerate point the solver picks an arbitrary basis of the group
+(Section~\ref{sec:orthogonality}), while just beside it the modes are distinct. Near
+$M$, MAC of the three neighbouring modes against the three modes at $M$ (40 points per
+segment):
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+Before $M$ & $M$, mode 1 & $M$, mode 2 & $M$, mode 3 & Row sum \\
+\hline
+$2321\,\mathrm{Hz}$ & 0.497 & 0.045 & 0.457 & 1.000 \\
+$2372\,\mathrm{Hz}$ & 0.017 & 0.882 & 0.072 & 0.971 \\
+$2439\,\mathrm{Hz}$ & 0.485 & 0.047 & 0.468 & 1.000 \\
+\hline
+\end{tabular}
+\end{center}
+
+No single entry tells the continuation, but the row sums are close to 1. The reason:
+let $e_1, \dots, e_g$ be an $M_r$-orthonormal basis of the group and $\psi$ a vector
+with $\langle\psi,\psi\rangle = 1$. Then
+\begin{equation}
+  \sum_{j=1}^{g} \mathrm{MAC}(\psi, e_j) = \sum_{j=1}^{g} |\langle e_j, \psi\rangle|^2,
+\end{equation}
+which by Pythagoras is the squared length of the part of $\psi$ that lies inside the
+group. It equals 1 exactly if $\psi$ lies entirely in the group, and it does not depend
+on which basis the solver chose. The neighbouring mode sits at a slightly different
+$\mathbf{k}$, so the sum is only approximately 1. Degenerate groups therefore have to
+be compared as a whole, and all members of the group must have been computed.
+
+\paragraph{3. A true crossing.} Two sorted bands swap identities: the sorted MAC is
+about 0 and the MAC with the other band is about 1. In the sweep, bands 5 and 6 near
+$k \approx 0.33$ on $M$--$\Gamma$ (about $6.5\,\mathrm{kHz}$, above the $5\,\mathrm{kHz}$
+range) show a MAC of $0.0000$. That is consistent with two modes of opposite symmetry
+about the diagonal, which have $c = 0$; the symmetry itself was not checked.
+
+% ---------------------------------------------------------------------
+\section{Tracking and gap finding are different tasks}
+
+\emph{Tracking} follows a mode's identity from one $\mathbf{k}$ to the next, using the
+MAC between neighbours. It answers ``which curve is this dot on?''
+
+\emph{Gap finding} asks whether any dot lies in a frequency interval. It needs only the
+frequencies sorted at each $\mathbf{k}$: the gap between sorted bands $n$ and $n+1$
+runs from the maximum of band $n$ to the minimum of band $n+1$.
+
+A tracked band may cross another one, so the $n$-th tracked band is not the $n$-th
+sorted band. Suppose tracked curves $A$ and $B$ cross and a third band $C$ lies above
+both. The sorted band below $C$ is the upper envelope of $A$ and $B$ at each
+$\mathbf{k}$, so the correct lower gap edge is the maximum of that envelope. Taking the
+curve $B$ alone when $A$ rises higher later on the path gives a value that is too low:
+the reported gap starts too low and contains dots of $A$. Stage 5 therefore keeps plain
+sorting available.
+
+% ---------------------------------------------------------------------
+\section{Check questions with answers}
+
+\paragraph{Question 1.} \emph{Band 3 near $\Gamma$ has a neighbouring MAC of about 0.2,
+and it stays there when the number of $\mathbf{k}$-points is doubled. What do you
+conclude, and what would you do differently for that step?}
+
+\emph{Answer.} Band 3 meets two other bands at $\Gamma$, and the solver returns an
+arbitrary basis of that group. The MAC has to be summed over the whole group, which
+then gives approximately 1. A degeneracy has to be told apart from a true crossing
+between two sampled points: there the continuation is well defined, the MAC with the
+partner band is about 1 and the sorted labels simply swap. Here the MAC is about 0.2,
+neither 0 nor 1, and refining the step does not change it, which points to a degenerate
+point where individual vectors mean nothing. The sum is only approximately 1 because the
+neighbouring vector sits at a slightly different $\mathbf{k}$ (measured: $0.97$ to
+$1.00$), and it needs every member of the group, which is why the solver uses guard
+eigenpairs. For that step: match the group as a whole instead of one vector to one
+vector. At the degenerate dot all members have the same frequency, so the plotted
+curve does not depend on which label goes where.
+
+\paragraph{Question 2.} \emph{Band 1 changes from $80\,\%$ plate to $5\,\%$ plate along
+$M$--$\Gamma$, yet the neighbouring MAC stays close to 1 there. Why is this not a
+contradiction, and which change in the unit cell would make this crossing harder to
+track?}
+
+\emph{Answer.} The change is gradual, spread over essentially all 57 steps of the
+segment ($69\,\%$ to $24\,\%$ alone takes 12 steps), and each step only compares two
+nearly identical shapes. A lighter resonator makes the crossing narrower, because the
+coupling is $c = -\sqrt{\mu}\,\lambda_r$; the turn then happens within fewer steps, and
+at the same step size the MAC dips further from 1.
+
+\paragraph{Question 3.} \emph{Two tracked bands overlap in frequency, with a true crossing
+between them. Could there still be a complete gap between sorted bands $n$ and $n+1$ at
+that crossing frequency, and which data decides it?}
+
+\emph{Answer.} No. At a true crossing the sorted bands $n$ and $n+1$ share a dot at the
+crossing frequency $f_c$, so $\max(\text{band } n) \ge f_c \ge \min(\text{band } n+1)$
+and there is no gap between that pair. The data to decide this is the sorted frequencies
+at every $\mathbf{k}$; no eigenvectors are needed. The point of the question is the
+reverse danger: using tracked bands for gap edges can report a gap that contains dots of
+another band, as shown in the previous section.
+
+\paragraph{Follow-up: how does the matrix $H$ of the two-level model translate into the
+notation with mean, half difference and mixing angle?}
+\emph{Answer.} This is worked out in Section~\ref{sec:mixing_angle}: $H_{11}$ and
+$H_{22}$ are replaced by $\bar{H} \pm \Delta$, the off-diagonal $c$ stays the same, and
+the eigenvectors depend only on $c/\Delta$.

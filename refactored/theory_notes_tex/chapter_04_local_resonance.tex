@@ -1,0 +1,502 @@
+% =====================================================================
+% Chapter 4: The local-resonance gap
+% Theory session, dispersion branch (Nov 2026)
+% Requires: amsmath, amssymb, graphicx (for the figure)
+% Include in the main file with  \include{chapter_04_local_resonance}
+% =====================================================================
+
+\chapter{The local-resonance gap}
+\label{ch:local_resonance}
+
+This chapter replaces the rigid mass of Chapters~\ref{ch:two_level} and
+\ref{ch:bragg_2d} by a real mass--spring resonator. The structure stays the
+same: one attachment point per cell, coupling only through
+$w(\mathbf{x}_0)$, and two-level models.
+
+\begin{center}
+\begin{tabular}{|l|p{0.45\textwidth}|l|}
+\hline
+Symbol & Meaning & Value / units \\
+\hline
+$m$ & resonator mass, one per cell & $98\,\mathrm{g}$ \\
+$k_s$ & spring stiffness (subscript $s$ to avoid confusion with the wavevector $\mathbf{k}$) & $\approx 5.6\cdot 10^6\,\mathrm{N/m}$ \\
+$\lambda_r = \omega_r^2 = k_s/m$ & squared angular tuning frequency & $f_r = 1200\,\mathrm{Hz}$ \\
+$u$ & displacement of the resonator mass & m \\
+$w_0 = w(\mathbf{x}_0)$ & plate deflection at the attachment point & m \\
+$\mu = m/(\rho h A)$ & mass ratio & $0.25$ \\
+$\lambda = \omega^2$ & \textbf{unknown}: $\omega^2$ of a mode of plate and resonator (one dot of the diagram) & $\mathrm{rad^2/s^2}$ \\
+$\lambda_p(\mathbf{k})$ & $\omega^2$ of one bare plate mode at this $\mathbf{k}$ (the $\lambda_n^0$ of Chapter~\ref{ch:two_level}) & $\mathrm{rad^2/s^2}$ \\
+$q$ & modal amplitude of that plate mode & $\sqrt{\mathrm{kg}}\cdot\mathrm{m}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{The resonator as a frequency-dependent mass}
+
+\paragraph{Equation of motion.}
+The spring is stretched by $w_0 - u$, so $m\ddot{u} = k_s(w_0 - u)$. For
+harmonic motion, $\ddot{u} = -\omega^2 u$:
+\begin{align}
+  -m\omega^2 u &= k_s w_0 - k_s u \\
+  u\,(k_s - m\omega^2) &= k_s w_0 \\
+  u &= \frac{k_s w_0}{k_s - m\omega^2} = w_0\,\frac{\omega_r^2}{\omega_r^2 - \omega^2},
+\end{align}
+where the last step divides numerator and denominator by $m$.
+
+\paragraph{Force on the plate.}
+The spring pulls the plate towards the resonator, $F = k_s(u - w_0)$. With
+\begin{equation}
+  u - w_0 = w_0\left[\frac{\omega_r^2}{\omega_r^2 - \omega^2} - 1\right]
+          = w_0\,\frac{\omega^2}{\omega_r^2 - \omega^2}
+\end{equation}
+and $k_s = m\omega_r^2$ we get
+\begin{equation}
+  F = \omega^2 w_0 \cdot \frac{m\,\omega_r^2}{\omega_r^2 - \omega^2} .
+\end{equation}
+A rigid mass pushed on the plate with $F = m\omega^2 w_0$. The resonator gives
+the same expression with $m$ replaced by the \emph{effective mass}
+\begin{equation}
+  \boxed{\;m_\mathrm{eff}(\omega) = \frac{m\,\omega_r^2}{\omega_r^2 - \omega^2}\;}
+\end{equation}
+Everything from the rigid-mass chapters carries over by replacing $m$ with
+$m_\mathrm{eff}(\omega)$ and $\mu$ with
+$\mu_\mathrm{eff}(\omega) = \mu\,\omega_r^2/(\omega_r^2 - \omega^2)$.
+
+\begin{center}
+\begin{tabular}{|l|l|p{0.22\textwidth}|p{0.3\textwidth}|}
+\hline
+Frequency & $m_\mathrm{eff}$ & Resonator motion & What the plate feels \\
+\hline
+$\omega \ll \omega_r$ & $\approx m$ & $u \approx w_0$, with the plate & a rigid mass \\
+just below $\omega_r$ & $\to +\infty$ & $u \gg w_0$, in phase & a huge mass: the plate is pinned \\
+just above $\omega_r$ & $\to -\infty$ & $u \gg w_0$, antiphase & the spring pulls the plate back against its motion \\
+$\omega \gg \omega_r$ & $\approx -m\omega_r^2/\omega^2$ & $u \approx 0$, mass stands still & $F \to -k_s w_0$: a spring to a fixed point \\
+\hline
+\end{tabular}
+\end{center}
+A negative $m_\mathrm{eff}$ is not strange. It means that the force of the
+resonator acts as a \emph{restoring} force (stiffness) and not as an inertial
+one. The last row shows this most clearly.
+
+% ---------------------------------------------------------------------
+\section{Effective medium: smearing the resonators over the plate}
+
+For waves much longer than $a$ only $\mathbf{G} = 0$ matters, and $m_\mathrm{eff}$
+can be spread over the cell area: $\rho h \to \rho h + m_\mathrm{eff}/A$. The
+Kirchhoff relation $D\kappa^4 = \rho h\,\omega^2$ becomes
+\begin{equation}
+  D\kappa^4 = \omega^2 \rho h \left[1 + \frac{\mu\,\omega_r^2}{\omega_r^2 - \omega^2}\right] .
+\end{equation}
+Bringing the bracket to a common denominator,
+\begin{equation}
+  1 + \frac{\mu\,\omega_r^2}{\omega_r^2 - \omega^2}
+  = \frac{\omega_r^2 - \omega^2 + \mu\,\omega_r^2}{\omega_r^2 - \omega^2}
+  = \frac{\omega_r^2(1 + \mu) - \omega^2}{\omega_r^2 - \omega^2},
+\end{equation}
+so that
+\begin{equation}
+  D\kappa^4 = \omega^2 \rho h\,\frac{\omega_r^2(1 + \mu) - \omega^2}{\omega_r^2 - \omega^2} .
+  \label{eq:effective_medium}
+\end{equation}
+A real $\kappa$ needs a non-negative right-hand side:
+\begin{center}
+\begin{tabular}{|l|c|c|l|}
+\hline
+Range & Numerator & Denominator & $\kappa^4$ \\
+\hline
+$\omega < \omega_r$ & $+$ & $+$ & $+$: waves propagate \\
+$\omega_r < \omega < \omega_r\sqrt{1+\mu}$ & $+$ & $-$ & $-$: no real $\kappa$, gap \\
+$\omega > \omega_r\sqrt{1+\mu}$ & $-$ & $-$ & $+$: waves propagate \\
+\hline
+\end{tabular}
+\end{center}
+The effective-medium gap is $f_r \dots f_r\sqrt{1+\mu} = 1200 \dots
+1342\,\mathrm{Hz}$. The FE result is $1031$--$1195\,\mathrm{Hz}$; the difference
+is the topic of the next chapter.
+
+% ---------------------------------------------------------------------
+\section{The two-level model with a resonator}
+
+\subsection{The modal amplitude $q$}
+Keep one plate mode only, so the deflection is
+\begin{equation}
+  w(\mathbf{x}) = q\,\varphi(\mathbf{x}),
+  \qquad
+  \varphi(\mathbf{x}) = \frac{e^{i(\mathbf{k}+\mathbf{G})\cdot\mathbf{x}}}{\sqrt{\rho h A}} .
+\end{equation}
+$q$ is the \emph{modal amplitude}: how strongly this mode is present. Since
+$\varphi$ has units $1/\sqrt{\mathrm{kg}}$, $q$ has units
+$\sqrt{\mathrm{kg}}\cdot\mathrm{m}$. If $W$ is the deflection amplitude in
+metres, $w = W e^{i(\mathbf{k}+\mathbf{G})\cdot\mathbf{x}}$ and
+$q = W\sqrt{\rho h A}$. At the attachment point $w_0 = \varphi\, q$, where
+$\varphi$ without an argument means $\varphi(\mathbf{x}_0)$. The unknowns are
+collected in the vector $x = (q, u)^T$.
+
+\subsection{Direct route: two force balances}
+
+\paragraph{Row 2: Newton for the resonator.}
+The spring stretch is $\varphi q - u$, so $-m\omega^2 u = k_s(\varphi q - u)$.
+With $\lambda = \omega^2$:
+\begin{equation}
+  -k_s\varphi\, q + k_s u = \lambda\, m\, u .
+  \label{eq:row_resonator}
+\end{equation}
+
+\paragraph{Row 1: the plate mode.}
+This is the derivation of Chapter~\ref{ch:two_level} with another force. The
+spring pulls on the plate at $\mathbf{x}_0$ with $F = k_s(u - w_0)$:
+\begin{equation}
+  \mathcal{L} w - \omega^2 \rho h\, w = F\,\delta(\mathbf{x} - \mathbf{x}_0) .
+\end{equation}
+Insert $w = q\varphi$, multiply by $\varphi^*$ and integrate over the cell. The
+$\mathcal{L}$ term gives $\lambda_p q$, the $\rho h$ term $\lambda q$, and the
+$\delta$ term $\varphi^* F = \varphi^* k_s(u - \varphi q)$. Hence
+$\lambda_p q - \lambda q = k_s\varphi^* u - k_s|\varphi|^2 q$, or
+\begin{equation}
+  (\lambda_p + k_s|\varphi|^2)\, q - k_s\varphi^*\, u = \lambda\, q .
+  \label{eq:row_plate}
+\end{equation}
+
+\paragraph{Matrix form.}
+Eqs.~\eqref{eq:row_plate} and \eqref{eq:row_resonator} together read
+$K x = \lambda M x$ with
+\begin{equation}
+  K = \begin{pmatrix} \lambda_p + k_s|\varphi|^2 & -k_s\varphi^* \\ -k_s\varphi & k_s \end{pmatrix},
+  \qquad
+  M = \begin{pmatrix} 1 & 0 \\ 0 & m \end{pmatrix} .
+  \label{eq:KM_resonator}
+\end{equation}
+Each row of $K$ holds the coefficients of $q$ and $u$ on the left of one
+equation; each row of $M$ the coefficients on the right. The $1$ in $M$ is the
+modal mass of the plate mode, equal to one by the normalization. The entries of
+$K$ have different units because $q$ and $u$ do.
+
+\subsection{The same matrices from the energies}
+
+\paragraph{Plate kinetic energy.} Kinetic energy is
+$\tfrac12\cdot\text{mass}\cdot\text{velocity}^2$, summed over the plate, with
+velocity amplitude $\omega w = \omega q\varphi$:
+\begin{equation}
+  T_\mathrm{plate} = \tfrac12 \int \rho h\, \omega^2 |q|^2 |\varphi|^2 \,\mathrm{d}A
+  = \tfrac12\,\omega^2 |q|^2 \int \rho h\, |\varphi|^2\,\mathrm{d}A
+  = \tfrac12\,\omega^2 |q|^2 .
+\end{equation}
+
+\paragraph{Resonator kinetic energy.} $T_\mathrm{res} = \tfrac12\, m\, (\omega u)^2 = \tfrac12\,\omega^2 m |u|^2$.
+
+\paragraph{Plate strain energy.} A mode acts like a single oscillator of mass
+one. From $\omega^2 = \text{stiffness}/\text{mass}$ its stiffness is
+$\lambda_p$, so the energy is $\tfrac12\lambda_p|q|^2$. Formally,
+$\tfrac12\int w^*\mathcal{L}w\,\mathrm{d}A = \tfrac12|q|^2\lambda_p\int\rho h|\varphi|^2\,\mathrm{d}A$.
+
+\paragraph{Spring strain energy.} $\tfrac12\, k_s\cdot\text{stretch}^2 = \tfrac12\, k_s|u - \varphi q|^2$.
+
+\paragraph{What multiplying out does.}
+Any such energy can be written with a matrix, which is how $K$ and $M$ are
+defined:
+\begin{align}
+  \text{strain energy} &= \tfrac12\, x^H K x = \tfrac12\left(K_{11}|q|^2 + K_{12}\,q^* u + K_{21}\,u^* q + K_{22}|u|^2\right), \\
+  \text{kinetic energy} &= \tfrac12\,\omega^2\, x^H M x .
+\end{align}
+$K$ is read off by sorting the energy into the four products $|q|^2$, $q^*u$,
+$u^*q$, $|u|^2$. Multiplying out does that sorting:
+\begin{equation}
+  |u - \varphi q|^2 = (u^* - \varphi^* q^*)(u - \varphi q)
+  = |u|^2 - \varphi\, q\, u^* - \varphi^* q^* u + |\varphi|^2 |q|^2 .
+\end{equation}
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+Product & Coefficient in $2\times$ strain energy & Entry \\
+\hline
+$|q|^2$ & $\lambda_p + k_s|\varphi|^2$ & $K_{11}$ \\
+$q^* u$ & $-k_s\varphi^*$ & $K_{12}$ \\
+$u^* q$ & $-k_s\varphi$ & $K_{21}$ \\
+$|u|^2$ & $k_s$ & $K_{22}$ \\
+\hline
+\end{tabular}
+\end{center}
+For $M$, $2\times$ kinetic energy$/\omega^2 = |q|^2 + m|u|^2$ gives
+$M_{11} = 1$, $M_{22} = m$. $M$ has no off-diagonal entries because no kinetic
+energy term contains both $q$ and $u$: the masses are connected only by the
+spring, so the coupling sits in $K$. Energy sorting and force balance are two
+routes to the same result; FE assembly uses the energy route.
+
+\paragraph{Link to the code.}
+The stretch is $r\,x$ with the row vector $r = (\varphi, -1)$, so the spring
+part of $K$ is $k_s\, r^H r$. This is what the \texttt{augment\_*} functions
+build: plate $K$ plus this rank-one term, and $m$ on the diagonal of the
+resonator DOF. In the code the vector is real (FE basis weights), and the
+phases enter through $T(\mathbf{k})$.
+
+\subsection{The standard form $H$}
+With the mass-normalized resonator coordinate $v = \sqrt{m}\,u$, $M$ becomes
+the identity and $K$ becomes a Hermitian matrix $H$. For a plane wave,
+$|\varphi|^2 = 1/(\rho h A)$, and with $\mathbf{x}_0 = 0$, $\varphi$ is real:
+\begin{align}
+  \text{plate diagonal:} \quad & k_s|\varphi|^2 = \frac{k_s}{\rho h A} = \frac{k_s}{m}\cdot\frac{m}{\rho h A} = \mu\lambda_r, \\
+  \text{resonator diagonal:} \quad & \frac{k_s}{m} = \lambda_r, \\
+  \text{off-diagonal:} \quad & \frac{k_s\varphi}{\sqrt{m}} = \frac{k_s}{\sqrt{m\,\rho h A}} = \frac{k_s}{m}\sqrt{\frac{m}{\rho h A}} = \sqrt{\mu}\,\lambda_r .
+\end{align}
+So
+\begin{equation}
+  \boxed{\;H = \begin{pmatrix} \lambda_p + \mu\lambda_r & -\sqrt{\mu}\,\lambda_r \\ -\sqrt{\mu}\,\lambda_r & \lambda_r \end{pmatrix}\;}
+  \label{eq:H_resonator}
+\end{equation}
+\begin{itemize}
+  \item $\lambda_p + \mu\lambda_r$: plate mode, slightly \emph{stiffened} by the
+        attached spring;
+  \item $\lambda_r$: the resonator alone on a fixed base;
+  \item $c = -\sqrt{\mu}\,\lambda_r$: the coupling through the spring.
+\end{itemize}
+Unlike the rigid-mass matrix, $H$ does not contain the unknown $\lambda$. The
+extra DOF makes the problem linear again, which is why the FE code augments
+instead of using $m_\mathrm{eff}(\omega)$.
+
+\subsection{Checks}
+
+\paragraph{$\Gamma$, band 1 ($\lambda_p = 0$: the cell translates rigidly).}
+$H = \lambda_r \begin{pmatrix} \mu & -\sqrt{\mu} \\ -\sqrt{\mu} & 1 \end{pmatrix}$
+has trace $\lambda_r(1+\mu)$ and determinant $\lambda_r^2(\mu - \mu) = 0$. The
+eigenvalues are $0$ (plate and resonator translate together) and
+$\lambda_r(1+\mu)$, the upper edge of the effective-medium gap.
+
+\paragraph{Short waves ($\lambda_p \gg \lambda_r$).}
+Expanding as in Section~\ref{sec:far}, the lower branch tends to $\lambda_r$:
+the plate is too stiff to move, and the resonator vibrates on a fixed base.
+
+\paragraph{Back to the effective medium.}
+$\det(H - \lambda I) = 0$ reads
+\begin{equation}
+  (\lambda_p + \mu\lambda_r - \lambda)(\lambda_r - \lambda) - \mu\lambda_r^2 = 0 .
+\end{equation}
+Expanding the product,
+\begin{equation}
+  \lambda_p(\lambda_r - \lambda) + \mu\lambda_r(\lambda_r - \lambda) - \lambda(\lambda_r - \lambda) - \mu\lambda_r^2 = 0 .
+\end{equation}
+The $\mu\lambda_r^2$ terms cancel:
+\begin{equation}
+  \lambda_p(\lambda_r - \lambda) - \mu\lambda_r\lambda - \lambda(\lambda_r - \lambda) = 0 .
+\end{equation}
+Solving for $\lambda_p$:
+\begin{equation}
+  \lambda_p = \lambda\,\frac{\lambda_r(1+\mu) - \lambda}{\lambda_r - \lambda} .
+\end{equation}
+With $\lambda_p = D\kappa^4/\rho h$ this is exactly
+Eq.~\eqref{eq:effective_medium}. The two-level model with one plate mode
+\emph{is} the effective medium.
+
+\subsection{The avoided crossing}
+The diagonal entries are equal where $\lambda_p + \mu\lambda_r = \lambda_r$,
+i.e.\ $\lambda_p = \lambda_r(1-\mu)$. There the splitting is $\pm|c|$:
+\begin{equation}
+  \lambda = \lambda_r \pm \sqrt{\mu}\,\lambda_r = \lambda_r(1 \pm \sqrt{\mu}) .
+\end{equation}
+For $\mu = 0.25$: $f = f_r\sqrt{0.5} \approx 849\,\mathrm{Hz}$ and
+$f = f_r\sqrt{1.5} \approx 1470\,\mathrm{Hz}$.
+
+\paragraph{Splitting versus gap width.}
+$\pm\sqrt{\mu}$ is the spacing of the two bands \emph{at that one
+$\mathbf{k}$}. In the unfolded model the complete gap runs from the
+\emph{maximum} of the lower band (tending to $f_r$) to the \emph{minimum} of the
+upper band ($f_r\sqrt{1+\mu}$ at $\Gamma$). Splitting and gap width are
+different things.
+
+\paragraph{Why $\sqrt{\mu}$ here and $\mu$ for the rigid mass?}
+In Chapter~\ref{ch:two_level} two \emph{plate} modes were coupled indirectly
+through the inertia of the mass; both ends of the chain carried a factor
+$m|\varphi|^2$-type term, so the coupling went as $\mu$. Here the resonator is
+a degree of freedom of its own, attached directly by the spring. Each
+normalized coordinate carries one square root of its mass, which gives
+$\sqrt{\mu}$.
+
+% ---------------------------------------------------------------------
+\section{The flat band and the plate share}
+
+\paragraph{Where the flat band comes from.}
+The augmented problem has one more DOF per cell than the bare plate, so there
+is one extra eigenvalue at every $\mathbf{k}$. Away from plate bands it is the
+resonator vibrating while the plate moves little. The resonator is a
+\emph{local} DOF, and $\mathbf{k}$ enters only through the phase factors of
+the plate; if the plate moves little, the eigenvalue barely depends on
+$\mathbf{k}$.
+
+\paragraph{The slope of a band.}
+$H$ in Eq.~\eqref{eq:H_resonator} depends on $\mathbf{k}$ only through
+$\lambda_p$, in one entry. First-order perturbation theory then gives, for a
+normalized eigenvector $(q, v)$,
+\begin{equation}
+  \frac{\mathrm{d}\lambda}{\mathrm{d}\lambda_p} = |q|^2 = \text{plate share of the mode},
+\end{equation}
+where \emph{plate share} means the fraction of the kinetic energy of the mode
+that is in the plate. Therefore
+\begin{equation}
+  \text{slope of a band} = \text{plate share} \times \text{slope of the plate curve} .
+\end{equation}
+A band is flat where the plate share is small, or where the plate curve itself
+is flat, and it bends where the plate share grows. This happens near the plate
+curve, not simply at some distance from $\omega_r$.
+
+\paragraph{Computing the plate share.}
+Row 2 of Eq.~\eqref{eq:H_resonator} gives
+$-\sqrt{\mu}\,\lambda_r\, q + \lambda_r v = \lambda v$, hence
+\begin{equation}
+  \frac{q}{v} = \frac{\lambda_r - \lambda}{\sqrt{\mu}\,\lambda_r},
+  \qquad
+  \text{plate share} = \frac{(q/v)^2}{1 + (q/v)^2} .
+\end{equation}
+At $X$ and $M$ the coupled combination has $|\varphi|^2 = 2/(\rho h A)$ and
+$4/(\rho h A)$ (Chapter~\ref{ch:bragg_2d}), so in all formulas $\mu$ is
+replaced by $2\mu$ and $4\mu$, and $\lambda_p$ by the bare value
+($0.983\,\lambda_r$ at $X$, $3.93\,\lambda_r$ at $M$).
+
+% ---------------------------------------------------------------------
+\section{Reading the dispersion diagram}
+
+\begin{figure}[htbp]
+  \centering
+  % \includegraphics[width=0.85\textwidth]{dispersion_vamm_1200.png}
+  \caption{Dispersion diagram of the $0.1\,\mathrm{m}$ unit cell
+    ($h = 5\,\mathrm{mm}$, steel) with one resonator per cell,
+    $f_r = 1200\,\mathrm{Hz}$, $\mu = 0.25$, along
+    $\Gamma$--$X$--$M$--$\Gamma$. Blue dots: FE Bloch solution. Solid grey:
+    plane-wave expansion. Dashed grey: bare plate. Dotted red: resonator
+    frequency $f_r$. The complete gap runs from the maximum of band 1 at $M$
+    ($1031\,\mathrm{Hz}$) to the minimum of band 2 at $X$
+    ($1195\,\mathrm{Hz}$).}
+  \label{fig:dispersion_vamm_1200}
+\end{figure}
+
+The blue dots in Fig.~\ref{fig:dispersion_vamm_1200} are the actual modes. They
+come from three ingredients:
+\begin{enumerate}
+  \item the grey dashed rising curve: the plate wave going out from $\Gamma$;
+  \item the grey dashed falling curves: the folded plate waves coming down
+        towards $X$ and $M$;
+  \item the red dotted line: the resonator alone, at $1200\,\mathrm{Hz}$.
+\end{enumerate}
+Wherever these meet, the blue bands repel. Between meetings, each blue band
+follows whichever ingredient is closest.
+
+The cleanest place to see this is the right part of the plot, $M$--$\Gamma$.
+The rising plate curve crosses $1200\,\mathrm{Hz}$ about $70\,\%$ of the way
+from $\Gamma$ to $M$ (at $\kappa = \pi/a$); the diagonal entries of $H$ are equal
+slightly earlier, at about two thirds of the way. Reading from $\Gamma$ towards
+$M$:
+\begin{itemize}
+  \item \textbf{Band 1} starts on the grey curve, bends away below the crossing
+        and flattens out.
+  \item \textbf{Band 2} starts flat at about $1270\,\mathrm{Hz}$, stays flat,
+        then bends upwards at the crossing and joins the grey curve.
+\end{itemize}
+The two bands swap roles at the crossing: band 1 starts plate-like and ends
+resonator-like, band 2 does the opposite. This is the avoided crossing of the
+previous section, and its model values $849$ and $1470\,\mathrm{Hz}$ fit the
+plot at that position.
+
+\paragraph{Why the bands are flat where they are.}
+\begin{itemize}
+  \item Flat at $1270\,\mathrm{Hz}$ near $\Gamma$: the plate share is low
+        ($20\,\%$ in the model) and the plate curve itself is nearly flat
+        there. Both reasons work together.
+  \item Band 1 near $\Gamma$: the share is high ($80\,\%$), so the band follows
+        the grey curve.
+  \item The bending part of band 2 on $M$--$\Gamma$: the share grows towards
+        $100\,\%$, and the band picks up the slope of the grey curve.
+\end{itemize}
+
+\paragraph{Plate share at the landmarks.}
+The table extends the $2\times 2$ model to the coupled combinations at $X$ and
+$M$; ``crossing'' is the avoided crossing on $M$--$\Gamma$. The shares are \emph{model estimates, not FE results}. The FE value
+$2710\,\mathrm{Hz}$ was read off the plot.
+\begin{center}
+\begin{tabular}{|l|l|l|l|p{0.26\textwidth}|}
+\hline
+Point & Band & FE [Hz] & Model [Hz] & Plate share \\
+\hline
+$\Gamma$ & 1 & $0$ & $0$ & $80\,\%$ (resonators ride along) \\
+$\Gamma$ & 2 (flat) & $\approx 1270$ & $1342$ & $20\,\%$ \\
+crossing & 1 / 2 & -- & $849$ / $1470$ & $50\,\%$ / $50\,\%$ \\
+$X$ & 1 & $836$ & $846$ & $34\,\%$ \\
+$X$ & 2 & $1195$ & $1194$ & $100\,\%$ (node at the resonator) \\
+$X$ & 3 & $1652$ & $1694$ & $66\,\%$ \\
+$M$ & 1 & $1031$ & $1046$ & $5\,\%$ \\
+$M$ & top of group & $\approx 2710$ & $2728$ & $95\,\%$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{Two points that are easy to get wrong.}
+\begin{enumerate}
+  \item Band 1 never reaches $f_r$ in this diagram, because the zone ends first.
+        It tops out at $1031\,\mathrm{Hz}$ at $M$. The limit $f \to f_r$ exists
+        only in the unfolded model; in the diagram it corresponds to band 1
+        near $M$, with a plate share of $5\,\%$.
+  \item The ``upper band at $\Gamma$'' of the two-level model \emph{is} the flat
+        band of the plot. It sits at about $1270\,\mathrm{Hz}$, above the red
+        line. Nothing in the diagram sits on $1200\,\mathrm{Hz}$.
+\end{enumerate}
+
+\paragraph{Outlook.}
+The gap runs from the top of band 1 at $M$ to band 2 at $X$. That upper edge is
+the $100\,\%$ plate mode, which does not feel the resonator at all. The next
+chapter takes this up.
+
+% ---------------------------------------------------------------------
+\section{Check questions with answers}
+
+\paragraph{Question 1.} \emph{Just above $f_r$, $m_\mathrm{eff}$ is large and
+negative. What does the plate feel there, and why does that rule out a
+propagating bending wave?}
+
+\emph{Answer.} The resonator oscillates opposite to the plate and pulls it back,
+so the usual propagating wave is stopped. Two refinements:
+\begin{itemize}
+  \item Nothing is dissipated, because the model is undamped. The wave becomes
+        \emph{evanescent}: $\kappa^4 < 0$ makes $\kappa$ complex, so the plate
+        still moves, but the motion decays from cell to cell. The energy is
+        reflected, not absorbed.
+  \item Negative $m_\mathrm{eff}$ alone is not enough. $m_\mathrm{eff}$ is
+        negative at \emph{every} frequency above $f_r$, but the gap ends at
+        $f_r\sqrt{1+\mu}$. What counts is the \emph{total} mass per area,
+        $\rho h + m_\mathrm{eff}/A$. It is negative only while the negative
+        mass of the resonator outweighs the mass of the plate, and it crosses
+        zero exactly at $\omega^2 = \omega_r^2(1+\mu)$.
+\end{itemize}
+
+\paragraph{Question 2.} \emph{Why is the resonator band flat, and where would you
+expect it not to be flat?}
+
+\emph{Answer.} The plate moves little there, so the frequency barely depends on
+$\mathbf{k}$. What decides flatness is not the distance from $\omega_r$ itself,
+but how far the \emph{plate band at that $\mathbf{k}$} is from the resonator
+level: slope of a band = plate share $\times$ slope of the plate curve. The
+band bends at the avoided crossing, and it moves away from $\omega_r$
+\emph{because} it hybridizes. The band near $\Gamma$ shows the difference: it
+sits at a frequency different from $f_r$ ($1342\,\mathrm{Hz}$ in the model,
+about $1270\,\mathrm{Hz}$ in FE) and is still nearly flat, because the plate
+band is far below it there.
+
+\paragraph{Question 3.} \emph{Along the lower band, the eigenvector goes from
+mostly plate to mostly resonator. What does this mean for MAC tracking, and
+which branch does a shaker on the finite plate see?}
+
+\emph{Answer.} The 50/50 mix sits at the crossing, not near $f_r$; the mode
+becomes resonator-dominated towards the end of band 1.
+
+\emph{MAC tracking:} band 1 goes from $80\,\%$ plate at $\Gamma$ to $5\,\%$ at
+$M$. That is a large change of character, but it happens gradually over many
+$\mathbf{k}$-points, so the MAC between neighbouring points stays high and
+tracking should follow the band without swapping labels. The MAC must use the
+\emph{full vector including the resonator DOF}, with the augmented mass matrix;
+on plate DOFs alone the comparison is somewhat weaker (lowest MAC of band 1:
+$0.969$ instead of $0.990$), and leaving out the mass matrix is far worse ($0.619$).
+
+\emph{Shaker:} the question has no clean one-branch answer. The shaker drives the
+plate, so a mode is excited in proportion to its plate share. It sees band 1 well
+below about $850\,\mathrm{Hz}$, band 1 near $M$ hardly at all, and the flat part
+of band 2 only weakly (reasoning from the model, not measured). Near the gap
+edges the upper branch keeps more plate motion than the lower one: at the upper
+edge at $\Gamma$ the model gives a plate share of $\mu/(1+\mu) = 20\,\%$ and
+$u/w = -1/\mu = -4$.

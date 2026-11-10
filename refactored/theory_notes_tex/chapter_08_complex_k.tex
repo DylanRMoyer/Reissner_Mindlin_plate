@@ -1,0 +1,398 @@
+% =====================================================================
+% Chapter 8: Inside a gap: complex wavenumbers, evanescent waves and the
+%            finite plate
+% Theory session, dispersion branch (Nov 2026)
+% Requires: amsmath, amssymb
+% Include in the main file with  \include{chapter_08_complex_k}
+% =====================================================================
+
+\chapter{Inside a gap: complex wavenumbers and the finite plate}
+\label{ch:complex_k}
+
+The dispersion diagram shows where waves \emph{cannot} propagate. This chapter asks
+what the plate does at a frequency inside a gap when a shaker forces it to move
+there: the Bloch wavenumber becomes complex, the waves decay from cell to cell, and
+the decay rate tells how strongly a finite plate of about ten cells can show the
+gap. Numbers come from a Kirchhoff plane-wave model of the production cell
+($a = 0.1\,\mathrm{m}$, $h = 5\,\mathrm{mm}$, steel, one resonator per cell,
+$f_r = 1200\,\mathrm{Hz}$, $\mu = 0.25$), solved for complex $k$.
+
+\begin{center}
+\begin{tabular}{|l|p{0.68\textwidth}|}
+\hline
+Symbol & Meaning \\
+\hline
+$k$ & Bloch wavenumber along one direction; here allowed to be complex \\
+$k_\mathrm{re}$, $\sigma$ & real and imaginary part of $k$; $\sigma$ is the decay rate in $1/\mathrm{m}$ \\
+$\lambda = \omega^2$ & squared angular frequency \\
+$\lambda_r$, $\lambda_X$ & resonator eigenvalue $(2\pi\cdot 1200\,\mathrm{Hz})^2$; bare plate eigenvalue at $X$ \\
+$\mu$, $\beta = \lambda/\lambda_r$ & mass ratio $0.25$; squared frequency ratio \\
+$\mu_\mathrm{eff} = \mu/(1-\beta)$ & effective mass ratio: the resonator acts on the plate like the mass $m/(1-\beta)$ (Chapter~\ref{ch:gap_position}) \\
+$D$, $\rho h$ & bending stiffness and mass per area of the plate \\
+$\kappa_B$ & bending wavenumber of the bare plate, $\kappa_B^4 = \omega^2\rho h/D$ \\
+$p = \pi/a$ & wavenumber at the zone edge $X$ \\
+$\delta$ & offset from the zone edge, $k = p + \delta$ \\
+$\bar{H}$, $\Delta$, $c$ & mean and half difference of the diagonal, and off-diagonal entry, of the two-level matrix (Chapter~\ref{ch:eigenvectors}) \\
+$s = \mathrm{d}\Delta/\mathrm{d}k$ & how fast $\Delta$ changes with $k$ \\
+$\eta$ & loss factor of the plate \\
+$L$ & distance from source to receiver \\
+\hline
+\end{tabular}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{From $\omega(k)$ to $k(\omega)$}
+
+The dispersion diagram answers: \emph{given a real $k$, which $\omega$ are
+possible?} A forced response asks the reverse: the shaker fixes $\omega$, so
+\emph{which $k$ are possible?} For real $k$, a frequency inside a gap has no answer.
+That does not mean the plate cannot move at that frequency, since the shaker forces
+it to. It means that only solutions with \emph{complex} $k$ exist there.
+
+% ---------------------------------------------------------------------
+\section{What a complex wavenumber means}
+
+The Bloch theorem states $\psi(x + a) = e^{ika}\psi(x)$. With
+$k = k_\mathrm{re} + i\sigma$,
+\begin{equation}
+  e^{ika} = e^{i k_\mathrm{re} a}\cdot e^{-\sigma a} .
+\end{equation}
+\begin{itemize}
+  \item $e^{i k_\mathrm{re} a}$ is the phase step from one cell to the next, as before;
+  \item $e^{-\sigma a}$ is the amplitude factor per cell: each cell multiplies the
+        amplitude by $e^{-\sigma a}$.
+\end{itemize}
+In decibels, the decay per cell is
+\begin{equation}
+  20\log_{10}\!\left(e^{\sigma a}\right) = 20\,\sigma a\,\log_{10} e = 8.686\,\sigma a
+  \ \mathrm{dB}, \qquad \text{or } 8.686\,\sigma \ \mathrm{dB/m} .
+\end{equation}
+
+Two special cases:
+\begin{itemize}
+  \item $k_\mathrm{re} = \pi/a$: $e^{i\pi} = -1$, so neighbouring cells move in
+        \emph{antiphase} while the amplitude shrinks: a Bragg-type decaying standing
+        pattern;
+  \item $k_\mathrm{re} = 0$: neighbouring cells move \emph{in phase} while the amplitude
+        shrinks.
+\end{itemize}
+
+\paragraph{Roots come in sets of four.} The plate equation contains $k$ only through
+squares, so with $k$ also $-k$ is a solution. Without damping its coefficients are
+real, so with $k$ also $k^*$ is a solution. The roots therefore come as
+$\{k, -k, k^*, -k^*\}$. On each side of a source one keeps the root that decays away
+from it.
+
+% ---------------------------------------------------------------------
+\section{Evanescent waves exist without resonators}
+
+For the bare Kirchhoff plate, $\kappa^4 = \kappa_B^4$ has the four roots
+$\kappa = \pm\kappa_B$ and $\pm i\kappa_B$. The imaginary pair is the \emph{bending
+near field}, present at every frequency. At $1100\,\mathrm{Hz}$,
+$\kappa_B = 30.1\,\mathrm{m}^{-1}$, so the near field decays by
+$\kappa_B a = 3.0$ per cell ($26\,\mathrm{dB}$ per cell). It matters only within
+about one cell of a source or an edge.
+
+A gap is therefore not where evanescent waves begin. It is where \emph{the
+propagating pair disappears}, and the slowest-decaying remaining wave is what is seen
+at a distance.
+
+% ---------------------------------------------------------------------
+\section{Two-level model with complex $k$}
+\label{sec:two_level_complex}
+
+\subsection{The matrix near $X$}
+Near $X$ along $x$, two plate waves matter: $e^{ikx}$ with
+$\lambda_1^0 = (D/\rho h)\,k^4$, and its folded partner with
+$\lambda_2^0 = (D/\rho h)\,(k - 2\pi/a)^4$. The resonator acts on the plate as a
+frequency-dependent mass, so the rigid-mass matrix of Chapter~\ref{ch:two_level}
+applies with $\mu$ replaced by $\mu_\mathrm{eff}$:
+\begin{equation}
+  H_{11} = \lambda_1^0 - \mu_\mathrm{eff}\lambda, \qquad
+  H_{22} = \lambda_2^0 - \mu_\mathrm{eff}\lambda, \qquad
+  c = -\mu_\mathrm{eff}\lambda .
+\end{equation}
+As in Chapter~\ref{ch:eigenvectors}, the eigenvalues are
+$\lambda = \bar{H} \pm \sqrt{\Delta^2 + c^2}$.
+
+\subsection{Step 1: $\Delta$ and $\bar{H}$ near the zone edge}
+Write $k = p + \delta$ with $p = \pi/a$. Then $k - 2\pi/a = \delta - p$, and since
+the fourth power is even,
+\begin{equation}
+  \lambda_1^0 = \frac{D}{\rho h}(p + \delta)^4, \qquad
+  \lambda_2^0 = \frac{D}{\rho h}(p - \delta)^4 .
+\end{equation}
+Expanding both:
+\begin{align}
+  (p + \delta)^4 &= p^4 + 4p^3\delta + 6p^2\delta^2 + 4p\delta^3 + \delta^4, \\
+  (p - \delta)^4 &= p^4 - 4p^3\delta + 6p^2\delta^2 - 4p\delta^3 + \delta^4 .
+\end{align}
+The difference keeps the odd powers, the sum the even ones:
+\begin{align}
+  \Delta &= \frac{\lambda_1^0 - \lambda_2^0}{2}
+          = \frac{D}{\rho h}\left(4p^3\delta + 4p\delta^3\right)
+          = \frac{4\lambda_X}{p}\,\delta\left(1 + \frac{\delta^2}{p^2}\right), \\
+  \bar{H} &= \frac{\lambda_1^0 + \lambda_2^0}{2} - \mu_\mathrm{eff}\lambda
+          = \lambda_X\left(1 + 6\frac{\delta^2}{p^2} + \frac{\delta^4}{p^4}\right) - \mu_\mathrm{eff}\lambda ,
+\end{align}
+using $\lambda_X = (D/\rho h)\,p^4$. To first order in $\delta$:
+\begin{equation}
+  \Delta \approx s\,\delta, \qquad s = \frac{4\lambda_X}{p} = \frac{4\lambda_X a}{\pi},
+  \qquad \bar{H} \approx \lambda_X - \mu_\mathrm{eff}\lambda .
+\end{equation}
+The neglected term $6\delta^2/p^2$ in $\bar{H}$ is about $10\,\%$ in the middle of
+this gap.
+
+\subsection{Step 2: insert an imaginary offset}
+Set $\delta = i\sigma$. Then $\Delta = is\sigma$ and $\Delta^2 = -s^2\sigma^2$, so
+\begin{equation}
+  \lambda = \bar{H} \pm \sqrt{c^2 - s^2\sigma^2} .
+\end{equation}
+
+\subsection{Step 3: solve for the decay rate}
+Squaring, $(\lambda - \bar{H})^2 = c^2 - s^2\sigma^2$, hence
+\begin{equation}
+  \boxed{\;\sigma = \frac{\sqrt{c^2 - (\lambda - \bar{H})^2}}{s}\;}
+  \label{eq:sigma_two_level}
+\end{equation}
+\begin{itemize}
+  \item \emph{Inside the gap}, $|\lambda - \bar{H}| < |c|$: $\sigma$ is real, and
+        $k = \pi/a + i\sigma$ is a decaying wave.
+  \item \emph{Outside the gap}, the root would be imaginary, which makes $\delta$ real:
+        an ordinary propagating wave.
+  \item \emph{At an edge}, $\lambda - \bar{H} = \pm|c|$, so $\sigma = 0$. Let
+        $\varepsilon$ be the distance of $\lambda$ from that edge. Then
+        $c^2 - (\lambda - \bar{H})^2 = (|c| - |\lambda - \bar{H}|)(|c| + |\lambda - \bar{H}|)
+        \approx \varepsilon\cdot 2|c|$, so
+        \begin{equation}
+          \sigma \approx \frac{\sqrt{2|c|\,\varepsilon}}{s} :
+        \end{equation}
+        $\sigma$ grows like the square root of the distance from the edge.
+  \item \emph{With constant coupling}, $\sigma$ is largest at the gap centre:
+        $\sigma_\mathrm{max} = |c|/s$, the gap half-width divided by how fast the two
+        crossing bands separate in $k$.
+\end{itemize}
+
+\paragraph{The same from the band edge.} At a band edge the band is flat:
+$\omega \approx \omega_e - \alpha(k - k_e)^2$ with $\alpha > 0$. Solving for $k$,
+\begin{equation}
+  k - k_e = \pm\sqrt{\frac{\omega_e - \omega}{\alpha}},
+\end{equation}
+which is real on the band side ($\omega < \omega_e$) and imaginary on the gap side.
+
+\subsection{The resonator version}
+Here $c = -\mu_\mathrm{eff}\lambda$ depends on the frequency and grows towards $f_r$.
+The decoupled sine wave pins the upper edge at $\lambda_X$:
+$\bar{H} = \lambda_X - |c|$. With $x = \lambda_X - \lambda$,
+\begin{equation}
+  \lambda - \bar{H} = |c| - x
+  \quad\Rightarrow\quad
+  c^2 - (\lambda - \bar{H})^2 = c^2 - (|c| - x)^2 = x\,(2|c| - x),
+\end{equation}
+so
+\begin{equation}
+  \sigma a = \frac{a\sqrt{x(2|c| - x)}}{s} = \frac{\pi}{4}\,\frac{\sqrt{x(2|c| - x)}}{\lambda_X} .
+\end{equation}
+Worked at $1050\,\mathrm{Hz}$, in units of $\lambda_X$ ($f_X = 1199.8\,\mathrm{Hz}$
+in this model):
+\begin{align}
+  \lambda/\lambda_X &= (1050/1199.8)^2 = 0.7659, \qquad x = 0.2341, \\
+  \beta &= (1050/1200)^2 = 0.7656, \qquad \mu_\mathrm{eff} = 0.25/0.2344 = 1.0666, \\
+  |c| &= 1.0666\cdot 0.7659 = 0.8169, \\
+  x(2|c| - x) &= 0.2341\cdot 1.3997 = 0.3277, \qquad \sigma a = \tfrac{\pi}{4}\sqrt{0.3277} = 0.450 .
+\end{align}
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+$f$ in Hz & $\sigma a$, two-wave formula & $\sigma a$, full plane-wave model \\
+\hline
+900 & 0.236 & 0.276 \\
+1050 & 0.450 & 0.407 \\
+1150 & 0.528 & 0.346 \\
+\hline
+\end{tabular}
+\end{center}
+
+The two-wave formula gets the size right and degrades towards $f_r$. There
+$\mu_\mathrm{eff}$ becomes large, the resonator nearly pins its attachment point, and
+many plane waves are needed to describe that, as in Chapter~\ref{ch:pwe_general}.
+
+% ---------------------------------------------------------------------
+\section{Results of the full plane-wave model}
+
+\paragraph{Method.} The plane-wave condition of Chapter~\ref{ch:pwe_general},
+\begin{equation}
+  1 = \mu_\mathrm{eff}\sum_{\mathbf{G}} \frac{\lambda}{\lambda_\mathbf{G}(\mathbf{k}) - \lambda},
+  \qquad
+  \lambda_\mathbf{G}(\mathbf{k}) = \frac{D}{\rho h}\left[(k_x + G_x)^2 + (k_y + G_y)^2\right]^2,
+\end{equation}
+with Kirchhoff plate waves and $31\times 31 = 961$ harmonics, is solved at fixed
+frequency for complex $k$ along a direction. The square $(k_x + G_x)^2$ is written
+without absolute value, so it continues to complex $k$. Roots are located from minima
+of the residual on a grid in the complex plane and polished with Newton's method.
+
+\paragraph{Checks.} At real $k$ the model gives the band frequencies $839.2$ and
+$1660.6\,\mathrm{Hz}$ at $X$ and $1036.7\,\mathrm{Hz}$ at $M$ (FE: $836$, $1653$,
+$1031$). At a pass-band frequency it returns the known real $k$. The complete gap of
+this model is $1036.7$--$1199.8\,\mathrm{Hz}$ (FE: $1031$--$1195\,\mathrm{Hz}$).
+
+\paragraph{Along $x$ ($\Gamma$--$X$), slowest-decaying root:}
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+$f$ in Hz & $k_\mathrm{re}/(\pi/a)$ & $\sigma a$ & dB/m \\
+\hline
+800 & 0.921 & 0 & 0 (propagating) \\
+841 & 1 & 0.051 & 4.5 \\
+850 & 1 & 0.124 & 10.7 \\
+900 & 1 & 0.276 & 24.0 \\
+1050 & 1 & 0.407 & 35.4 (maximum) \\
+1150 & 1 & 0.346 & 30.1 \\
+1190 & 1 & 0.191 & 16.6 \\
+1198 & 1 & 0.087 & 7.5 \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+  \item The directional gap along $x$ is $839$--$1200\,\mathrm{Hz}$, and the decaying
+        root stays at $k_\mathrm{re} = \pi/a$ throughout: antiphase from cell to cell.
+  \item Square-root check at the lower edge: $\sigma a/\sqrt{f - 839.2\,\mathrm{Hz}} =
+        0.038$ at $841$, $845$ and $850\,\mathrm{Hz}$, constant as predicted.
+  \item The near-field root ($k_\mathrm{re} = 0$, $\sigma a \approx 2.9$--$3.7$) is
+        always present and plays no role at a distance.
+\end{itemize}
+
+\paragraph{Along the diagonal ($\Gamma$--$M$):}
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+$f$ in Hz & $k_\mathrm{re}/(\sqrt{2}\pi/a)$ & $\sigma a$ & dB/m \\
+\hline
+1000 & 0.816 & 0 & 0 \\
+1040 & 1 & 0.289 & 25 \\
+1050 & 1 & 0.615 & 53 \\
+1075 & 0.934 & 1.463 & 127 \\
+1150 & 0.697 & 1.532 & 133 \\
+1210 & 0.561 & 1.387 & 120 \\
+1265 & 0.386 & 0.701 & 61 \\
+1300 & 0.549 & 0 & 0 \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+  \item Between $1050$ and $1075\,\mathrm{Hz}$, two roots at the zone edge meet and
+        split into a complex pair; after that $k_\mathrm{re}$ leaves the zone edge, and
+        the wave oscillates while it decays.
+  \item The diagonal gap reaches up to about $1270\,\mathrm{Hz}$ and decays roughly
+        four times faster than along $x$.
+\end{itemize}
+
+Of the two directions computed, $x$ has the weaker decay everywhere in the complete
+gap. Intermediate angles were not computed.
+
+% ---------------------------------------------------------------------
+\section{What this means for the finite plate and the insertion loss}
+
+\begin{enumerate}
+  \item \emph{Transmission falls roughly like $e^{-\sigma L}$.} For a receiver at
+        distance $L$, in-gap transmission drops by about $8.686\,\sigma L$ dB. The
+        finite plate spans about ten cells ($1\,\mathrm{m}$); along $x$ at mid-gap that
+        is about $35\,\mathrm{dB}$.
+  \item \emph{The gap visible on a finite plate is narrower than the Bloch gap.} Near
+        the edges $\sigma \to 0$ like a square root. For at least $20\,\mathrm{dB}$ over
+        $1\,\mathrm{m}$ one needs $8.686\,\sigma L \ge 20$, i.e.\ $\sigma \ge
+        2.3\,\mathrm{m}^{-1}$ or $\sigma a \ge 0.23$. Along $x$ this holds for roughly
+        $880$--$1180\,\mathrm{Hz}$, compared with the Bloch gap of
+        $1037$--$1200\,\mathrm{Hz}$ in this model.
+  \item \emph{Evanescent decay is not damping.} It dissipates no energy: the lattice
+        simply cannot carry energy away, so the energy stays near the source or is
+        reflected back to it.
+  \item \emph{Damping is a separate, weaker decay.} With a loss factor $\eta$ the
+        bending wavenumber becomes $\kappa = \kappa_B(1 + i\eta)^{-1/4} \approx
+        \kappa_B(1 - i\eta/4)$, so $\sigma = \eta\kappa_B/4$. At $1100\,\mathrm{Hz}$:
+        $0.65\,\mathrm{dB/m}$ for $\eta = 0.01$ and $2.6\,\mathrm{dB/m}$ for
+        $\eta = 0.04$. Inside the gap the $10$--$35\,\mathrm{dB/m}$ of the evanescent
+        decay dominates, except right at the edges, which damping rounds off. Outside
+        the gap damping is the only decay and lowers the resonance peaks of the finite
+        plate. This is also why undamped Bloch bands suffice for the band positions.
+  \item \emph{Few plate modes exist inside the gap.} A mode of the finite plate is a
+        superposition of waves bouncing between its edges; inside the gap there is no
+        propagating wave to bounce, so only motion localized at the source or at the
+        edges remains.
+  \item \emph{The driving point is not isolated.} The cell under the shaker still
+        moves, through the near field and the decaying wave. The drive-point mobility
+        drops much less than the transfer mobility far away. Which insertion-loss
+        definition is used (mobility, radiated power) decides how strongly the gap
+        shows; to be checked against the forced-response runs.
+  \item \emph{Prerequisite:} all of this applies to a finite plate with resonators on
+        the $0.1\,\mathrm{m}$ lattice (about 100 small resonators), not to the current
+        layouts with 1--6 large resonators.
+\end{enumerate}
+
+% ---------------------------------------------------------------------
+\section{How FE would compute $k(\omega)$}
+
+In $K_r = T^H K T$ the wavevector enters only through the phase factors
+$e^{\pm i k_x a}$ on the periodic images. With $k_y$ fixed and $z = e^{i k_x a}$, the
+reduced problem takes the form
+\begin{equation}
+  \left(\frac{A_{-}}{z} + A_0 + A_{+} z\right)\psi = 0 ,
+\end{equation}
+with matrices $A$ that contain $\omega^2$: a \emph{quadratic eigenvalue problem} in $z$
+at fixed $\omega$. Its roots come in pairs $z$ and $1/z$, i.e.\ $k$ and $-k$. For
+complex $k$, $T^H$ has to be replaced by $T(-\mathbf{k})^{\mathsf{T}}$; conjugation is
+the same thing only for real $k$. This is the $k(\omega)$ formulation listed as an
+optional later step (damped gap depth); it is not needed for the band positions.
+
+% ---------------------------------------------------------------------
+\section{Check questions with answers}
+
+\paragraph{Question 1.} \emph{Along $x$ the decaying root has $k_\mathrm{re} = \pi/a$
+throughout the gap. What does the motion look like from one cell to the next, and why
+must $\sigma$ go to zero at both gap edges?}
+
+\emph{Answer.} Neighbouring cells move in antiphase ($e^{i\pi} = -1$), and the
+amplitude shrinks by $e^{-\sigma a}$ per cell; at mid-gap, $\sigma a \approx 0.4$, so
+each cell has about $0.67$ of the amplitude of the previous one. Each gap edge is the
+flat extreme of a propagating band: the maximum of band 1 at $X$ below, the decoupled
+sine wave at $X$ above. There $k(\omega)$ turns from real to complex, and $\sigma$
+grows from zero like the square root of the distance from the edge.
+
+\paragraph{Question 2.} \emph{The Bloch complete gap is $1031$--$1195\,\mathrm{Hz}$. On
+the $1\,\mathrm{m}$ finite plate, in which part of that range would you expect a clear
+insertion loss, and how does a loss factor of $0.04$ change the picture inside and
+outside the gap?}
+
+\emph{Answer.} The clearly visible range is narrower than the Bloch gap, because
+$\sigma L$ is limited: near the edges $\sigma \to 0$, and $1\,\mathrm{m}$ is not long
+enough to build up much attenuation. In the Kirchhoff model, at least $20\,\mathrm{dB}$
+over $1\,\mathrm{m}$ along $x$ holds for roughly $880$--$1180\,\mathrm{Hz}$. The gap does
+not ``dampen'': evanescent decay dissipates nothing, the lattice just cannot carry the
+energy away. A loss factor of $0.04$ adds about $2.6\,\mathrm{dB/m}$ everywhere. Inside
+the gap that is small against $10$--$35\,\mathrm{dB/m}$ and only rounds off the edges;
+outside the gap it is the only decay and lowers the resonance peaks of the finite
+plate, which also enters an insertion loss measured against the bare plate.
+
+\paragraph{Question 3.} \emph{The diagonal decays about four times faster than $x$. A
+receiver sits on the finite plate at some angle from the shaker. Which direction
+controls how strongly the gap shows up at that receiver, and why?}
+
+\emph{Answer.} Roughly the direction of the line from shaker to receiver relative to
+the lattice axes. A receiver along $x$ or $y$ sees the weakest decay (at most about
+$35\,\mathrm{dB/m}$), one along the diagonal about four times more. For a quantity
+collected over the whole plate, such as radiated power or plate-averaged mobility, the
+weakest direction dominates, since most of the energy that gets far travels along $x$
+and $y$. Two caveats: the computed rates are for straight wavefronts along $x$ and the
+diagonal, not the field of a point source, and on a finite plate edge reflections add
+other paths. The faster diagonal decay is not ``four waves being damped'' (there is no
+damping in this model, and the factor four is not a count). Two plausible contributions,
+not separated: at $M$, four degenerate plate waves form one coupled combination with
+$|\varphi|^2 = 4/(\rho h A)$ against $2/(\rho h A)$ at $X$, so the coupling to the
+resonator is twice as strong; and $f_r$ lies inside the diagonal gap
+($1037$--$1270\,\mathrm{Hz}$), where $\mu_\mathrm{eff}$ is large, while along $x$ it sits
+at the upper edge, where the sine wave does not see the resonator at all.
