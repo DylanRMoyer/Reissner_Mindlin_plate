@@ -16,7 +16,7 @@ from radiation import radiated_power, build_radiation_points, radiation_efficien
 from frequency_sweep import frequency_sweep_plate, build_frequency_grid, warn_if_grid_too_coarse
 from dispersion import (unit_cell_element_counts, build_wavevector_path, dispersion_sweep, analytic_dispersion,
                         analytic_resonator_dispersion)
-from postprocessing_dispersion import plot_dispersion
+from postprocessing_dispersion import plot_dispersion, plot_tracked_dispersion
 import dataclasses
 
 if __name__ == "__main__":
@@ -263,6 +263,7 @@ if __name__ == "__main__":
         include_resonator = True
         resonator_frequency_hz = 1200.0
         resonator_mass_ratio = 0.25     # resonator mass / plate mass per cell (rho h a^2)
+        track_bands = True              # branch tracking: lines coloured by plate share instead of sorted markers
 
         unit_cell_elements_x, unit_cell_elements_y = unit_cell_element_counts(unit_cell_length, unit_cell_length)
         unit_cell_config = dataclasses.replace(plate_config, length=unit_cell_length, width=unit_cell_length,
@@ -279,12 +280,22 @@ if __name__ == "__main__":
 
         dispersion_result = dispersion_sweep(
             function_space=unit_cell_function_space, problem=unit_cell_problem, plate_config=unit_cell_config,
-            wavevector_path=wavevector_path, maximum_frequency_hz=maximum_frequency_hz,
-            vamm_list=unit_cell_vamm_list)
+            wavevector_path=wavevector_path,
+            # tracked: compute 10 % above the plotted range, so branches enter and leave outside the plot
+            maximum_frequency_hz=1.1 * maximum_frequency_hz if track_bands else maximum_frequency_hz,
+            vamm_list=unit_cell_vamm_list, track_bands=track_bands)
 
         bare_analytic = analytic_dispersion(wavevector_path, unit_cell_config,
                                             maximum_frequency_hz=1.1 * maximum_frequency_hz)
-        if include_resonator:
+        if track_bands:
+            plot_tracked_dispersion(
+                result=dispersion_result, colour_by="plate_share" if include_resonator else "branch",
+                frequency_limit=maximum_frequency_hz,
+                resonator_frequencies_hz=[resonator_frequency_hz] if include_resonator else None,
+                title=f"Unit cell {unit_cell_length} m" + (
+                    f" with resonator: f_r = {resonator_frequency_hz:.0f} Hz, mass ratio {resonator_mass_ratio}"
+                    if include_resonator else " (bare)") + f", h = {plate_config.thickness * 1e3:.0f} mm")
+        elif include_resonator:
             plot_dispersion(
                 result=dispersion_result,
                 analytic_frequencies=analytic_resonator_dispersion(

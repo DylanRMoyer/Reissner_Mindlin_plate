@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from scipy.linalg import eigh
 from periodic_bc import build_pairs
 from bloch_solver import assemble_unit_cell_matrices, reduce_to_bloch, solve_bloch_evp
+from band_tracking import band_overlap, resonator_energy_share, track_bands as track_bands_by_overlap
 
 # Decision of 2026-11-02: 0.1 m cell, h = 5 mm steel, f_max = 5 kHz. Max bare-cell error over all bands below
 # 5 kHz: 80/m 0.72 %, 100/m 0.33 %, 120/m 0.17 %. 100/m keeps a factor 3 margin to the 1 % limit (see CLAUDE.md).
@@ -67,6 +68,8 @@ class DispersionResult:
                                            # NaN where a k has fewer bands below maximum_frequency_hz
     eigenvectors: np.ndarray | None        # shape (n_k, n_independent_dofs, n_bands), complex, NaN-padded, or None
     maximum_frequency_hz: float | None
+    resonator_share: np.ndarray | None = None   # (n_k, n_bands) resonator energy share of the sorted bands (track_bands)
+    tracking: object = None                     # band_tracking.TrackedBands (track_bands=True), else None
 
 
 def estimate_band_count(plate_config, maximum_frequency_hz):
@@ -87,7 +90,8 @@ def pad_with_nan(rows, width):
 
 
 def dispersion_sweep(function_space, problem, plate_config, wavevector_path, maximum_frequency_hz=None,
-                     number_of_bands=None, vamm_list=None, keep_eigenvectors=False, factorization_package="petsc"):
+                     number_of_bands=None, vamm_list=None, keep_eigenvectors=False, factorization_package="petsc",
+                     track_bands=False, minimum_match_quality=0.5):
     """Solve the Bloch eigenproblem at every wavevector of the path for the unit cell, bare or with resonators.
 
     Give exactly one of
@@ -101,7 +105,12 @@ def dispersion_sweep(function_space, problem, plate_config, wavevector_path, max
     is built once before the loop. keep_eigenvectors stores the reduced eigenvectors for branch tracking;
     with resonators, the last len(vamm_list) entries of each eigenvector are the resonator displacements.
 
-    vamm_list: optional resonators in the cell (cell coordinates, registered indices); undamped here."""
+    vamm_list: optional resonators in the cell (cell coordinates, registered indices); undamped here.
+
+    track_bands: also follow each branch by mass-weighted eigenvector overlap (band_tracking.track_bands) and store
+        the result in result.tracking, plus the resonator energy share of every band in result.resonator_share.
+        result.frequencies stays sorted per k (use it for gap detection). Track with maximum_frequency_hz a bit
+        above the plotted range, so branches entering or leaving at the cut-off do so outside the plot."""
     if (maximum_frequency_hz is None) == (number_of_bands is None):
         raise ValueError("give exactly one of maximum_frequency_hz and number_of_bands")
     length_x, length_y = plate_config.length, plate_config.width
@@ -118,6 +127,8 @@ def dispersion_sweep(function_space, problem, plate_config, wavevector_path, max
           + (f" ({number_of_resonators} resonator)" if number_of_resonators else ""))
 
     frequency_rows, eigenvector_rows = [], []
+    overlaps, bridge_overlaps, resonator_share_rows = [], [], []
+    previous_vectors = vectors_two_back = None
     sweep_start = time.perf_counter()
     for step, (wavenumber_x, wavenumber_y) in enumerate(wavevector_path.wavevectors):
         step_start = time.perf_counter()
@@ -137,6 +148,13 @@ def dispersion_sweep(function_space, problem, plate_config, wavevector_path, max
         frequency_rows.append(band_frequencies)
         if keep_eigenvectors:
             eigenvector_rows.append(band_vectors.T)       # (n_bands, n_dofs), transposed back after padding
+        if track_bands:
+            if previous_vectors is not None:
+                overlaps.append(band_overlap(previous_vectors, band_vectors, mass_reduced))
+            if vectors_two_back is not None:
+                bridge_overlaps.append(band_overlap(vectors_two_back, band_vectors, mass_reduced))
+            resonator_share_rows.append(resonator_energy_share(band_vectors, mass_reduced, number_of_resonators))
+            vectors_two_back, previous_vectors = previous_vectors, band_vectors
         if step == 0:
             first_step_seconds = time.perf_counter() - step_start
             print(f"First wavevector took {first_step_seconds:.2f} s; estimated total about "
@@ -146,8 +164,14 @@ def dispersion_sweep(function_space, problem, plate_config, wavevector_path, max
     widest = max(len(row) for row in frequency_rows)
     frequencies = pad_with_nan(frequency_rows, widest)
     eigenvectors = pad_with_nan(eigenvector_rows, widest).transpose(0, 2, 1) if keep_eigenvectors else None
+    resonator_share = tracking = None
+    if track_bands:
+        resonator_share = pad_with_nan(resonator_share_rows, widest)
+        tracking = track_bands_by_overlap(frequencies, overlaps, bridge_overlaps=bridge_overlaps,
+                                          resonator_share=resonator_share, minimum_quality=minimum_match_quality)
     return DispersionResult(path=wavevector_path, frequencies=frequencies, eigenvectors=eigenvectors,
-                            maximum_frequency_hz=maximum_frequency_hz)
+                            maximum_frequency_hz=maximum_frequency_hz, resonator_share=resonator_share,
+                            tracking=tracking)
 
 
 # --- Analytic reference: infinite Reissner-Mindlin plate folded into the cell ---
