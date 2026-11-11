@@ -367,3 +367,98 @@ def analytic_resonator_dispersion(wavevector_path, plate_config, resonator_stiff
                                            harmonic_cutoff=harmonic_cutoff)
             for wavenumber_x, wavenumber_y in wavevector_path.wavevectors]
     return pad_with_nan(rows, max(len(row) for row in rows))
+
+
+# --- Complete band gaps (on the frequency-sorted bands; never on tracked branches) ---
+
+@dataclass
+class BandGap:
+    lower_band_index: int                 # column of the sorted frequencies under the gap (0-based); the gap lies
+                                          # between sorted bands lower_band_index and lower_band_index + 1
+    lower_edge_hz: float                  # maximum of the lower band over all wavevectors
+    upper_edge_hz: float                  # minimum of the upper band over all wavevectors
+    lower_edge_wavevector: np.ndarray     # (kx, ky) in rad/m where the lower edge sits
+    upper_edge_wavevector: np.ndarray
+    lower_edge_location: str              # symmetry point ("M") or path segment ("X–M") of the lower edge
+    upper_edge_location: str
+
+    @property
+    def centre_hz(self):
+        return 0.5 * (self.lower_edge_hz + self.upper_edge_hz)
+
+    @property
+    def relative_width(self):
+        """Gap width over gap centre (the usual figure of merit, e.g. 0.147 for 1031-1195 Hz)."""
+        return (self.upper_edge_hz - self.lower_edge_hz) / self.centre_hz
+
+
+def wavevector_location(wavevector_path, wavevector_index, relative_tolerance=1e-9):
+    """Readable location of a wavevector on the path: its symmetry-point label if it sits on one, otherwise the
+    segment ("X–M"). For a point set without symmetry points (zone-interior grid) the wavevector itself."""
+    positions = np.asarray(wavevector_path.symmetry_point_positions, dtype=float)
+    labels = wavevector_path.symmetry_point_labels
+    if len(positions) == 0:
+        wavenumber_x, wavenumber_y = wavevector_path.wavevectors[wavevector_index]
+        return f"k = ({wavenumber_x:.1f}, {wavenumber_y:.1f}) rad/m"
+    coordinate = wavevector_path.path_coordinate[wavevector_index]
+    tolerance = relative_tolerance * max(wavevector_path.path_coordinate[-1], 1.0)
+    on_symmetry_point = np.flatnonzero(np.abs(positions - coordinate) <= tolerance)
+    if on_symmetry_point.size:
+        return labels[on_symmetry_point[0]]
+    segment = int(np.searchsorted(positions, coordinate)) - 1
+    return f"{labels[segment]}–{labels[segment + 1]}"
+
+
+def find_complete_gaps(frequencies, wavevector_path, minimum_relative_width=0.005):
+    """Complete band gaps of the frequency-sorted bands, shape (n_k, n_bands) in Hz (DispersionResult.frequencies,
+    or an analytic table on the same path).
+
+    A complete gap between sorted bands n and n + 1 exists if max over k of band n < min over k of band n + 1:
+    no wavevector on the path has a Bloch wave in between. NaN padding means "above the computed limit at this
+    k", so it counts as +infinity: a NaN in band n closes the gap (band n reaches above the limit), a NaN in band
+    n + 1 does not open one. A gap whose upper band is NaN everywhere is not reported (upper edge unknown).
+
+    Use the sorted frequencies, not the tracked branches: a gap is a property of the spectrum at each k, and a
+    tracked branch can cross another one, so its extremes say nothing about empty frequency ranges.
+    minimum_relative_width: gaps narrower than this fraction of their centre frequency are dropped; the default
+        0.5 % sits above the FE band error at the production mesh (0.33 % below 5 kHz).
+    The path only covers the edge of the irreducible Brillouin zone; band extrema usually lie on it, which
+    validate_band_gaps.py checks with a zone-interior grid for the production resonator cell."""
+    band_values = np.where(np.isnan(frequencies), np.inf, np.asarray(frequencies, dtype=float))
+    gaps = []
+    for lower_band_index in range(band_values.shape[1] - 1):
+        lower_band, upper_band = band_values[:, lower_band_index], band_values[:, lower_band_index + 1]
+        lower_edge_hz, upper_edge_hz = lower_band.max(), upper_band.min()
+        if not (np.isfinite(lower_edge_hz) and np.isfinite(upper_edge_hz)) or upper_edge_hz <= lower_edge_hz:
+            continue
+        if (upper_edge_hz - lower_edge_hz) / (0.5 * (lower_edge_hz + upper_edge_hz)) < minimum_relative_width:
+            continue
+        lower_edge_index, upper_edge_index = int(np.argmax(lower_band)), int(np.argmin(upper_band))
+        gaps.append(BandGap(
+            lower_band_index=lower_band_index, lower_edge_hz=float(lower_edge_hz), upper_edge_hz=float(upper_edge_hz),
+            lower_edge_wavevector=wavevector_path.wavevectors[lower_edge_index].copy(),
+            upper_edge_wavevector=wavevector_path.wavevectors[upper_edge_index].copy(),
+            lower_edge_location=wavevector_location(wavevector_path, lower_edge_index),
+            upper_edge_location=wavevector_location(wavevector_path, upper_edge_index)))
+    return gaps
+
+
+def describe_band_gap(gap):
+    """One-line summary for printing, e.g. '1031.4-1195.2 Hz (width 163.8 Hz, 14.7 %), edges at M and X'."""
+    return (f"{gap.lower_edge_hz:.1f}-{gap.upper_edge_hz:.1f} Hz (width {gap.upper_edge_hz - gap.lower_edge_hz:.1f} "
+            f"Hz, {gap.relative_width:.1%}), between sorted bands {gap.lower_band_index + 1} and "
+            f"{gap.lower_band_index + 2}, edges at {gap.lower_edge_location} and {gap.upper_edge_location}")
+
+
+def build_irreducible_zone_grid(length_x, length_y, points_per_side=16):
+    """Wavevectors filling the irreducible Brillouin zone, boundary included, as a WavevectorPath without symmetry
+    points (path_coordinate is the running index). Used to check that band extrema lie on the path.
+    Square cell: the triangle Gamma-X-M (0 <= ky <= kx <= pi/a); rectangular cell: [0, pi/Lx] x [0, pi/Ly]."""
+    wavenumbers_x = np.linspace(0.0, np.pi / length_x, points_per_side + 1)
+    wavenumbers_y = np.linspace(0.0, np.pi / length_y, points_per_side + 1)
+    if np.isclose(length_x, length_y, rtol=1e-12):
+        wavevectors = [(wavenumbers_x[i], wavenumbers_y[j]) for i in range(points_per_side + 1) for j in range(i + 1)]
+    else:
+        wavevectors = [(wavenumber_x, wavenumber_y) for wavenumber_x in wavenumbers_x for wavenumber_y in wavenumbers_y]
+    return WavevectorPath(wavevectors=np.array(wavevectors), path_coordinate=np.arange(len(wavevectors), dtype=float),
+                          symmetry_point_positions=np.array([]), symmetry_point_labels=[])

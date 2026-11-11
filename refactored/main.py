@@ -9,21 +9,21 @@ from postprocessing import (plot_eigenmode, plot_frequency_response, plot_mobili
 from vamm_grid import GridConfig, state_to_vamm_list
 from probe import make_probe, build_probe_coordinates, mobility_at_probes
 from sweep_cache import (CACHE_DIR, make_cache_key, get_or_compute_sweep, get_or_compute_radiated_power,
-                         get_or_compute_eigenfrequencies)
+                         get_or_compute_eigenfrequencies, get_or_compute_dispersion)
 from insertion_loss import (assert_comparable_sweeps, compute_insertion_loss,
                             global_insertion_loss_radiated_db, global_insertion_loss_radiated_equal_power_db)
 from radiation import radiated_power, build_radiation_points, radiation_efficiency, rho_air, c_air
 
 from frequency_sweep import frequency_sweep_plate, build_frequency_grid, warn_if_grid_too_coarse
 from dispersion import (unit_cell_element_counts, build_wavevector_path, dispersion_sweep, analytic_dispersion,
-                        analytic_resonator_dispersion)
+                        analytic_resonator_dispersion, find_complete_gaps, describe_band_gap)
 from postprocessing_dispersion import plot_dispersion, plot_tracked_dispersion
 import dataclasses
 
 if __name__ == "__main__":
 
-    do_frequency_sweep = False
-    do_dispersion = False  # bare unit cell (plate_config dimensions) band diagram; Lagrange, 16 elements per metre
+    do_frequency_sweep = True
+    do_dispersion = True  # Bloch band diagram of one 0.1 m cell (with do_frequency_sweep: insertion loss side panel)
     free_plate = True # switch: free (shaker-driven) vs. clamped-edge plate
     excitation = "force"  # "force" (allows both free_plate=True or False) or "motion" (needs free_plate=False)
     vamm_mode = "grid"  # "grid" or "manual"
@@ -335,12 +335,41 @@ if __name__ == "__main__":
             [(unit_cell_length / 2, unit_cell_length / 2, resonator_stiffness, resonator_mass)]
         ) if include_resonator else None
 
-        dispersion_result = dispersion_sweep(
-            function_space=unit_cell_function_space, problem=unit_cell_problem, plate_config=unit_cell_config,
-            wavevector_path=wavevector_path,
-            # tracked: compute 10 % above the plotted range, so branches enter and leave outside the plot
-            maximum_frequency_hz=1.1 * maximum_frequency_hz if track_bands else maximum_frequency_hz,
-            vamm_list=unit_cell_vamm_list, track_bands=track_bands)
+        computed_limit_hz = 1.1 * maximum_frequency_hz if track_bands else maximum_frequency_hz
+        # tracked: compute 10 % above the plotted range, so branches enter and leave outside the plot
+        dispersion_settings = dict(
+            cell_config=unit_cell_config, deg=2, el_type="Lagrange", wavevectors=wavevector_path.wavevectors,
+            maximum_frequency_hz=computed_limit_hz, vamm_list=unit_cell_vamm_list, track_bands=track_bands,
+            minimum_match_quality=0.5,
+            code_version="v1")  # bump this string if you change the Bloch solver or the tracking code itself
+        dispersion_key, dispersion_blob = make_cache_key(**dispersion_settings)
+        dispersion_result = get_or_compute_dispersion(
+            CACHE_DIR / f"dispersion_{'vamm' if include_resonator else 'bare'}_{dispersion_key}.npz",
+            compute=lambda: dispersion_sweep(
+                function_space=unit_cell_function_space, problem=unit_cell_problem, plate_config=unit_cell_config,
+                wavevector_path=wavevector_path, maximum_frequency_hz=computed_limit_hz,
+                vamm_list=unit_cell_vamm_list, track_bands=track_bands, minimum_match_quality=0.5),
+            settings_blob=dispersion_blob)
+
+        # complete gaps from the sorted frequencies (never from the tracked branches)
+        band_gaps = find_complete_gaps(dispersion_result.frequencies, dispersion_result.path)
+        print(f"Complete band gaps below {computed_limit_hz:.0f} Hz: {len(band_gaps)}")
+        for gap in band_gaps:
+            print("  " + describe_band_gap(gap))
+
+        # Side panel with the finite-plate insertion loss, if the forced-response block ran in this process.
+        # It is only meaningful if that plate carries the same resonators on the same lattice (grid mode above:
+        # 0.1 m, 1.2 kHz, mass ratio 0.25, equal to the cell settings here).
+        insertion_loss_curves = None
+        if do_frequency_sweep and include_resonator:
+            insertion_loss_curves = [
+                (r"$IL_{rad}$ (equal force)", sweep_bare.f_values, insertion_loss_db),
+                (r"$IL_{rad}$ (equal input power)", sweep_bare.f_values, insertion_loss_db_power)]
+        figure_name = ("dispersion_cell{:g}m_".format(unit_cell_length)
+                       + (f"{resonator_frequency_hz:.0f}hz_mass{resonator_mass_ratio:g}_" if include_resonator
+                          else "bare_")
+                       + f"0to{maximum_frequency_hz:.0f}hz" + ("_with_il" if insertion_loss_curves else ""))
+        dispersion_save_path = f"results/{figure_name}.pdf"
 
         bare_analytic = analytic_dispersion(wavevector_path, unit_cell_config,
                                             maximum_frequency_hz=1.1 * maximum_frequency_hz)
@@ -351,7 +380,9 @@ if __name__ == "__main__":
                 resonator_frequencies_hz=[resonator_frequency_hz] if include_resonator else None,
                 title=f"Unit cell {unit_cell_length} m" + (
                     f" with resonator: f_r = {resonator_frequency_hz:.0f} Hz, mass ratio {resonator_mass_ratio}"
-                    if include_resonator else " (bare)") + f", h = {plate_config.thickness * 1e3:.0f} mm")
+                    if include_resonator else " (bare)") + f", h = {plate_config.thickness * 1e3:.0f} mm",
+                band_gaps=band_gaps, insertion_loss_curves=insertion_loss_curves,
+                save_path=dispersion_save_path)
         elif include_resonator:
             plot_dispersion(
                 result=dispersion_result,
@@ -361,9 +392,13 @@ if __name__ == "__main__":
                 analytic_label="analytic (plane-wave expansion)",
                 bare_frequencies=bare_analytic, resonator_frequencies_hz=[resonator_frequency_hz],
                 title=f"Unit cell {unit_cell_length} m with resonator: f_r = {resonator_frequency_hz:.0f} Hz, "
-                      f"mass ratio {resonator_mass_ratio}, h = {plate_config.thickness * 1e3:.0f} mm")
+                      f"mass ratio {resonator_mass_ratio}, h = {plate_config.thickness * 1e3:.0f} mm",
+                band_gaps=band_gaps, insertion_loss_curves=insertion_loss_curves,
+                save_path=dispersion_save_path)
         else:
             plot_dispersion(
                 result=dispersion_result, analytic_frequencies=bare_analytic,
                 title=f"Bare unit cell {unit_cell_length} x {unit_cell_length} m, "
-                      f"h = {plate_config.thickness * 1e3:.0f} mm")
+                      f"h = {plate_config.thickness * 1e3:.0f} mm",
+                band_gaps=band_gaps, insertion_loss_curves=insertion_loss_curves,
+                save_path=dispersion_save_path)

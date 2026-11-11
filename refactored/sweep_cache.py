@@ -98,3 +98,65 @@ def get_or_compute_eigenfrequencies(path, compute, settings_blob=""):
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(path, eigenfrequencies=eigenfrequencies, settings=np.array(settings_blob))
     return eigenfrequencies
+
+
+# --- Dispersion cache (Bloch bands along a k-path, ~25 s per diagram; eigenvectors are not stored) ---
+
+def save_dispersion(path, result, settings_blob=""):
+    """Store a DispersionResult: path, sorted frequencies, resonator share and (if present) the tracked tables."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    arrays = dict(
+        wavevectors=result.path.wavevectors, path_coordinate=result.path.path_coordinate,
+        symmetry_point_positions=np.asarray(result.path.symmetry_point_positions, dtype=float),
+        symmetry_point_labels=np.array(result.path.symmetry_point_labels, dtype=str),
+        frequencies=result.frequencies,
+        maximum_frequency_hz=np.array(np.nan if result.maximum_frequency_hz is None else result.maximum_frequency_hz),
+        settings=np.array(settings_blob))
+    if result.resonator_share is not None:
+        arrays["resonator_share"] = result.resonator_share
+    if result.tracking is not None:
+        arrays.update(tracking_labels=result.tracking.labels, tracking_frequencies=result.tracking.frequencies,
+                      tracking_plate_share=result.tracking.plate_share,
+                      tracking_match_quality=result.tracking.match_quality,
+                      tracking_step_status=np.array(result.tracking.step_status, dtype=str))
+    np.savez(path, **arrays)
+
+
+def load_dispersion(path):
+    """Inverse of save_dispersion; eigenvectors come back as None. Imports inside, so this module stays usable
+    without the complex FEniCSx environment."""
+    from dispersion import DispersionResult, WavevectorPath
+    from band_tracking import TrackedBands
+    with np.load(path, allow_pickle=False) as data:
+        wavevector_path = WavevectorPath(
+            wavevectors=data["wavevectors"], path_coordinate=data["path_coordinate"],
+            symmetry_point_positions=data["symmetry_point_positions"],
+            symmetry_point_labels=[str(label) for label in data["symmetry_point_labels"]])
+        maximum_frequency_hz = float(data["maximum_frequency_hz"])
+        tracking = None
+        if "tracking_labels" in data.files:
+            tracking = TrackedBands(
+                labels=data["tracking_labels"], frequencies=data["tracking_frequencies"],
+                plate_share=data["tracking_plate_share"], match_quality=data["tracking_match_quality"],
+                step_status=[str(status) for status in data["tracking_step_status"]])
+        return DispersionResult(
+            path=wavevector_path, frequencies=data["frequencies"], eigenvectors=None,
+            maximum_frequency_hz=None if np.isnan(maximum_frequency_hz) else maximum_frequency_hz,
+            resonator_share=data["resonator_share"] if "resonator_share" in data.files else None,
+            tracking=tracking)
+
+
+def get_or_compute_dispersion(path, compute, settings_blob=""):
+    """Load the DispersionResult from 'path' if it exists, otherwise call compute() and save it. Same pattern as
+    get_or_compute_sweep. The key should contain the cell config (material, size, mesh), element type and degree,
+    the wavevectors, the frequency limit (or band count), the resonator list, track_bands and the tracking
+    threshold, plus a code version. A run that needs eigenvectors must bypass the cache."""
+    path = Path(path)
+    if path.exists():
+        print(f"Loading cached dispersion: {path.name}")
+        return load_dispersion(path)
+    print(f"No cache at {path.name}; running dispersion sweep ...")
+    result = compute()
+    save_dispersion(path, result, settings_blob)
+    return result
