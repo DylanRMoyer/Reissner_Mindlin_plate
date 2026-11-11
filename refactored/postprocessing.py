@@ -578,18 +578,29 @@ def plot_insertion_loss_bode(
 def plot_radiation_bode(f_values, P_bare, P_vamm, sigma_bare, sigma_vamm,
                         il_rad, il_rad_pow, il_force,
                         eigenfrequencies_bare=None, eigenfrequencies_vamm=None,
-                        il_ylim=None, title="Radiated sound power", save_path=None):
+                        il_ylim=None, title="Radiated sound power", save_path=None,
+                        show_eigenfrequency_lines=True, mode_count_bin_hz=None):
+    """Radiated power, radiation efficiency and insertion loss over frequency (three panels).
+
+    show_eigenfrequency_lines: vertical lines at the eigenfrequencies inside the plotted band (default, as before).
+        With hundreds of modes in the band the lines cover the curves; switch them off for wide bands and plot
+        a zoom (pass sliced f_values and curves) with lines instead.
+    mode_count_bin_hz: if given, adds a fourth panel with the number of eigenfrequencies per bin of this width
+        (bare plate and VAMM system): the modal density, readable at any number of modes."""
     f = np.asarray(f_values, dtype=float)
-    fig, (ax_p, ax_s, ax_il) = plt.subplots(
-        3, 1, figsize=(9.5, 9), sharex=True, constrained_layout=True,
-        gridspec_kw={"height_ratios": [1.2, 1, 1.3]})
-    axes = (ax_p, ax_s, ax_il)
+    with_mode_count = mode_count_bin_hz is not None
+    fig, axes = plt.subplots(
+        4 if with_mode_count else 3, 1, figsize=(9.5, 10.5 if with_mode_count else 9), sharex=True,
+        constrained_layout=True,
+        gridspec_kw={"height_ratios": [1.2, 1, 1.3, 0.7] if with_mode_count else [1.2, 1, 1.3]})
+    ax_p, ax_s, ax_il = axes[:3]
 
     # eigenfrequency lines first, so they sit behind the curves
-    _draw_eigenfrequency_lines(axes, f, eigenfrequencies_bare, "bare eigenfrequencies", ax_p,
-                               color="0.7", linestyle=":", linewidth=0.9)
-    _draw_eigenfrequency_lines(axes, f, eigenfrequencies_vamm, "VAMM-system eigenfrequencies", ax_p,
-                               color="0.3", linestyle="--", linewidth=0.9)
+    if show_eigenfrequency_lines:
+        _draw_eigenfrequency_lines(axes, f, eigenfrequencies_bare, "bare eigenfrequencies", ax_p,
+                                   color="0.7", linestyle=":", linewidth=0.9)
+        _draw_eigenfrequency_lines(axes, f, eigenfrequencies_vamm, "VAMM-system eigenfrequencies", ax_p,
+                                   color="0.3", linestyle="--", linewidth=0.9)
 
     ax_p.plot(f, power_level_db(P_bare), color="C0", linewidth=1.2, label="bare plate")
     ax_p.plot(f, power_level_db(P_vamm), color="C1", linewidth=1.2, label="with VAMMs")
@@ -609,9 +620,21 @@ def plot_radiation_bode(f_values, P_bare, P_vamm, sigma_bare, sigma_vamm,
     if il_ylim is not None:
         ax_il.set_ylim(*il_ylim)
     ax_il.set_ylabel("IL [dB]")
-    ax_il.set_xlabel("Frequency [Hz]")
     ax_il.set_title("Insertion loss")
     ax_il.legend(loc="upper right", fontsize=8)
+
+    if with_mode_count:
+        ax_n = axes[3]
+        bin_edges = np.arange(f[0], f[-1] + mode_count_bin_hz, mode_count_bin_hz)
+        for frequencies, colour, label in ((eigenfrequencies_bare, "C0", "bare plate"),
+                                           (eigenfrequencies_vamm, "C1", "with VAMMs")):
+            if frequencies is not None:
+                counts, _ = np.histogram(np.asarray(frequencies), bins=bin_edges)
+                ax_n.stairs(counts, bin_edges, color=colour, linewidth=1.2, label=label)
+        ax_n.set_ylabel(f"modes per\n{mode_count_bin_hz:g} Hz")
+        ax_n.set_title("Eigenfrequency count")
+        ax_n.legend(loc="upper right", fontsize=8)
+    axes[-1].set_xlabel("Frequency [Hz]")
 
     for ax in axes:
         ax.grid(True, alpha=0.3)

@@ -69,10 +69,15 @@ def solve_evp(
     eigenfrequencies = []
     eigenmodes = []
 
+    # Rigid-body modes of a free plate come out as omega^2 ~ 0 with round-off of either sign; the round-off grows
+    # with the mesh (100x100 on 1x1 m gave -1.4e-3). Treat them as zero relative to the largest computed eigenvalue,
+    # keeping the old absolute 1e-3 as the lower bound so earlier results are unchanged.
+    largest_omega_sq = max(abs(eps.getEigenvalue(i).real) for i in range(eigenmode_number))
+    tolerance = max(1.0e-3, 1.0e-8 * largest_omega_sq)
+
     for i in range(eigenmode_number):
         eigval = eps.getEigenpair(i, vr, vi)  # fills vr, vi; returns eigenvalue
         omega_sq = eigval.real
-        tolerance = 1.0e-3 # To-Do: set dynamic tolerance!
         if -tolerance < omega_sq < tolerance:
             omega_sq = 0.0
         if omega_sq < 0.0:

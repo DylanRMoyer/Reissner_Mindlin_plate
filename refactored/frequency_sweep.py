@@ -164,12 +164,16 @@ def compute_rms_velocity(u_point, Omega_const, domain):
 
     return np.sqrt(mean_sq_velocity.real)
 
-def solve_linear_system(domain, function_space, A, b, n_plate):
+def solve_linear_system(domain, function_space, A, b, n_plate, factorization_package=None):
+    """Direct LU solve. factorization_package=None uses PETSc's built-in LU (the validated default);
+    "mumps" is about 3x faster on large meshes (121k DOFs: 3 s vs 10 s per frequency, same result to 3e-12)."""
 
     solver = PETSc.KSP().create(domain.comm)
     solver.setOperators(A)
     solver.setType("preonly")
     solver.getPC().setType("lu")
+    if factorization_package is not None:
+        solver.getPC().setFactorSolverType(factorization_package)
 
     x = A.createVecRight()
     solver.solve(b, x)
@@ -184,7 +188,8 @@ def solve_linear_system(domain, function_space, A, b, n_plate):
     return u_point, w_point
 
 def conduct_single_frequency_response(domain, function_space, K_plate, K_aug, M_aug,
-                                       Omega, rhs_builder, n_plate, bcs=None, form=None):
+                                       Omega, rhs_builder, n_plate, bcs=None, form=None,
+                                       factorization_package=None):
     """ Does NOT support prescribed motion excitation yet """
     A = K_aug.copy()
     A.axpy(-Omega**2, M_aug)   # A = K_aug - Omega^2 * M_aug
@@ -198,7 +203,8 @@ def conduct_single_frequency_response(domain, function_space, K_plate, K_aug, M_
     # always plate-sized (n_plate), regardless of excitation kind
     b = pad_to_augmented_size(b_plate, n_plate, n_total, domain.comm)
 
-    u_point, w_point = solve_linear_system(domain, function_space, A, b, n_plate)
+    u_point, w_point = solve_linear_system(domain, function_space, A, b, n_plate,
+                                           factorization_package=factorization_package)
     return u_point, w_point
 
 def frequency_sweep_plate(
@@ -211,7 +217,8 @@ def frequency_sweep_plate(
         compute_max_metric: bool = False,
         free_plate = True,
         excitation: str = "force",
-        shaker_config = None):
+        shaker_config = None,
+        factorization_package = None):
 
     """
     Builds the damped/undamped dynamic-stiffness form (see
@@ -292,7 +299,8 @@ def frequency_sweep_plate(
         Omega_const.value = Omega
         u_point, w_point = conduct_single_frequency_response(
             domain=domain, function_space=function_space, K_plate=K_plate, K_aug=K_aug, M_aug=M_aug, Omega=Omega,
-            rhs_builder=rhs_builder, n_plate=n_plate, bcs=bcs, form=form)
+            rhs_builder=rhs_builder, n_plate=n_plate, bcs=bcs, form=form,
+            factorization_package=factorization_package)
 
         w_field[step] = w_point.x.array
 

@@ -51,3 +51,50 @@ def get_or_compute_sweep(path, compute, settings_blob=""):
     sweep = compute()
     save_sweep(path, sweep, settings_blob)
     return sweep
+
+# --- Radiated power cache (Rayleigh integral over the radiation points, ~2.4 s per frequency on 100x100) ---
+
+def save_radiated_power(path, f_values, radiated_power, settings_blob=""):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, f_values=f_values, radiated_power=radiated_power, settings=np.array(settings_blob))
+
+
+def load_radiated_power(path):
+    with np.load(path, allow_pickle=False) as data:
+        return data["f_values"], data["radiated_power"]
+
+
+def get_or_compute_radiated_power(path, f_values, compute, settings_blob=""):
+    """Load the radiated power P(f) from 'path' if it exists, otherwise call compute() and save it.
+    Same pattern as get_or_compute_sweep. The key should contain the key of the sweep it was computed from
+    (that fixes plate, mesh, radiation points, grid, excitation and resonators) plus the air constants;
+    f_values is stored and checked on loading as a guard against a mismatched file."""
+    path = Path(path)
+    if path.exists():
+        print(f"Loading cached radiated power: {path.name}")
+        cached_f_values, radiated_power = load_radiated_power(path)
+        if not np.array_equal(cached_f_values, np.asarray(f_values)):
+            raise ValueError(f"{path.name}: cached frequencies differ from the sweep; delete the file")
+        return radiated_power
+    print(f"No cache at {path.name}; computing radiated power ...")
+    radiated_power = compute()
+    save_radiated_power(path, np.asarray(f_values), radiated_power, settings_blob)
+    return radiated_power
+
+
+# --- Eigenfrequency cache (frequencies only; 500 modes on 100x100 take ~10-20 min, the mode shapes ~1 GB) ---
+
+def get_or_compute_eigenfrequencies(path, compute, settings_blob=""):
+    """Load the eigenfrequencies (Hz) from 'path' if it exists, otherwise call compute() and save them.
+    Same pattern as get_or_compute_sweep; compute() must return the frequencies only."""
+    path = Path(path)
+    if path.exists():
+        print(f"Loading cached eigenfrequencies: {path.name}")
+        with np.load(path, allow_pickle=False) as data:
+            return data["eigenfrequencies"]
+    print(f"No cache at {path.name}; solving eigenproblem ...")
+    eigenfrequencies = np.asarray(compute())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, eigenfrequencies=eigenfrequencies, settings=np.array(settings_blob))
+    return eigenfrequencies

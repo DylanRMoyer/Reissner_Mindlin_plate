@@ -8,10 +8,11 @@ from postprocessing import (plot_eigenmode, plot_frequency_response, plot_mobili
                             plot_insertion_loss_bode, draw_plate_layout, plot_radiation_bode)
 from vamm_grid import GridConfig, state_to_vamm_list
 from probe import make_probe, build_probe_coordinates, mobility_at_probes
-from sweep_cache import CACHE_DIR, make_cache_key, get_or_compute_sweep
+from sweep_cache import (CACHE_DIR, make_cache_key, get_or_compute_sweep, get_or_compute_radiated_power,
+                         get_or_compute_eigenfrequencies)
 from insertion_loss import (assert_comparable_sweeps, compute_insertion_loss,
                             global_insertion_loss_radiated_db, global_insertion_loss_radiated_equal_power_db)
-from radiation import radiated_power, build_radiation_points, radiation_efficiency
+from radiation import radiated_power, build_radiation_points, radiation_efficiency, rho_air, c_air
 
 from frequency_sweep import frequency_sweep_plate, build_frequency_grid, warn_if_grid_too_coarse
 from dispersion import (unit_cell_element_counts, build_wavevector_path, dispersion_sweep, analytic_dispersion,
@@ -22,26 +23,27 @@ import dataclasses
 if __name__ == "__main__":
 
     do_frequency_sweep = False
-    do_dispersion = True  # bare unit cell (plate_config dimensions) band diagram; Lagrange, 16 elements per metre
+    do_dispersion = False  # bare unit cell (plate_config dimensions) band diagram; Lagrange, 16 elements per metre
     free_plate = True # switch: free (shaker-driven) vs. clamped-edge plate
     excitation = "force"  # "force" (allows both free_plate=True or False) or "motion" (needs free_plate=False)
-    vamm_mode = "manual"  # "grid" or "manual"
+    vamm_mode = "grid"  # "grid" or "manual"
 
-    eigenmode_number = 20 # the total number of eigenmodes to be computed by eigensolver
-    eigenmode_to_plot = 13 # the desired eigenmode INDEX to be plotted. Can be no larger than (eigenmode_number - 1).
+    eigenmode_number = 500 # all modes up to ~5 kHz for the eigenfrequency lines (was 20); the total number of eigenmodes to be computed by eigensolver
+    plot_mode_shape = True # separate small solve (eigenmode_to_plot + 1 modes) for the mode plot of the bare plate
+    eigenmode_to_plot = 13 # the desired eigenmode INDEX to be plotted (0-based, rigid-body modes included).
     target_frequency_hz = 0.0
 
     deg = 2
     el_type = "Lagrange"
 
-    ncv_factor = 4 # integer, default: 2, increase if suspected that not all modes are found by the solver
+    ncv_factor = 2 # 2 for the 500-mode solve (memory and time; was 4); integer, default: 2, increase if suspected that not all modes are found by the solver
 
     plate_config = PlateConfig(
-    length = 1.1,
-    width = 1,
+    length = 1.0,
+    width = 1.0,
     thickness = 0.005,
-    nx = 60,
-    ny = 50,
+    nx = 100,  # 100 elements per metre, as in the Bloch unit cell; cell centres of the 0.1 m grid lie on nodes
+    ny = 100,
     rho = 7850,
     mu = 77e9,
     lambda_ = 115e9,
@@ -58,9 +60,16 @@ if __name__ == "__main__":
 # --- Compute eigenfrequencies and -modes with an optional VAMM and plot result ---
 
     if vamm_mode == "grid":
-        grid_config = GridConfig(n_x=2, n_y=3, stiffness=85878.35366, mass=1.0, gamma=0.02)
-        state = [0] * 6
-        # state = [1, 0, 1, 0, 1, 1]  # length n_x * n_y
+        # 0.1 m lattice as in the Bloch unit cell: one resonator per cell, f_r = 1.2 kHz,
+        # resonator mass = mass ratio 0.25 times the plate mass of one cell (rho h a^2)
+        grid_cell_length = 0.1
+        grid_resonator_frequency_hz = 1200.0
+        grid_resonator_mass = 0.25 * plate_config.rho * plate_config.thickness * grid_cell_length ** 2
+        grid_config = GridConfig(
+            n_x=round(plate_config.length / grid_cell_length), n_y=round(plate_config.width / grid_cell_length),
+            stiffness=grid_resonator_mass * (2 * np.pi * grid_resonator_frequency_hz) ** 2,
+            mass=grid_resonator_mass, gamma=0.02)
+        state = np.repeat(1, grid_config.n_x * grid_config.n_y)  # every cell occupied
         vamm_list = state_to_vamm_list(state, grid_config, plate_config.length, plate_config.width)
     elif vamm_mode == "manual":
         vamm_list = create_vamm_list_and_assign_indices(
@@ -85,15 +94,29 @@ if __name__ == "__main__":
         domain=domain, function_space=function_space, vamm_list=vamm_list
     )
 
-    eigenfrequencies_bare, eigenmodes_bare = solve_evp(
-        domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
-        vamm_list = None, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
-        eigenmode_number = eigenmode_number, target_hz=target_frequency_hz, ncv_factor=ncv_factor)
+    # Eigenfrequencies are cached like the sweeps (frequencies only: the mode shapes of 500 modes are ~1 GB).
+    # ncv_factor is left out of the key on purpose: it changes how the solver converges, not the result.
+    eigen_settings = dict(plate_config=plate_config, free_plate=free_plate, deg=deg, el_type=el_type,
+                          eigenmode_number=eigenmode_number, target_hz=target_frequency_hz,
+                          code_version="v1")  # bump this string if you change the eigensolver code itself
+    key_eigen_bare, blob_eigen_bare = make_cache_key(vamm_list=None, **eigen_settings)
+    key_eigen_vamm, blob_eigen_vamm = make_cache_key(vamm_list=vamm_list, **eigen_settings)
 
-    eigenfrequencies_vamm, eigenmodes_vamm = solve_evp(
-        domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
-        vamm_list = vamm_list, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
-        eigenmode_number = eigenmode_number, ncv_factor=ncv_factor)
+    eigenfrequencies_bare = get_or_compute_eigenfrequencies(
+        CACHE_DIR / f"eigenfrequencies_bare_{key_eigen_bare}.npz",
+        compute=lambda: solve_evp(
+            domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
+            vamm_list = None, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
+            eigenmode_number = eigenmode_number, target_hz=target_frequency_hz, ncv_factor=ncv_factor)[0],
+        settings_blob=blob_eigen_bare)
+
+    eigenfrequencies_vamm = get_or_compute_eigenfrequencies(
+        CACHE_DIR / f"eigenfrequencies_vamm_{key_eigen_vamm}.npz",
+        compute=lambda: solve_evp(
+            domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
+            vamm_list = vamm_list, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
+            eigenmode_number = eigenmode_number, target_hz=target_frequency_hz, ncv_factor=ncv_factor)[0],
+        settings_blob=blob_eigen_vamm)
 
     for i, freq in enumerate(eigenfrequencies_bare):
         print(f"mode {i}: {freq:.4f} Hz")
@@ -102,10 +125,16 @@ if __name__ == "__main__":
     for i, freq in enumerate(eigenfrequencies_vamm):
         print(f"mode {i}: {freq:.4f} Hz")
 
-    plot_eigenmode(
-        domain = domain, function_space = function_space, eigenmodes = eigenmodes_bare,
-        eigenmode_index = eigenmode_to_plot, length = plate_config.length,
-        vamm_list = None, phi_list = phi_list, local_to_global_w_list = local_to_global_w_list)
+    if plot_mode_shape:
+        _, eigenmodes_bare = solve_evp(
+            domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
+            vamm_list = None, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
+            eigenmode_number = eigenmode_to_plot + 1, target_hz=target_frequency_hz, ncv_factor=4)
+        plot_eigenmode(
+            domain = domain, function_space = function_space, eigenmodes = eigenmodes_bare,
+            eigenmode_index = eigenmode_to_plot, length = plate_config.length,
+            vamm_list = vamm_list
+            , phi_list = phi_list, local_to_global_w_list = local_to_global_w_list)
               #     include_theta=True, include_mass=True,
               #     view_vector=(2, 2, -1), save_path=None):
 
@@ -125,8 +154,8 @@ if __name__ == "__main__":
                                                amount=3, vamm_list=vamm_list)
         probes = [make_probe(domain, function_space, x, y) for x, y in probe_coords]
         probes.insert(0, shaker_probe)
-        f_start = 100
-        f_end = 300
+        f_start = 500
+        f_end = 5000
         gamma_plate = 0.04
         grid = build_frequency_grid(f_start=f_start, f_end=f_end, gamma=0.02)  # smallest gamma in either run
         layout = PlateLayout(
@@ -153,7 +182,8 @@ if __name__ == "__main__":
                 plate_config=plate_config, f_start=f_start, f_end=f_end,
                 vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid, gamma=gamma_plate,
-                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config),
+                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
+                factorization_package="mumps"),  # solver choice is not part of the cache key
             settings_blob=blob_vamm)
 
         sweep_bare = get_or_compute_sweep(
@@ -163,7 +193,8 @@ if __name__ == "__main__":
                 plate_config=plate_config, f_start=f_start, f_end=f_end,
                 vamm_list=None, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid, gamma=gamma_plate,
-                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config),
+                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
+                factorization_package="mumps"),
             settings_blob=blob_bare)
 
         bare_probe_mobility = mobility_at_probes(
@@ -183,13 +214,25 @@ if __name__ == "__main__":
             sweep=sweep_vamm, probes=probes_mesh, force_amplitude=shaker_force)
 
 
-        P_bare = radiated_power(
-            Y_grid=bare_probe_mobility_radiation, r=r, dS=dS,
-            f_values=sweep_bare.f_values, force_amplitude=shaker_force)
+        # cached like the sweeps: the key contains the sweep's key plus the air constants and the force amplitude
+        radiation_settings = dict(rho_air=rho_air, c_air=c_air, force_amplitude=shaker_force,
+                                  code_version="v1")  # bump this string if you change the radiation code itself
+        key_radiation_bare, blob_radiation_bare = make_cache_key(sweep_key=key_bare, **radiation_settings)
+        key_radiation_vamm, blob_radiation_vamm = make_cache_key(sweep_key=key_vamm, **radiation_settings)
 
-        P_vamm = radiated_power(
-            Y_grid=vamm_probe_mobility_radiation, r=r, dS=dS,
-            f_values=sweep_bare.f_values, force_amplitude=shaker_force)
+        P_bare = get_or_compute_radiated_power(
+            CACHE_DIR / f"radiation_bare_{key_radiation_bare}.npz", f_values=sweep_bare.f_values,
+            compute=lambda: radiated_power(
+                Y_grid=bare_probe_mobility_radiation, r=r, dS=dS,
+                f_values=sweep_bare.f_values, force_amplitude=shaker_force),
+            settings_blob=blob_radiation_bare)
+
+        P_vamm = get_or_compute_radiated_power(
+            CACHE_DIR / f"radiation_vamm_{key_radiation_vamm}.npz", f_values=sweep_bare.f_values,
+            compute=lambda: radiated_power(
+                Y_grid=vamm_probe_mobility_radiation, r=r, dS=dS,
+                f_values=sweep_bare.f_values, force_amplitude=shaker_force),
+            settings_blob=blob_radiation_vamm)
 
         sigma_bare = radiation_efficiency(
             P_bare, bare_probe_mobility_radiation, surface_area, force_amplitude=shaker_force)
@@ -209,10 +252,24 @@ if __name__ == "__main__":
             bare_probe_mobility=bare_probe_mobility, vamm_probe_mobility=vamm_probe_mobility,
             sweep_bare=sweep_bare, sweep_vamm=sweep_vamm)
 
+        radiation_title = (f"Radiated sound power, {len(vamm_list)} resonators on a 0.1 m grid "
+                           f"(f_r = 1.2 kHz, mass ratio 0.25)")
+        # full band: hundreds of modes, so no eigenfrequency lines but the mode count per 50 Hz
         plot_radiation_bode(
             f_values=sweep_bare.f_values, P_bare=P_bare, P_vamm=P_vamm, sigma_bare=sigma_bare, sigma_vamm=sigma_vamm,
             il_rad=insertion_loss_db, il_rad_pow=insertion_loss_db_power, il_force=il_f_rad,
-            eigenfrequencies_bare=eigenfrequencies_bare, eigenfrequencies_vamm=eigenfrequencies_vamm)
+            eigenfrequencies_bare=eigenfrequencies_bare, eigenfrequencies_vamm=eigenfrequencies_vamm,
+            title=radiation_title, show_eigenfrequency_lines=False, mode_count_bin_hz=50,
+            save_path="results/radiation_1x1m_100resonators_1200hz_500to5000hz_modecount.pdf")
+        # zoom around the band gap with the eigenfrequency lines
+        zoom = (sweep_bare.f_values >= 900) & (sweep_bare.f_values <= 1500)
+        plot_radiation_bode(
+            f_values=sweep_bare.f_values[zoom], P_bare=P_bare[zoom], P_vamm=P_vamm[zoom],
+            sigma_bare=sigma_bare[zoom], sigma_vamm=sigma_vamm[zoom], il_rad=insertion_loss_db[zoom],
+            il_rad_pow=insertion_loss_db_power[zoom], il_force=il_f_rad[zoom],
+            eigenfrequencies_bare=eigenfrequencies_bare, eigenfrequencies_vamm=eigenfrequencies_vamm,
+            title=radiation_title + ", 900-1500 Hz",
+            save_path="results/radiation_1x1m_100resonators_1200hz_900to1500hz_eigenfrequencies.pdf")
 
         il_pt, dphi, il_f, il_p = compute_insertion_loss(
             bare_probe_mobility=bare_probe_mobility, vamm_probe_mobility=vamm_probe_mobility,
@@ -225,7 +282,7 @@ if __name__ == "__main__":
             layout=layout, draw_layout=lambda ax, layout: draw_plate_layout(
                 ax=ax, plate_config=layout.plate_config, shaker_config=layout.shaker_config, probes=probes,
                 vamm_list=layout.vamm_list),
-            title="Insertion loss, VAMM at (1.1, 0.0)")
+            title=f"Insertion loss, {len(vamm_list)} resonators on a 0.1 m grid")
 
         # --- Driving point (probe 0 = shaker location) ---
         plot_mobility_bode(
