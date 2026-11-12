@@ -24,6 +24,7 @@ if __name__ == "__main__":
 
     do_frequency_sweep = True
     do_dispersion = True  # Bloch band diagram of one 0.1 m cell (with do_frequency_sweep: insertion loss side panel)
+    do_parameter_study = False  # stage 7: gap maps over f_r / f_X and mass ratio, finite-plate IL at 3 tunings (~35 min uncached)
     free_plate = True # switch: free (shaker-driven) vs. clamped-edge plate
     excitation = "force"  # "force" (allows both free_plate=True or False) or "motion" (needs free_plate=False)
     vamm_mode = "grid"  # "grid" or "manual"
@@ -402,3 +403,96 @@ if __name__ == "__main__":
                       f"h = {plate_config.thickness * 1e3:.0f} mm",
                 band_gaps=band_gaps, insertion_loss_curves=insertion_loss_curves,
                 save_path=dispersion_save_path)
+
+
+# --- Parameter study (stage 7): complete gaps vs tuning and mass ratio, finite-plate insertion loss at 3 tunings ---
+    if do_parameter_study:
+        from parameter_study import (gap_parameter_sweep, get_or_compute_gap_study, FinitePlateSetup,
+                                     cached_bare_radiated_power, windowed_insertion_loss, cell_band_gaps,
+                                     bragg_frequency_x, FREQUENCY_RATIOS, MASS_RATIOS, LIMIT_OVER_BRAGG,
+                                     POINTS_PER_SEGMENT)
+        from postprocessing_dispersion import plot_gap_map, plot_gap_width, plot_insertion_loss_vs_gaps
+        from compare_cool_2024 import cool_plate_config
+
+        study_cell_length = 0.1
+        study_cell_config = dataclasses.replace(plate_config, length=study_cell_length, width=study_cell_length,
+                                                nx=10, ny=10)   # plane-wave model: the mesh does not enter
+        gap_studies = {}
+        for study_name, cell_config in [("cell0.1m", study_cell_config), ("cool_cell0.05m", cool_plate_config())]:
+            key_study, blob_study = make_cache_key(
+                cell_config=cell_config, frequency_ratios=FREQUENCY_RATIOS, mass_ratios=MASS_RATIOS,
+                limit_over_bragg=LIMIT_OVER_BRAGG, points_per_segment=POINTS_PER_SEGMENT,
+                code_version="v1")  # bump this string if you change the gap study code itself
+            gap_studies[study_name] = get_or_compute_gap_study(
+                CACHE_DIR / f"gap_study_{study_name}_{key_study}.npz",
+                compute=lambda: gap_parameter_sweep(cell_config), settings_blob=blob_study)
+
+        for study_name, study in gap_studies.items():
+            widest = study.widest_relative_width()
+            print(f"Gap study {study_name} (f_X = {study.bragg_frequency_hz:.1f} Hz): widest complete gap per mass ratio")
+            for mass_index, mass_ratio in enumerate(study.mass_ratios):
+                best = int(np.argmax(widest[mass_index]))
+                print(f"  mu = {mass_ratio:g}: {100 * widest[mass_index, best]:.1f} % at f_r / f_X = "
+                      f"{study.frequency_ratios[best]:.2f}")
+        study_labels = ["0.1 m cell, h/a = 0.05 (plane-wave model)",
+                        "0.05 m cell with Cool's Table 1 parameters, h/a = 0.1 (plane-wave model)"]
+        # FE gap of the production design (validate_band_gaps.py): 0.1 m cell, f_r = 1.2 kHz, mu = 0.25
+        reference_designs = [dict(label="1.2 kHz design, FE (1031-1195 Hz)", mass_ratio=0.25,
+                                  frequency_ratio=1200.0 / gap_studies["cell0.1m"].bragg_frequency_hz,
+                                  lower_ratio=1031.4 / gap_studies["cell0.1m"].bragg_frequency_hz,
+                                  upper_ratio=1195.3 / gap_studies["cell0.1m"].bragg_frequency_hz)]
+        plot_gap_map([gap_studies["cell0.1m"], gap_studies["cool_cell0.05m"]], labels=study_labels,
+                     title="Complete band gaps vs resonator tuning (plane-wave model, centred resonator)",
+                     save_path="results/gap_map_cell0.1m_vs_cool0.05m.pdf", reference_designs=reference_designs)
+        plot_gap_width([gap_studies["cell0.1m"], gap_studies["cool_cell0.05m"]], labels=study_labels,
+                       title="Widest complete gap vs resonator tuning (plane-wave model)",
+                       save_path="results/gap_width_cell0.1m_vs_cool0.05m.pdf")
+
+        # Finite 1x1 m plate with 10x10 resonators (mass ratio 0.25) at three tunings. 1.2 kHz reuses the full
+        # sweep of the forced-response block (main's vamm_list, require_cached); the others sweep only a window.
+        finite_plate_setup = FinitePlateSetup(
+            domain=domain, function_space=function_space, problem=plate_problem_constants, plate_config=plate_config,
+            shaker_config=ShakerParameters(x=plate_config.length / 3, y=plate_config.width / 3,
+                                           force_amplitude=1.0, phase=0.0),
+            frequency_grid=build_frequency_grid(f_start=500, f_end=5000, gamma=0.02), gamma_plate=0.04,
+            free_plate=free_plate, excitation=excitation, deg=deg, el_type=el_type)
+        bare_radiated_power = cached_bare_radiated_power(finite_plate_setup)
+        study_mass_ratio = 0.25
+        study_path = build_wavevector_path(study_cell_length, study_cell_length, points_per_segment=POINTS_PER_SEGMENT)
+        study_bragg_hz = bragg_frequency_x(study_cell_config)
+        insertion_loss_cases = []
+        for resonator_frequency_study_hz, frequency_window_hz, plot_window_hz in [
+                (600.0, (500.0, 900.0), (500.0, 900.0)),
+                (1200.0, (0.0, np.inf), (900.0, 1500.0)),
+                (2000.0, (1500.0, 2700.0), (1500.0, 2700.0))]:
+            if resonator_frequency_study_hz == 1200.0:
+                assert vamm_mode == "grid", "the 1.2 kHz case reuses the grid vamm_list of the forced-response block"
+                study_vamm_list = vamm_list
+            else:
+                study_resonator_mass = study_mass_ratio * plate_config.rho * plate_config.thickness * study_cell_length ** 2
+                study_grid_config = GridConfig(
+                    n_x=round(plate_config.length / study_cell_length), n_y=round(plate_config.width / study_cell_length),
+                    stiffness=study_resonator_mass * (2 * np.pi * resonator_frequency_study_hz) ** 2,
+                    mass=study_resonator_mass, gamma=0.02)
+                study_vamm_list = state_to_vamm_list(np.repeat(1, study_grid_config.n_x * study_grid_config.n_y),
+                                                     study_grid_config, plate_config.length, plate_config.width)
+            f_values_study, insertion_loss_study_db = windowed_insertion_loss(
+                finite_plate_setup, study_vamm_list, frequency_window_hz, bare_radiated_power,
+                require_cached=(resonator_frequency_study_hz == 1200.0))
+            in_plot = (f_values_study >= plot_window_hz[0]) & (f_values_study <= plot_window_hz[1])
+            study_gaps = cell_band_gaps(study_cell_config, study_path, resonator_frequency_study_hz, study_mass_ratio,
+                                        maximum_frequency_hz=LIMIT_OVER_BRAGG * study_bragg_hz)
+            print(f"f_r = {resonator_frequency_study_hz:.0f} Hz (f_r / f_X = {resonator_frequency_study_hz / study_bragg_hz:.2f}):"
+                  f" gaps {[(round(gap.lower_edge_hz), round(gap.upper_edge_hz)) for gap in study_gaps]} Hz,"
+                  f" IL max {insertion_loss_study_db[in_plot].max():+.1f} dB at"
+                  f" {f_values_study[in_plot][np.argmax(insertion_loss_study_db[in_plot])]:.0f} Hz,"
+                  f" min {insertion_loss_study_db[in_plot].min():+.1f} dB at"
+                  f" {f_values_study[in_plot][np.argmin(insertion_loss_study_db[in_plot])]:.0f} Hz", flush=True)
+            insertion_loss_cases.append(dict(
+                label=f"$f_r$ = {resonator_frequency_study_hz:.0f} Hz ($f_r/f_X$ = {resonator_frequency_study_hz / study_bragg_hz:.2f})",
+                f_values=f_values_study[in_plot], insertion_loss_db=insertion_loss_study_db[in_plot],
+                gaps=[(gap.lower_edge_hz, gap.upper_edge_hz) for gap in study_gaps],
+                resonator_frequency_hz=resonator_frequency_study_hz))
+        plot_insertion_loss_vs_gaps(
+            insertion_loss_cases, save_path="results/insertion_loss_vs_gaps_1x1m_100resonators_mass0.25.pdf",
+            title="1x1 m plate, 10x10 resonators (mass ratio 0.25): insertion loss vs Bloch gaps of the 0.1 m cell")

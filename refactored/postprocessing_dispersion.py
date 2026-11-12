@@ -208,3 +208,123 @@ def plot_tracked_dispersion(result, colour_by="plate_share", frequency_limit=Non
     if ax_il is not None:
         draw_insertion_loss_panel(ax_il, insertion_loss_curves)
     finish_dispersion_figure(fig, ax, ax_il, path, frequency_limit, title, save_path, legend_location="lower right")
+
+
+# --- Parameter study (stage 7): gap maps over the tuning f_r / f_X and the mass ratio ---
+
+def plot_gap_map(studies, labels, title="Complete band gaps vs tuning", save_path=None, frequency_ratio_limit=4.0,
+                 reference_designs=None):
+    """One panel per mass ratio: complete gaps (vertical axis f / f_X) over the tuning f_r / f_X.
+    studies: list of parameter_study.GapStudy with the same ratio grids; the first is drawn as shaded bars,
+    the others as edge markers on top (e.g. a second cell as a scaling check). Reference lines: f = f_r,
+    effective-medium upper edge f = f_r sqrt(1 + mu), first Bragg fold f = f_X.
+    reference_designs: optional list of dicts (label, mass_ratio, frequency_ratio, lower_ratio, upper_ratio), e.g. an
+    FE gap of a design computed elsewhere, drawn as a red bar in the panel whose mass ratio matches (else skipped)."""
+    reference_study = studies[0]
+    mass_ratios = reference_study.mass_ratios
+    fig, axes = plt.subplots(1, len(mass_ratios), figsize=(9.5, 4.8), sharey=True, constrained_layout=True)
+    marker_styles = ["o", "s", "^"]
+    for mass_index, (ax, mass_ratio) in enumerate(zip(np.atleast_1d(axes), mass_ratios)):
+        ratios = reference_study.frequency_ratios
+        normalised_edges = reference_study.gap_edges_hz[mass_index] / reference_study.bragg_frequency_hz
+        for gap_column in range(normalised_edges.shape[1]):
+            lower, upper = normalised_edges[:, gap_column, 0], normalised_edges[:, gap_column, 1]
+            ax.fill_between(ratios, lower, upper, where=np.isfinite(lower), step="mid", color=GAP_COLOUR,
+                            alpha=0.8, linewidth=0, label=labels[0] if gap_column == 0 else None)
+        for study_index, study in enumerate(studies[1:]):
+            edges = study.gap_edges_hz[mass_index] / study.bragg_frequency_hz
+            ax.plot(np.repeat(study.frequency_ratios, edges.shape[1]), edges[..., 0].ravel(),
+                    marker_styles[study_index % 3], color="k", markersize=2.2, linestyle="none",
+                    label=labels[study_index + 1])
+            ax.plot(np.repeat(study.frequency_ratios, edges.shape[1]), edges[..., 1].ravel(),
+                    marker_styles[study_index % 3], color="k", markersize=2.2, linestyle="none")
+        ax.plot(ratios, ratios, color="tab:red", linewidth=0.9, linestyle=":", label="$f = f_r$")
+        ax.plot(ratios, ratios * np.sqrt(1 + mass_ratio), color="tab:blue", linewidth=0.9, linestyle="--",
+                label=r"$f = f_r\sqrt{1+\mu}$")
+        ax.axhline(1.0, color="0.4", linewidth=0.8, label="$f = f_X$")
+        ax.axvline(1.0, color="0.4", linewidth=0.8)
+        for design in reference_designs or []:
+            if np.isclose(design["mass_ratio"], mass_ratio):
+                ax.plot([design["frequency_ratio"]] * 2, [design["lower_ratio"], design["upper_ratio"]],
+                        color="tab:red", linewidth=2.0, marker="_", markersize=9, label=design["label"])
+        ax.set_xlim(ratios[0], ratios[-1])
+        ax.set_ylim(0, frequency_ratio_limit)
+        ax.set_title(rf"$\mu$ = {mass_ratio:g}", fontsize=10)
+        ax.set_xlabel("$f_r / f_X$")
+        ax.grid(True, alpha=0.3)
+    np.atleast_1d(axes)[0].set_ylabel("$f / f_X$")
+    legend_entries = {}
+    for ax in np.atleast_1d(axes):
+        for handle, label in zip(*ax.get_legend_handles_labels()):
+            legend_entries.setdefault(label, handle)
+    fig.legend(legend_entries.values(), legend_entries.keys(), loc="outside lower center", ncol=3,
+               fontsize=LEGEND_FONTSIZE, framealpha=0.9)
+    fig.suptitle(title)
+    _save_or_show(fig, save_path)
+
+
+def plot_gap_width(studies, labels, title="Widest complete gap vs tuning", save_path=None):
+    """Relative width (width / centre) of the widest complete gap over f_r / f_X, one colour per mass ratio.
+    First study as lines, the others as markers; dashed: effective-medium width of [f_r, f_r sqrt(1 + mu)],
+    2 (s - 1) / (s + 1) with s = sqrt(1 + mu), which ignores the plate's dispersion and the Bragg fold."""
+    fig, ax = plt.subplots(figsize=(9.5, 5.0), constrained_layout=True)
+    colours = plt.cm.viridis(np.linspace(0.0, 0.85, len(studies[0].mass_ratios)))
+    marker_styles = ["o", "s", "^"]
+    for mass_index, (mass_ratio, colour) in enumerate(zip(studies[0].mass_ratios, colours)):
+        ax.plot(studies[0].frequency_ratios, 100 * studies[0].widest_relative_width()[mass_index], color=colour,
+                linewidth=1.4, label=rf"$\mu$ = {mass_ratio:g}")
+        for study_index, study in enumerate(studies[1:]):
+            ax.plot(study.frequency_ratios, 100 * study.widest_relative_width()[mass_index],
+                    marker_styles[study_index % 3], color=colour, markersize=3, linestyle="none")
+        scale = np.sqrt(1 + mass_ratio)
+        ax.axhline(100 * 2 * (scale - 1) / (scale + 1), color=colour, linewidth=0.8, linestyle="--")
+    ax.axvline(1.0, color="0.4", linewidth=0.8)
+    ax.set_xlabel("$f_r / f_X$")
+    ax.set_ylabel("relative width of the widest complete gap [%]")
+    ax.set_xlim(studies[0].frequency_ratios[0], studies[0].frequency_ratios[-1])
+    ax.set_ylim(0, 1.45 * 100 * max(study.widest_relative_width().max() for study in studies))  # room for the legends
+    ax.grid(True, alpha=0.3)
+    from matplotlib.lines import Line2D
+    colour_legend = ax.legend(loc="upper right", fontsize=LEGEND_FONTSIZE, framealpha=0.9, title="mass ratio",
+                              title_fontsize=LEGEND_FONTSIZE)
+    ax.add_artist(colour_legend)
+    style_handles = [Line2D([], [], color="k", linewidth=1.4)] + \
+        [Line2D([], [], color="k", marker=marker_styles[index % 3], markersize=3, linestyle="none")
+         for index in range(len(studies) - 1)] + [Line2D([], [], color="k", linewidth=0.8, linestyle="--")]
+    ax.legend(style_handles, list(labels) + ["effective medium $f_r \\ldots f_r\\sqrt{1+\\mu}$"],
+              loc="upper left", fontsize=LEGEND_FONTSIZE, framealpha=0.9)
+    ax.set_title(title)
+    _save_or_show(fig, save_path)
+
+
+def plot_insertion_loss_vs_gaps(cases, title="Finite-plate insertion loss vs Bloch gaps", save_path=None):
+    """One panel per case: equal-force radiated-power IL of the finite plate over frequency, with the complete
+    gaps of the matching Bloch cell shaded and f_r marked.
+    cases: list of dicts with label, f_values, insertion_loss_db, gaps (list of (lower_hz, upper_hz)),
+    resonator_frequency_hz."""
+    fig, axes = plt.subplots(1, len(cases), figsize=(9.5, 4.0), sharey=True, constrained_layout=True)
+    for ax, case in zip(np.atleast_1d(axes), cases):
+        f_values = np.asarray(case["f_values"]).real
+        for gap_index, (lower_hz, upper_hz) in enumerate(case["gaps"]):
+            ax.axvspan(lower_hz, upper_hz, color=GAP_COLOUR, alpha=0.6, linewidth=0, zorder=0,
+                       label="complete gap (Bloch)" if gap_index == 0 else None)
+        ax.plot(f_values, np.asarray(case["insertion_loss_db"]).real, color="k", linewidth=1.1,
+                label="$IL_{rad}$ (equal force)")
+        ax.axvline(case["resonator_frequency_hz"], color="tab:red", linewidth=0.9, linestyle=":", label="$f_r$")
+        ax.axhline(0, color="gray", linewidth=0.8)
+        ax.set_xlim(f_values[0], f_values[-1])
+        ax.set_xlabel("Frequency [Hz]")
+        ax.set_title(case["label"], fontsize=10)
+        ax.grid(True, alpha=0.3)
+    np.atleast_1d(axes)[0].set_ylabel("IL [dB]")
+    np.atleast_1d(axes)[0].legend(loc="lower left", fontsize=LEGEND_FONTSIZE, framealpha=0.9)
+    fig.suptitle(title)
+    _save_or_show(fig, save_path)
+
+
+def _save_or_show(fig, save_path):
+    if save_path is not None:
+        fig.savefig(save_path)
+    else:
+        plt.show()
+    plt.close(fig)
