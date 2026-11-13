@@ -301,7 +301,8 @@ def plot_insertion_loss_vs_gaps(cases, title="Finite-plate insertion loss vs Blo
     """One panel per case: equal-force radiated-power IL of the finite plate over frequency, with the complete
     gaps of the matching Bloch cell shaded and f_r marked.
     cases: list of dicts with label, f_values, insertion_loss_db, gaps (list of (lower_hz, upper_hz)),
-    resonator_frequency_hz."""
+    resonator_frequency_hz; optional curve_label (default "$IL_{rad}$ (equal force)") and extra_curves, a list of
+    (label, f_values, insertion_loss_db) drawn dashed on top (e.g. the same IL with another model setting)."""
     fig, axes = plt.subplots(1, len(cases), figsize=(9.5, 4.0), sharey=True, constrained_layout=True)
     for ax, case in zip(np.atleast_1d(axes), cases):
         f_values = np.asarray(case["f_values"]).real
@@ -309,7 +310,10 @@ def plot_insertion_loss_vs_gaps(cases, title="Finite-plate insertion loss vs Blo
             ax.axvspan(lower_hz, upper_hz, color=GAP_COLOUR, alpha=0.6, linewidth=0, zorder=0,
                        label="complete gap (Bloch)" if gap_index == 0 else None)
         ax.plot(f_values, np.asarray(case["insertion_loss_db"]).real, color="k", linewidth=1.1,
-                label="$IL_{rad}$ (equal force)")
+                label=case.get("curve_label", "$IL_{rad}$ (equal force)"))
+        for extra_label, extra_f_values, extra_insertion_loss_db in case.get("extra_curves", []):
+            ax.plot(np.asarray(extra_f_values).real, np.asarray(extra_insertion_loss_db).real, color="tab:blue",
+                    linewidth=1.1, linestyle="--", label=extra_label)
         ax.axvline(case["resonator_frequency_hz"], color="tab:red", linewidth=0.9, linestyle=":", label="$f_r$")
         ax.axhline(0, color="gray", linewidth=0.8)
         ax.set_xlim(f_values[0], f_values[-1])

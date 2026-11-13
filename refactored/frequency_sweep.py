@@ -218,7 +218,8 @@ def frequency_sweep_plate(
         free_plate = True,
         excitation: str = "force",
         shaker_config = None,
-        factorization_package = None):
+        factorization_package = None,
+        shear_quadrature_degree = None):
 
     """
     Builds the damped/undamped dynamic-stiffness form (see
@@ -252,7 +253,9 @@ def frequency_sweep_plate(
     print(f"Frequency sweep: {n_freq} points, {f_values[0]:.2f}-{f_values[-1]:.2f} Hz")
 
     # --- everything Omega-INdependent: build ONCE, outside the loop ---
-    m, _, a = define_weak_form(function_space, problem)
+    # shear_quadrature_degree: None keeps the validated reduced 2x2 rule; 4 = full 3x3 (no hourglass mode, as in
+    # the Bloch cell). Not part of the cache key unless set (see parameter_study.sweep_cache_settings).
+    m, _, a = define_weak_form(function_space, problem, shear_quadrature_degree=shear_quadrature_degree)
 
     # plate-only, unconstrained, Omega-mutable form -- ONLY used for apply_lifting/set_bc
     form, Omega_const = assemble_dynamic_stiffness(a=a, m=m, domain=domain, gamma=gamma)

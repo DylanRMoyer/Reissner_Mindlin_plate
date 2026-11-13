@@ -140,14 +140,19 @@ class FinitePlateSetup:
     excitation: str
     deg: int
     el_type: str
+    shear_quadrature_degree: int | None = None   # None = reduced 2x2 (validated pipeline); 4 = full 3x3
 
 
 def sweep_cache_settings(setup, frequency_grid):
-    """Same settings dict as main.py's forced-response block, so the bare-plate cache keys match."""
-    return dict(plate_config=setup.plate_config, shaker_config=setup.shaker_config,
-                grid=np.asarray(frequency_grid), gamma_plate=setup.gamma_plate,
-                free_plate=setup.free_plate, excitation=setup.excitation,
-                deg=setup.deg, el_type=setup.el_type, code_version="v2")
+    """Same settings dict as main.py's forced-response block, so the bare-plate cache keys match. The shear rule
+    enters the key only when it differs from the default, so all existing cache files stay valid."""
+    settings = dict(plate_config=setup.plate_config, shaker_config=setup.shaker_config,
+                    grid=np.asarray(frequency_grid), gamma_plate=setup.gamma_plate,
+                    free_plate=setup.free_plate, excitation=setup.excitation,
+                    deg=setup.deg, el_type=setup.el_type, code_version="v2")
+    if setup.shear_quadrature_degree is not None:
+        settings["shear_quadrature_degree"] = setup.shear_quadrature_degree
+    return settings
 
 
 def radiation_cache_settings(setup):
@@ -173,21 +178,36 @@ def cached_bare_radiated_power(setup):
 def windowed_insertion_loss(setup, vamm_list, frequency_window_hz, bare_radiated_power, require_cached=False):
     """Equal-force radiated-power insertion loss 10 log10(P_bare / P_vamm) on the part of the full grid inside
     frequency_window_hz = (lower, upper). Only the resonator plate is swept (MUMPS, ~3 s + ~2.4 s radiation per
-    frequency at 100 x 100); both the sweep and its radiated power are cached. Returns (f_values, IL dB)."""
+    frequency at 100 x 100); both the sweep and its radiated power are cached. Returns (f_values, IL dB).
+    require_cached: raise instead of sweeping if the sweep is not cached (guards a case meant to reuse main.py's
+    full sweep against a silent ~50 min recomputation when its key does not match).
+    bare_radiated_power: on the full grid (sliced here to the window)."""
+    full_grid = np.asarray(setup.frequency_grid)
+    in_window = (full_grid >= frequency_window_hz[0]) & (full_grid <= frequency_window_hz[1])
+    window_grid, vamm_power = windowed_radiated_power(setup, vamm_list, frequency_window_hz,
+                                                      require_cached=require_cached)
+    from insertion_loss import global_insertion_loss_radiated_db
+    return window_grid, global_insertion_loss_radiated_db(bare_radiated_power[in_window], vamm_power)
+
+
+def windowed_radiated_power(setup, vamm_list, frequency_window_hz, require_cached=False):
+    """Radiated power of the plate (vamm_list None = bare) on the part of the full grid inside frequency_window_hz,
+    sweep and power both cached. Returns (f_values, P)."""
     from point_coupling import compute_phi_and_dofs_for_vamm_list
     from frequency_sweep import frequency_sweep_plate
     from probe import mobility_at_probes
     from radiation import radiated_power, build_radiation_points
-    from insertion_loss import global_insertion_loss_radiated_db
     from sweep_cache import CACHE_DIR, make_cache_key, get_or_compute_sweep, get_or_compute_radiated_power
 
     full_grid = np.asarray(setup.frequency_grid)
     in_window = (full_grid >= frequency_window_hz[0]) & (full_grid <= frequency_window_hz[1])
     window_grid = full_grid[in_window]
-    phi_list, global_dofs_parent_list, _ = compute_phi_and_dofs_for_vamm_list(
-        domain=setup.domain, function_space=setup.function_space, vamm_list=vamm_list)
+    phi_list, global_dofs_parent_list = (None, None) if vamm_list is None else \
+        compute_phi_and_dofs_for_vamm_list(domain=setup.domain, function_space=setup.function_space,
+                                           vamm_list=vamm_list)[:2]
     key_sweep, blob_sweep = make_cache_key(vamm_list=vamm_list, **sweep_cache_settings(setup, window_grid))
-    sweep_path = CACHE_DIR / f"sweep_vamm_{key_sweep}.npz"
+    kind = "bare" if vamm_list is None else "vamm"
+    sweep_path = CACHE_DIR / f"sweep_{kind}_{key_sweep}.npz"
     if require_cached and not sweep_path.exists():
         raise FileNotFoundError(f"{sweep_path.name} not cached (require_cached=True)")
     sweep = get_or_compute_sweep(
@@ -197,7 +217,8 @@ def windowed_insertion_loss(setup, vamm_list, frequency_window_hz, bare_radiated
             plate_config=setup.plate_config, f_start=window_grid[0], f_end=window_grid[-1],
             vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
             frequency_grid=window_grid, gamma=setup.gamma_plate, free_plate=setup.free_plate,
-            excitation=setup.excitation, shaker_config=setup.shaker_config, factorization_package="mumps"),
+            excitation=setup.excitation, shaker_config=setup.shaker_config, factorization_package="mumps",
+            shear_quadrature_degree=setup.shear_quadrature_degree),
         settings_blob=blob_sweep)
     key_radiation, blob_radiation = make_cache_key(sweep_key=key_sweep, **radiation_cache_settings(setup))
 
@@ -208,7 +229,7 @@ def windowed_insertion_loss(setup, vamm_list, frequency_window_hz, bare_radiated
                                       force_amplitude=setup.shaker_config.force_amplitude)
         return radiated_power(Y_grid=mobility, r=distances, dS=cell_area, f_values=sweep.f_values,
                               force_amplitude=setup.shaker_config.force_amplitude)
-    vamm_power = get_or_compute_radiated_power(CACHE_DIR / f"radiation_vamm_{key_radiation}.npz",
-                                               f_values=sweep.f_values, compute=compute_radiated_power,
-                                               settings_blob=blob_radiation)
-    return window_grid, global_insertion_loss_radiated_db(bare_radiated_power[in_window], vamm_power)
+    power = get_or_compute_radiated_power(CACHE_DIR / f"radiation_{kind}_{key_radiation}.npz",
+                                          f_values=sweep.f_values, compute=compute_radiated_power,
+                                          settings_blob=blob_radiation)
+    return window_grid, power

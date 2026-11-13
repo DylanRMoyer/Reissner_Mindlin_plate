@@ -58,7 +58,7 @@ if __name__ == "__main__":
     # Use the real clamped BCs only if we're not testing the free plate.
     bcs = [] if free_plate else bcs_clamped
 
-# --- Compute eigenfrequencies and -modes with an optional VAMM and plot result ---
+# --- Compute eigenfrequencies and -modes with optional resonators and plot result ---
 
     if vamm_mode == "grid":
         # 0.1 m lattice as in the Bloch unit cell: one resonator per cell, f_r = 1.2 kHz,
