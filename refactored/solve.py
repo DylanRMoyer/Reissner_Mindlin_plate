@@ -22,8 +22,10 @@ def assemble_plate_matrix(a, bcs, diag_value=1.0):
 def solve_evp(
         domain, function_space, problem, bcs, vamm_list=None,
         phi_list=None, global_dofs_parent_list=None, eigenmode_number: int = 6, target_hz: float = 0.0,
-        validate_augmentation=True, ncv_factor: int = 2):
-    m, _, a = define_weak_form(function_space, problem)
+        validate_augmentation=True, ncv_factor: int = 2, shear_quadrature_degree: int | None = None):
+    # shear_quadrature_degree: None keeps the reduced 2x2 shear rule (old results); 4 = full 3x3 Gauss, which removes
+    # the spurious hourglass mode of Lagrange Q2 (see theory_notes_tex/hourglass_mode.tex)
+    m, _, a = define_weak_form(function_space, problem, shear_quadrature_degree=shear_quadrature_degree)
     K = assemble_plate_matrix(a, bcs, diag_value=1e10)
     M = assemble_plate_matrix(m, bcs)
 

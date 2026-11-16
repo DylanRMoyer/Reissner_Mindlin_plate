@@ -6,6 +6,10 @@ from config import PlateConfig
 from solve import solve_evp
 from problem_setup import build_plate_problem
 
+# "--full-shear": rerun with the full 3x3 shear rule (shear_quadrature_degree = 4) instead of the reduced 2x2 rule;
+# the report then goes to a separate file, the default run and its report are unchanged.
+SHEAR_QUADRATURE_DEGREE = 4 if "--full-shear" in sys.argv[1:] else None
+
 
 # --- unit conversions (plate side L, areal mass m = rho_vol * h) ---
 def lame_from_nu(E, nu):
@@ -107,14 +111,15 @@ def compute_fe_modes(case, eigenmode_number=24, ncv_factor=6, el_type="S"):
         mu, lam = lame_from_nu(E_REF, case["nu"])
     else:
         mu, lam = c["mu"], c["lambda_"]
-    key = (c["thickness"], c["nx"], round(mu), round(lam), el_type)
+    key = (c["thickness"], c["nx"], round(mu), round(lam), el_type, SHEAR_QUADRATURE_DEGREE)
     if key in _fe_cache:
         return _fe_cache[key]
     cfg = PlateConfig(length=1, width=1, thickness=c["thickness"], nx=c["nx"], ny=c["nx"],
                       rho=RHO, mu=mu, lambda_=lam)
     domain, V, _, prob = build_plate_problem(cfg, deg=2, el_type=el_type)
     f, _ = solve_evp(domain=domain, function_space=V, bcs=[], problem=prob,
-                     eigenmode_number=eigenmode_number, target_hz=0.0, ncv_factor=ncv_factor)
+                     eigenmode_number=eigenmode_number, target_hz=0.0, ncv_factor=ncv_factor,
+                     shear_quadrature_degree=SHEAR_QUADRATURE_DEGREE)
     nu, D, m = plate_constants(cfg)
     fe = [FEMode(fi, f_to_leissa(fi, cfg.length, D, m)) for fi in sorted(f) if fi > RIGID_TOL]
     _fe_cache[key] = (cfg, nu, fe)
@@ -365,6 +370,9 @@ def report_interval_case(case):
 
 if __name__ == "__main__":
     text = HEADER.format(date=datetime.date.today().isoformat(), ver=dolfinx.__version__)
+    if SHEAR_QUADRATURE_DEGREE is not None:
+        text += (f"- Shear term integrated with quadrature degree {SHEAR_QUADRATURE_DEGREE} (full 3x3 Gauss) instead of "
+                 "the reduced 2x2 rule of the original report (validation_eigenvalues_S_vs_Lagrange.md).\n")
     all_ok = True
     for case in CASES:
         block, ok = report_case(case)
@@ -375,6 +383,8 @@ if __name__ == "__main__":
         text += block + "\n"
         all_ok &= ok
     print(text)
-    with open("validation_eigenvalues_S_vs_Lagrange.md", "w", encoding="utf-8") as fh:
+    report_name = ("validation_eigenvalues_S_vs_Lagrange.md" if SHEAR_QUADRATURE_DEGREE is None
+                   else "validation_eigenvalues_S_vs_Lagrange_full_shear.md")
+    with open(report_name, "w", encoding="utf-8") as fh:
         fh.write(text)
     sys.exit(0 if all_ok else 1)

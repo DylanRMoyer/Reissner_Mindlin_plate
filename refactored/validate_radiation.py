@@ -21,6 +21,10 @@ from insertion_loss import (input_power, global_insertion_loss_radiated_db,
                             global_insertion_loss_radiated_equal_power_db,
                             assert_allclose_detailed, assert_allclose_two_arrays)
 from scipy.signal import find_peaks
+import sys
+# "--full-shear": rerun with the full 3x3 shear rule (shear_quadrature_degree = 4) instead of the reduced 2x2 rule
+# of the original validation; the default keeps the original runs and cache files unchanged.
+SHEAR_QUADRATURE_DEGREE = 4 if "--full-shear" in sys.argv[1:] else None
 
 
 # assert_allclose_detailed(a, b)
@@ -122,6 +126,8 @@ if __name__ == "__main__":
             free_plate=free_plate, excitation=excitation,
             deg=deg, el_type=el_type,
             code_version="v2")  # bump this string if you change the sweep code itself
+        if SHEAR_QUADRATURE_DEGREE is not None:
+            settings["shear_quadrature_degree"] = SHEAR_QUADRATURE_DEGREE
 
         key_vamm, blob_vamm = make_cache_key(vamm_list=vamm_list, **settings)
         key_bare, blob_bare = make_cache_key(vamm_list=None, **settings)
@@ -133,7 +139,8 @@ if __name__ == "__main__":
                 plate_config=plate_config, f_start=f_start, f_end=f_end,
                 vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid, gamma=gamma_plate,
-                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config),
+                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
+                shear_quadrature_degree=SHEAR_QUADRATURE_DEGREE),
             settings_blob=blob_vamm)
 
         sweep_bare = get_or_compute_sweep(
@@ -143,7 +150,8 @@ if __name__ == "__main__":
                 plate_config=plate_config, f_start=f_start, f_end=f_end,
                 vamm_list=None, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid, gamma=gamma_plate,
-                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config),
+                free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
+                shear_quadrature_degree=SHEAR_QUADRATURE_DEGREE),
             settings_blob=blob_bare)
 
         bare_probe_mobility = mobility_at_probes(

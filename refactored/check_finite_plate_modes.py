@@ -9,7 +9,9 @@
     is zero), and coupling to the resonators (they sit on element corners, value 4/9).
 (c) Size of the effect on the insertion loss: IL of the 1x1 m plate with 10x10 resonators, 900-1500 Hz, with the
     pipeline's 2x2 shear rule (cached main.py sweeps) vs full 3x3 (bare and resonator plate swept in that window,
-    ~25 min, cached). Run with the argument "insertion_loss"; without it, (a) and (b) run.
+    ~25 min, cached). Run with the argument "insertion_loss"; without it, (a) and (b) run. The argument
+    "insertion_loss_all" compares both rules at all three stage 7 tunings (600, 1200, 2000 Hz; needs the cached
+    3x3 sweeps of main.py with shear_quadrature_degree = 4 and of its parameter-study block).
 (b) Modes of the plate with the 10x10 resonators (f_r 1.2 kHz, mass ratio 0.25) in the 1240-1290 Hz cluster, where
     the insertion loss has its -14 dB dip. Hypothesis: these are small-k (Gamma-like) modes of the flat resonator
     branch, whose plate motion is supersonic and radiates efficiently.
@@ -276,10 +278,91 @@ def compare_shear_rules_insertion_loss(setup_objects, frequency_window_hz=(900.0
         save_path="results/insertion_loss_shear_rule_1x1m_100resonators_1200hz_900to1500hz.pdf")
 
 
+def production_grid_vamm_list(plate_config, resonator_frequency_hz):
+    """10 x 10 resonators on the 0.1 m lattice, mass ratio 0.25, built exactly as in main.py's parameter-study
+    block (same float expressions, so the cache keys match)."""
+    study_cell_length = 0.1
+    study_resonator_mass = 0.25 * plate_config.rho * plate_config.thickness * study_cell_length ** 2
+    grid_config = GridConfig(
+        n_x=round(plate_config.length / study_cell_length), n_y=round(plate_config.width / study_cell_length),
+        stiffness=study_resonator_mass * (2 * np.pi * resonator_frequency_hz) ** 2,
+        mass=study_resonator_mass, gamma=0.02)
+    return state_to_vamm_list(np.repeat(1, grid_config.n_x * grid_config.n_y), grid_config,
+                              plate_config.length, plate_config.width)
+
+
+# window per tuning, as in main.py's parameter study (1200 Hz: the full-range sweep, shown 900-1500 Hz)
+TUNING_WINDOWS = [(600.0, (500.0, 900.0), (500.0, 900.0)),
+                  (1200.0, (0.0, np.inf), (900.0, 1500.0)),
+                  (2000.0, (1500.0, 2700.0), (1500.0, 2700.0))]
+
+
+def compare_shear_rules_all_tunings(setup_objects):
+    """Queue Q2: equal-force radiated-power IL with the reduced 2x2 and the full 3x3 shear rule at the three tunings
+    of the stage 7 study (all sweeps cached: 2x2 by the stage 7 run, 3x3 by the 3x3 rebuild). Prints, per tuning,
+    the IL inside the Bloch gap and the largest difference; writes one figure with both curves per tuning."""
+    import dataclasses
+    from parameter_study import cell_band_gaps, bragg_frequency_x, LIMIT_OVER_BRAGG, POINTS_PER_SEGMENT
+    from dispersion import build_wavevector_path
+    from postprocessing_dispersion import plot_insertion_loss_vs_gaps
+    plate_config, domain, function_space, problem, shaker_config, _ = setup_objects
+    setup_reduced = FinitePlateSetup(domain=domain, function_space=function_space, problem=problem,
+                                     plate_config=plate_config, shaker_config=shaker_config,
+                                     frequency_grid=build_frequency_grid(f_start=500, f_end=5000, gamma=0.02),
+                                     gamma_plate=0.04, free_plate=True, excitation="force", deg=2, el_type="Lagrange")
+    setup_full = dataclasses.replace(setup_reduced, shear_quadrature_degree=FULL_SHEAR_DEGREE)
+    bare_power = {"2x2": cached_bare_radiated_power(setup_reduced), "3x3": cached_bare_radiated_power(setup_full)}
+    cell_config = PlateConfig(length=0.1, width=0.1, thickness=plate_config.thickness, nx=10, ny=10,
+                              rho=plate_config.rho, mu=plate_config.mu, lambda_=plate_config.lambda_)
+    path = build_wavevector_path(0.1, 0.1, points_per_segment=POINTS_PER_SEGMENT)
+    bragg_hz = bragg_frequency_x(cell_config)
+    cases = []
+    for resonator_frequency_hz, window_hz, plot_window_hz in TUNING_WINDOWS:
+        vamm_list = production_grid_vamm_list(plate_config, resonator_frequency_hz)
+        curves = {}
+        for rule, setup in [("2x2", setup_reduced), ("3x3", setup_full)]:
+            f_values, insertion_loss_db = windowed_insertion_loss(setup, vamm_list, window_hz, bare_power[rule],
+                                                                  require_cached=True)
+            in_plot = (f_values >= plot_window_hz[0]) & (f_values <= plot_window_hz[1])
+            curves[rule] = (f_values[in_plot], insertion_loss_db[in_plot])
+        f_values = curves["2x2"][0]
+        gaps = [(gap.lower_edge_hz, gap.upper_edge_hz) for gap in cell_band_gaps(
+            cell_config, path, resonator_frequency_hz, 0.25, maximum_frequency_hz=LIMIT_OVER_BRAGG * bragg_hz)]
+        difference = curves["3x3"][1] - curves["2x2"][1]
+        worst = int(np.argmax(np.abs(difference)))
+        print(f"\nf_r = {resonator_frequency_hz:.0f} Hz, window {f_values[0]:.0f}-{f_values[-1]:.0f} Hz, Bloch gaps "
+              f"{[(round(lower), round(upper)) for lower, upper in gaps]} Hz")
+        print(f"   3x3 minus 2x2: mean {difference.mean():+.2f} dB, max |difference| {abs(difference[worst]):.1f} dB "
+              f"at {f_values[worst]:.0f} Hz")
+        for rule, (_, insertion_loss_db) in curves.items():
+            line = (f"   {rule}: IL max {insertion_loss_db.max():+.1f} dB at {f_values[np.argmax(insertion_loss_db)]:.0f} Hz,"
+                    f" min {insertion_loss_db.min():+.1f} dB at {f_values[np.argmin(insertion_loss_db)]:.0f} Hz")
+            for lower, upper in gaps:
+                inside = (f_values >= lower) & (f_values <= upper)
+                if inside.any():
+                    negative_share = np.mean(insertion_loss_db[inside] < 0)
+                    line += (f"; in gap {lower:.0f}-{upper:.0f}: mean {insertion_loss_db[inside].mean():+.1f} dB, "
+                             f"min {insertion_loss_db[inside].min():+.1f} dB, negative on {100 * negative_share:.0f} %"
+                             f" of the gap points")
+                    if negative_share > 0:
+                        first_negative = f_values[inside][insertion_loss_db[inside] < 0].min()
+                        line += f" (from {first_negative:.0f} Hz, {100 * (first_negative - lower) / (upper - lower):.0f} % into the gap)"
+            print(line)
+        cases.append(dict(label=f"$f_r$ = {resonator_frequency_hz:.0f} Hz", f_values=f_values,
+                          insertion_loss_db=curves["2x2"][1], curve_label="$IL_{rad}$, 2x2 shear",
+                          extra_curves=[("$IL_{rad}$, 3x3 shear", curves["3x3"][0], curves["3x3"][1])],
+                          gaps=gaps, resonator_frequency_hz=resonator_frequency_hz))
+    plot_insertion_loss_vs_gaps(
+        cases, title="1x1 m plate, 10x10 resonators (mass ratio 0.25): IL with reduced (2x2) vs full (3x3) shear rule",
+        save_path="results/insertion_loss_shear_rule_all_tunings_1x1m_100resonators_mass0.25.pdf")
+
+
 if __name__ == "__main__":
     import sys
     setup_objects = production_plate()
-    if "insertion_loss" in sys.argv[1:]:
+    if "insertion_loss_all" in sys.argv[1:]:
+        compare_shear_rules_all_tunings(setup_objects)
+    elif "insertion_loss" in sys.argv[1:]:
         compare_shear_rules_insertion_loss(setup_objects)
     else:
         matrices = check_hourglass(setup_objects)

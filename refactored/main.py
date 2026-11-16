@@ -37,6 +37,9 @@ if __name__ == "__main__":
     deg = 2
     el_type = "Lagrange"
 
+    shear_quadrature_degree = 4  # full 3x3 Gauss for the shear term (no hourglass mode, as in the Bloch cell);
+                                 # None = the old reduced 2x2 rule (results before the 3x3 switch, still cached)
+
     ncv_factor = 2 # 2 for the 500-mode solve (memory and time; was 4); integer, default: 2, increase if suspected that not all modes are found by the solver
 
     plate_config = PlateConfig(
@@ -100,6 +103,8 @@ if __name__ == "__main__":
     eigen_settings = dict(plate_config=plate_config, free_plate=free_plate, deg=deg, el_type=el_type,
                           eigenmode_number=eigenmode_number, target_hz=target_frequency_hz,
                           code_version="v1")  # bump this string if you change the eigensolver code itself
+    if shear_quadrature_degree is not None:  # in the key only when set, so the 2x2 cache files keep their keys
+        eigen_settings["shear_quadrature_degree"] = shear_quadrature_degree
     key_eigen_bare, blob_eigen_bare = make_cache_key(vamm_list=None, **eigen_settings)
     key_eigen_vamm, blob_eigen_vamm = make_cache_key(vamm_list=vamm_list, **eigen_settings)
 
@@ -108,7 +113,8 @@ if __name__ == "__main__":
         compute=lambda: solve_evp(
             domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
             vamm_list = None, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
-            eigenmode_number = eigenmode_number, target_hz=target_frequency_hz, ncv_factor=ncv_factor)[0],
+            eigenmode_number = eigenmode_number, target_hz=target_frequency_hz, ncv_factor=ncv_factor,
+            shear_quadrature_degree=shear_quadrature_degree)[0],
         settings_blob=blob_eigen_bare)
 
     eigenfrequencies_vamm = get_or_compute_eigenfrequencies(
@@ -116,7 +122,8 @@ if __name__ == "__main__":
         compute=lambda: solve_evp(
             domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
             vamm_list = vamm_list, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
-            eigenmode_number = eigenmode_number, target_hz=target_frequency_hz, ncv_factor=ncv_factor)[0],
+            eigenmode_number = eigenmode_number, target_hz=target_frequency_hz, ncv_factor=ncv_factor,
+            shear_quadrature_degree=shear_quadrature_degree)[0],
         settings_blob=blob_eigen_vamm)
 
     for i, freq in enumerate(eigenfrequencies_bare):
@@ -130,7 +137,8 @@ if __name__ == "__main__":
         _, eigenmodes_bare = solve_evp(
             domain = domain, function_space = function_space, bcs = bcs, problem = plate_problem_constants,
             vamm_list = None, phi_list = phi_list, global_dofs_parent_list = global_dofs_parent_list,
-            eigenmode_number = eigenmode_to_plot + 1, target_hz=target_frequency_hz, ncv_factor=4)
+            eigenmode_number = eigenmode_to_plot + 1, target_hz=target_frequency_hz, ncv_factor=4,
+            shear_quadrature_degree=shear_quadrature_degree)
         plot_eigenmode(
             domain = domain, function_space = function_space, eigenmodes = eigenmodes_bare,
             eigenmode_index = eigenmode_to_plot, length = plate_config.length,
@@ -172,6 +180,8 @@ if __name__ == "__main__":
             free_plate=free_plate, excitation=excitation,
             deg=deg, el_type=el_type,
             code_version="v2")  # bump this string if you change the sweep code itself
+        if shear_quadrature_degree is not None:  # same rule as parameter_study.sweep_cache_settings
+            settings["shear_quadrature_degree"] = shear_quadrature_degree
 
         key_vamm, blob_vamm = make_cache_key(vamm_list=vamm_list, **settings)
         key_bare, blob_bare = make_cache_key(vamm_list=None, **settings)
@@ -184,7 +194,8 @@ if __name__ == "__main__":
                 vamm_list=vamm_list, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid, gamma=gamma_plate,
                 free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-                factorization_package="mumps"),  # solver choice is not part of the cache key
+                factorization_package="mumps",  # solver choice is not part of the cache key
+                shear_quadrature_degree=shear_quadrature_degree),
             settings_blob=blob_vamm)
 
         sweep_bare = get_or_compute_sweep(
@@ -195,7 +206,7 @@ if __name__ == "__main__":
                 vamm_list=None, phi_list=phi_list, global_dofs_parent_list=global_dofs_parent_list,
                 frequency_grid=grid, gamma=gamma_plate,
                 free_plate=free_plate, excitation=excitation, shaker_config=shaker_config,
-                factorization_package="mumps"),
+                factorization_package="mumps", shear_quadrature_degree=shear_quadrature_degree),
             settings_blob=blob_bare)
 
         bare_probe_mobility = mobility_at_probes(
@@ -455,7 +466,8 @@ if __name__ == "__main__":
             shaker_config=ShakerParameters(x=plate_config.length / 3, y=plate_config.width / 3,
                                            force_amplitude=1.0, phase=0.0),
             frequency_grid=build_frequency_grid(f_start=500, f_end=5000, gamma=0.02), gamma_plate=0.04,
-            free_plate=free_plate, excitation=excitation, deg=deg, el_type=el_type)
+            free_plate=free_plate, excitation=excitation, deg=deg, el_type=el_type,
+            shear_quadrature_degree=shear_quadrature_degree)
         bare_radiated_power = cached_bare_radiated_power(finite_plate_setup)
         study_mass_ratio = 0.25
         study_path = build_wavevector_path(study_cell_length, study_cell_length, points_per_segment=POINTS_PER_SEGMENT)

@@ -20,6 +20,10 @@ from shaker_force import ShakerParameters
 from probe import make_probe, build_probe_coordinates, mobility_at_probes
 from frequency_sweep import frequency_sweep_plate
 from sweep_cache import CACHE_DIR, make_cache_key, get_or_compute_sweep
+import sys
+# "--full-shear": rerun with the full 3x3 shear rule (shear_quadrature_degree = 4) instead of the reduced 2x2 rule
+# of the original validation; the default keeps the original runs and cache files unchanged.
+SHEAR_QUADRATURE_DEGREE = 4 if "--full-shear" in sys.argv[1:] else None
 
 GAMMA_PLATE = 0.04
 FREE_PLATE = True
@@ -51,16 +55,20 @@ def sweep_with_shaker_at(ctx, shaker_xy, vamm_list):
         vamm_list=vamm_list, phi_list=ctx.phi_list,
         global_dofs_parent_list=ctx.global_dofs_parent_list,
         frequency_grid=ctx.grid, gamma=GAMMA_PLATE,
-        free_plate=FREE_PLATE, excitation="force", shaker_config=shaker_config)
+        free_plate=FREE_PLATE, excitation="force", shaker_config=shaker_config,
+        shear_quadrature_degree=SHEAR_QUADRATURE_DEGREE)
 
 
 def cached_sweep(ctx, name, shaker_xy, vamm_list):
     # No probe information in the key: the cached w_field is probe-independent.
-    key, blob = make_cache_key(
+    key_settings = dict(
         plate_config=ctx.plate_config, shaker_xy=shaker_xy, force_amplitude=FORCE_AMPLITUDE,
         vamm_list=vamm_list, grid=ctx.grid, gamma_plate=GAMMA_PLATE,
         free_plate=FREE_PLATE, excitation="force", deg=DEG, el_type=EL_TYPE,
         code_version="v2")
+    if SHEAR_QUADRATURE_DEGREE is not None:  # in the key only when set: the 2x2 cache files keep their keys
+        key_settings["shear_quadrature_degree"] = SHEAR_QUADRATURE_DEGREE
+    key, blob = make_cache_key(**key_settings)
     return get_or_compute_sweep(
         CACHE_DIR / f"val_{name}_{key}.npz",
         compute=lambda: sweep_with_shaker_at(ctx, shaker_xy, vamm_list),
