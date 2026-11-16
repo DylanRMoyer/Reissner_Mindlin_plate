@@ -287,17 +287,49 @@ def plane_wave_point_compliance(wavenumber_magnitude, angular_frequency, constan
     return dynamic_rotation / (dynamic_ww * dynamic_rotation - (shear * wavenumber_magnitude) ** 2)
 
 
+def plane_wave_bare_frequency_hz(wavenumber_magnitude, constants, theory):
+    """Lowest (bending) frequency of one plane wave, Hz: the pole of plane_wave_point_compliance.
+    kirchhoff: omega^2 = D k^4 / (rho h); reissner_mindlin: lowest coupled branch of plane_wave_omega_squared."""
+    if theory == "kirchhoff":
+        omega_squared = constants["bending_rigidity"] * wavenumber_magnitude ** 4 / constants["mass_per_area"]
+    else:
+        omega_squared = plane_wave_omega_squared(wavenumber_magnitude, constants)[0]
+    return np.sqrt(max(omega_squared, 0.0)) / (2 * np.pi)
+
+
+def term_theories(folded_magnitudes, theory, local_theory, band_wavenumber_limit):
+    """Theory of each plane-wave term (array of strings, same shape as folded_magnitudes).
+    local_theory None: every term uses 'theory' (the original model). Otherwise a hybrid: terms with
+    |k + G| < band_wavenumber_limit (the folded bands in and near the computed range) use 'theory', the
+    remaining far terms (the local, quasi-static part of the point compliance) use local_theory."""
+    if local_theory is None or local_theory == theory:
+        return np.full(np.shape(folded_magnitudes), theory, dtype=object)
+    if band_wavenumber_limit is None:
+        raise ValueError("a hybrid model (local_theory != theory) needs band_wavenumber_limit")
+    return np.where(np.asarray(folded_magnitudes) < band_wavenumber_limit, theory, local_theory).astype(object)
+
+
 def resonator_dispersion_function(angular_frequency, wavenumber_x, wavenumber_y, length_x, length_y, constants,
-                                  resonator_stiffness, resonator_mass, theory, harmonic_cutoff):
+                                  resonator_stiffness, resonator_mass, theory, harmonic_cutoff, local_theory=None,
+                                  band_wavenumber_limit=None):
     """h(omega) = 1 - Z(omega)/A * sum_G g(|k + G|, omega); its roots are the Bloch frequencies of a plate with
     one point resonator per cell. For Reissner-Mindlin the sum diverges like log(cutoff) (point force on a
-    shear-deformable plate); harmonic_cutoff (max |m|, |n|) then sets the effective attachment size."""
+    shear-deformable plate); harmonic_cutoff (max |m|, |n|) then sets the effective attachment size.
+    local_theory / band_wavenumber_limit: optional hybrid model, see term_theories (defaults: original model)."""
     harmonics = np.arange(-harmonic_cutoff, harmonic_cutoff + 1)
     folded_x = wavenumber_x + 2 * np.pi * harmonics[:, None] / length_x
     folded_y = wavenumber_y + 2 * np.pi * harmonics[None, :] / length_y
+    folded_magnitudes = np.hypot(folded_x, folded_y)
     with np.errstate(divide="ignore"):          # exactly on a pole the term is infinite; h is then not a root
-        compliance_sum = plane_wave_point_compliance(np.hypot(folded_x, folded_y), angular_frequency, constants,
-                                                     theory).sum()
+        if local_theory is None or local_theory == theory:      # original model, one vectorized sum
+            compliance_sum = plane_wave_point_compliance(folded_magnitudes, angular_frequency, constants,
+                                                         theory).sum()
+        else:
+            is_band_term = term_theories(folded_magnitudes, theory, local_theory, band_wavenumber_limit) == theory
+            compliance_sum = (plane_wave_point_compliance(folded_magnitudes[is_band_term], angular_frequency,
+                                                          constants, theory).sum()
+                              + plane_wave_point_compliance(folded_magnitudes[~is_band_term], angular_frequency,
+                                                            constants, local_theory).sum())
     cell_area = length_x * length_y
     return 1.0 - resonator_force_factor(resonator_stiffness, resonator_mass, angular_frequency) \
         / cell_area * compliance_sum
@@ -305,22 +337,31 @@ def resonator_dispersion_function(angular_frequency, wavenumber_x, wavenumber_y,
 
 def analytic_resonator_frequencies(wavenumber_x, wavenumber_y, plate_config, resonator_stiffness, resonator_mass,
                                    maximum_frequency_hz, theory="reissner_mindlin", harmonic_cutoff=12,
-                                   points_per_interval=200):
+                                   points_per_interval=200, local_theory=None, band_wavenumber_limit=None):
     """Bloch frequencies (Hz, sorted) below maximum_frequency_hz of the plate with one point resonator per cell.
 
     Roots of resonator_dispersion_function lie between its poles (bare folded frequencies and the resonator
     frequency); each interval is scanned and sign changes with a small |h| are refined with brentq.
     Degenerate bare frequencies: a point resonator couples to one combination of the degenerate plane waves;
     the other (multiplicity - 1) combinations vanish at the attachment and keep the bare frequency, so they
-    are added explicitly."""
+    are added explicitly.
+    The poles are the bare frequencies of the same theory as each term (before 2026-11-13 they were always
+    Reissner-Mindlin, so theory="kirchhoff" mixed Kirchhoff terms with Reissner-Mindlin poles).
+    local_theory / band_wavenumber_limit: optional hybrid model (term_theories); its far terms must have no pole
+    below the scanned range, which is checked."""
     from scipy.optimize import brentq
     constants = plate_constants(plate_config)
     length_x, length_y = plate_config.length, plate_config.width
     harmonics = np.arange(-harmonic_cutoff, harmonic_cutoff + 1)
     folded = np.hypot(wavenumber_x + 2 * np.pi * harmonics[:, None] / length_x,
                       wavenumber_y + 2 * np.pi * harmonics[None, :] / length_y).ravel()
-    bare_frequencies = np.array(sorted(np.sqrt(max(plane_wave_omega_squared(magnitude, constants)[0], 0.0))
-                                       / (2 * np.pi) for magnitude in folded))
+    theories = term_theories(folded, theory, local_theory, band_wavenumber_limit)
+    bare_frequencies = np.array(sorted(plane_wave_bare_frequency_hz(magnitude, constants, term_theory)
+                                       for magnitude, term_theory in zip(folded, theories)))
+    if local_theory is not None and local_theory != theory:
+        lowest_far_pole = plane_wave_bare_frequency_hz(band_wavenumber_limit, constants, local_theory)
+        assert lowest_far_pole > 1.2 * maximum_frequency_hz, \
+            "band_wavenumber_limit too small: a far (local-theory) term has a pole inside the scanned range"
     bare_frequencies = bare_frequencies[bare_frequencies < 1.2 * maximum_frequency_hz]
     resonator_frequency = np.sqrt(resonator_stiffness / resonator_mass) / (2 * np.pi)
 
@@ -336,7 +377,8 @@ def analytic_resonator_frequencies(wavenumber_x, wavenumber_y, plate_config, res
     def dispersion_function(frequency_hz):
         return resonator_dispersion_function(2 * np.pi * frequency_hz, wavenumber_x, wavenumber_y, length_x,
                                              length_y, constants, resonator_stiffness, resonator_mass, theory,
-                                             harmonic_cutoff)
+                                             harmonic_cutoff, local_theory=local_theory,
+                                             band_wavenumber_limit=band_wavenumber_limit)
 
     roots = []
     interval_edges = np.concatenate([[0.0], poles, [1.2 * maximum_frequency_hz]])
@@ -360,11 +402,14 @@ def analytic_resonator_frequencies(wavenumber_x, wavenumber_y, plate_config, res
 
 
 def analytic_resonator_dispersion(wavevector_path, plate_config, resonator_stiffness, resonator_mass,
-                                  maximum_frequency_hz, theory="reissner_mindlin", harmonic_cutoff=24):
-    """analytic_resonator_frequencies along the whole path, NaN-padded, shape (n_k, n_bands), Hz."""
+                                  maximum_frequency_hz, theory="reissner_mindlin", harmonic_cutoff=24,
+                                  local_theory=None, band_wavenumber_limit=None):
+    """analytic_resonator_frequencies along the whole path, NaN-padded, shape (n_k, n_bands), Hz.
+    local_theory / band_wavenumber_limit: optional hybrid model (term_theories)."""
     rows = [analytic_resonator_frequencies(wavenumber_x, wavenumber_y, plate_config, resonator_stiffness,
                                            resonator_mass, maximum_frequency_hz, theory=theory,
-                                           harmonic_cutoff=harmonic_cutoff)
+                                           harmonic_cutoff=harmonic_cutoff, local_theory=local_theory,
+                                           band_wavenumber_limit=band_wavenumber_limit)
             for wavenumber_x, wavenumber_y in wavevector_path.wavevectors]
     return pad_with_nan(rows, max(len(row) for row in rows))
 
