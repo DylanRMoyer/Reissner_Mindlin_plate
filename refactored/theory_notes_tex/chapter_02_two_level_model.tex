@@ -127,6 +127,87 @@ By Bloch's theorem this is needed on one cell only, with one mass per cell.
 They solve the bare problem, $\mathcal{L}\varphi_j = \lambda_j^0\, \rho h\,
 \varphi_j$, and they are orthonormal, Eq.~\eqref{eq:orthonormal}.
 
+\paragraph{What $\mathcal{L}$ is, and where $\rho h$ comes from.}
+$\mathcal{L}$ is the continuous \emph{stiffness operator}: applied to a
+displacement field it returns the elastic restoring force per area.
+\begin{itemize}
+  \item \textbf{Kirchhoff:} $\mathcal{L}w = D\nabla^4 w$, one equation for $w$
+        alone ($D$ bending stiffness).
+  \item \textbf{RM:} the unknowns are $w$ and the two rotations
+        $\boldsymbol{\theta} = (\theta_x, \theta_y)$, so $\mathcal{L}$ acts on the
+        vector $(w, \boldsymbol{\theta})$. With the shear strain
+        $\nabla w - \boldsymbol{\theta}$, the shear stiffness $\kappa G h$
+        ($\kappa = 5/6$) and the bending-moment tensor
+        $\mathbf{M}_\mathrm{b}(\boldsymbol{\theta})$ (built from $D$ and $\nu$),
+        the free vibration reads
+        \begin{align}
+          -\nabla\cdot\bigl[\kappa G h\,(\nabla w - \boldsymbol{\theta})\bigr]
+            &= \omega^2\, \rho h\, w , \\
+          -\nabla\cdot\mathbf{M}_\mathrm{b}(\boldsymbol{\theta})
+            - \kappa G h\,(\nabla w - \boldsymbol{\theta})
+            &= \omega^2\, \frac{\rho h^3}{12}\, \boldsymbol{\theta} .
+        \end{align}
+        The left sides are $\mathcal{L}$, the right sides the inertia forces.
+\end{itemize}
+These notes write $\mathcal{L}w$ for brevity. For RM, read $\varphi_j$ as the
+full mode $(w, \boldsymbol{\theta})$ and the $\rho h$-weighted integrals as the
+full mass inner product, including the rotary inertia $\rho h^3/12$ (small
+below $5\,\mathrm{kHz}$). Only the $w$-component at $\mathbf{x}_0$ enters the
+coupling, so the derivation below is unchanged.
+
+The \emph{mass operator} is multiplication by $\rho h$: the inertia force per
+area is $\rho h\,\omega^2 w$. That is why the bare eigenproblem reads
+$\mathcal{L}\varphi_j = \lambda_j^0\, \rho h\, \varphi_j$ (``stiffness $=
+\lambda \times$ mass'', not $\lambda \times$ identity), and why the
+orthonormality~\eqref{eq:orthonormal} carries the weight $\rho h$. In the
+projection below the two meet: $\mathcal{L}$ produces a $\rho h$, and
+$\int \rho h\, \varphi_n^* \varphi_j\,\mathrm{d}A = \delta_{nj}$ removes the sum.
+
+\paragraph{The FE counterpart.}
+\begin{center}
+\begin{tabular}{|l|p{0.5\textwidth}|}
+\hline
+Continuous (these notes) & FE (code) \\
+\hline
+operator $\mathcal{L}$ & stiffness matrix $K$, $K_{ij} = a(N_j, N_i)$ \\
+multiplication by $\rho h$ (and $\rho h^3/12$) & mass matrix $M$ \\
+fields obeying the Bloch condition at $\mathbf{k}$ & $K_r(\mathbf{k}) = T^\mathsf{H} K T$, $M_r(\mathbf{k}) = T^\mathsf{H} M T$ \\
+$\mathcal{L}\varphi = \lambda\, \rho h\, \varphi$ & $K_r q = \lambda M_r q$ \\
+$\int \rho h\, \varphi_n^* \varphi_j\,\mathrm{d}A = \delta_{nj}$ & $\varphi_n^\mathsf{H} M_r \varphi_j = \delta_{nj}$ \\
+$\int \varphi_n^* \mathcal{L}\varphi_j\,\mathrm{d}A = \lambda_n^0 \delta_{nj}$ & $\varphi_n^\mathsf{H} K_r \varphi_j = \lambda_n^0 \delta_{nj}$ \\
+\hline
+\end{tabular}
+\end{center}
+$N_i$ are the FE shape functions, and $a(\cdot,\cdot)$ is the stiffness bilinear
+form, obtained from $\int N_i^*\, \mathcal{L} N_j\,\mathrm{d}A$ by integration by
+parts (the weak form in \texttt{weak\_form.py}).
+
+\paragraph{Three levels of modeling.}
+\begin{enumerate}
+  \item The real plate: a 3D elastic body.
+  \item RM theory: the continuous model $\mathcal{L}$, itself an approximation
+        of level 1 (straight normals, shear correction $\kappa = 5/6$, plane
+        stress).
+  \item FE: $K$ is the \emph{Galerkin} discretization of $\mathcal{L}$, i.e.\
+        $\mathcal{L}$ in weak form projected onto the FE functions (not
+        $\mathcal{L}$ evaluated at points).
+\end{enumerate}
+So $K$ approximates $\mathcal{L}$ in the same sense in which the FE model
+approximates the continuous RM plate, and not the real plate directly. (Cool
+et al.\ discretize a different level-2 model, 3D elasticity, with solid
+elements; comparing with them is model against model.) $K_r$ adds no further
+approximation: the Bloch reduction $T(\mathbf{k})$ is exact and only restricts
+$K$ to the fields that satisfy the Bloch condition at $\mathbf{k}$. All
+discretization error sits in $K$.
+
+With exactly integrated $K$ (full $3\times 3$ shear integration on the Bloch
+cell), the FE eigenvalues are Rayleigh--Ritz \emph{upper bounds} of the
+continuous ones: the FE bands lie slightly above the analytic RM bands
+($0.33\,\%$ at most below $5\,\mathrm{kHz}$ with $100$ elements per meter). The
+reduced $2\times 2$ shear rule of the forced-response pipeline makes $K$ inexact.
+That is how the hourglass mode enters: zero energy in the matrix, but not in
+$\mathcal{L}$.
+
 \paragraph{3. Expand and project (Galerkin).}
 Write $w = \sum_j q_j \varphi_j$, insert into Eq.~\eqref{eq:plate_with_mass},
 multiply by $\varphi_n^*(\mathbf{x})$ and integrate over the cell.
@@ -284,7 +365,7 @@ $(1,-1)$ & $\sin(\pi x/a)$, node at the mass & $\lambda^0$ & $1190\,\mathrm{Hz}$
 \end{tabular}
 \end{center}
 At $X$ one bare frequency becomes two, and between $972$ and
-$1190\,\mathrm{Hz}$ no wave travelling in $x$ exists: a \emph{directional}
+$1190\,\mathrm{Hz}$ no wave traveling in $x$ exists: a \emph{directional}
 Bragg gap (not yet a complete gap). The factor $\sqrt{2/3} \approx 0.816$
 holds only for $\mu = 0.25$; in general it is $1/\sqrt{1+2\mu}$ in frequency
 and $1/(1+2\mu)$ in $\lambda$.
@@ -443,6 +524,99 @@ effect is small (second order). $c = 0$ \emph{by symmetry} means the coupling
 vanishes exactly, and the bands pass through each other even where they meet.
 
 % ---------------------------------------------------------------------
+\section{Why mass alone hardly opens a complete gap}
+\label{sec:mass_only_gap}
+
+This section uses only the two-level model. Mass at $\mathbf{x}_0 = 0$, so all
+phase factors are one and $c = -\mu\lambda$.
+
+\subsection{Step 1: what the two-level model does at any crossing}
+At a crossing $\lambda_1^0 = \lambda_2^0 = \lambda^0$, and $H$ has the form
+$\bigl(\begin{smallmatrix} a_H & b_H \\ b_H & a_H \end{smallmatrix}\bigr)$
+with $a_H = \lambda^0 - \mu\lambda$, $b_H = -\mu\lambda$. As at $X$:
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+Pattern & Equation for $\lambda$ & Result \\
+\hline
+A, $(1,+1)$, antinode at the mass & $\lambda = a_H + b_H = \lambda^0 - 2\mu\lambda$ & $\lambda = \lambda^0/(1+2\mu)$ \\
+B, $(1,-1)$, node at the mass & $\lambda = a_H - b_H = \lambda^0 - \mu\lambda + \mu\lambda$ & $\lambda = \lambda^0$ \\
+\hline
+\end{tabular}
+\end{center}
+Every crossing the mass can couple becomes a \emph{directional} gap
+\begin{equation}
+  \left[\frac{\lambda^0}{1+2\mu},\; \lambda^0\right]
+  \quad\text{in } \lambda, \qquad
+  \left[\frac{f^0}{\sqrt{1+2\mu}},\; f^0\right]
+  \quad\text{in } f .
+\end{equation}
+\begin{itemize}
+  \item The \textbf{upper edge stays at the bare crossing}: in pattern B mass
+        loading and coupling cancel, so the mass pushes nothing up.
+  \item The \textbf{lower edge reaches down by a fixed factor}
+        $1/(1+2\mu)$, which depends only on $\mu$, not on where the crossing is.
+\end{itemize}
+
+\subsection{Step 2: two crossings, at $X$ and at $M$}
+\begin{itemize}
+  \item \textbf{$X$}, $\mathbf{k} = (\pi/a, 0)$: partners
+        $\mathbf{G}_1 = (0,0)$ and $\mathbf{G}_2 = (-2\pi/a, 0)$, both with
+        $|\mathbf{k}+\mathbf{G}| = \pi/a$. Crossing at $\lambda^0 = \lambda_X$;
+        directional gap along $x$: $[\lambda_X/(1+2\mu),\, \lambda_X]$.
+  \item \textbf{$M$}, $\mathbf{k} = (\pi/a, \pi/a)$, reached along the
+        diagonal $\Gamma$--$M$: partners $\mathbf{G}_1 = (0,0)$ and
+        $\mathbf{G}_2 = (-2\pi/a, -2\pi/a)$, both with
+        $|\mathbf{k}+\mathbf{G}| = \sqrt{2}\,\pi/a$. Crossing at
+        $\lambda^0 = \lambda_M^0$, same $2\times 2$ matrix; directional gap
+        along the diagonal: $[\lambda_M^0/(1+2\mu),\, \lambda_M^0]$.
+\end{itemize}
+Distance between the two crossings (Kirchhoff, $\mathcal{L} = D\nabla^4$, so
+$\lambda^0 \propto |\mathbf{k}+\mathbf{G}|^4$):
+\begin{equation}
+  \frac{\lambda_M^0}{\lambda_X}
+  = \left(\frac{|\mathbf{k}_M|^2}{|\mathbf{k}_X|^2}\right)^2
+  = \left(\frac{2(\pi/a)^2}{(\pi/a)^2}\right)^2 = 4,
+  \qquad f_M^0 = 2 f_X .
+\end{equation}
+
+\subsection{Step 3: the condition for a complete gap}
+A complete gap requires the two directional gaps to overlap: band~1 at $M$
+(lower edge of the $M$ gap) below band~2 at $X$ (upper edge of the $X$ gap):
+\begin{equation}
+  \frac{\lambda_M^0}{1+2\mu} < \lambda_X
+  \;\Longleftrightarrow\; \frac{4}{1+2\mu} < 1
+  \;\Longleftrightarrow\; \mu > \frac{3}{2} .
+\end{equation}
+The lower edge reaches down by at most $1/(1+2\mu)$ but has to bridge a factor
+of $4$; that needs $\mu$ of order one.
+
+\emph{Numbers} for $\mu = 0.25$ ($f_X = 1190\,\mathrm{Hz}$):
+\begin{center}
+\begin{tabular}{|l|l|}
+\hline
+Directional gap at $X$ & $972$--$1190\,\mathrm{Hz}$ \\
+Directional gap at $M$ & $1943$--$2380\,\mathrm{Hz}$ ($2380/\sqrt{1.5}$ to $f_M^0 = 2 \cdot 1190$) \\
+\hline
+\end{tabular}
+\end{center}
+The $M$ gap lies entirely above the $X$ gap; band~1 near $M$ ($1943\,\mathrm{Hz}$)
+covers the gap at $X$. No complete gap.
+
+\emph{Why bending waves make it hard:} the factor $4$ comes from
+$\omega \propto k^2$, which turns the geometric $\sqrt{2}$ in $k$ into a factor
+$2$ in frequency. For a non-dispersive wave ($\omega \propto k$) the ratio
+would be $2$ and the condition $\mu > 1/2$.
+
+\subsection{What the two-level model leaves out}
+At $M$ \emph{four} waves are degenerate, not two; the two-level model keeps only
+the pair along the diagonal. Chapter~\ref{ch:bragg_2d} includes all four, which
+gives $1 + 4\mu$ instead of $1 + 2\mu$ and the threshold $\mu > 3/4$. It also
+discusses what kind of bound the condition is (necessary, not sufficient; the
+truncation overestimates band~1 at $M$) and why a gap made by mass alone is a
+Bragg gap.
+
+% ---------------------------------------------------------------------
 \section{Mode tracking with the MAC}
 
 \subsection{Definition}
@@ -460,13 +634,13 @@ Plain sorting labels the bands at each $\mathbf{k}$ by frequency order.
 \emph{MAC tracking} instead walks along the path and, at each new
 $\mathbf{k}$, assigns every mode to the band at the previous $\mathbf{k}$
 whose eigenvector it matches best (highest MAC). A branch then keeps its
-identity through a crossing instead of swapping labels with its neighbour.
+identity through a crossing instead of swapping labels with its neighbor.
 Two complications for stage~5:
 \begin{itemize}
   \item degenerate groups (4-fold at $\Gamma$ and $M$): any rotation within
         the group is an equally valid eigenbasis, so the MAC between single
         vectors is arbitrary; subspaces have to be compared;
-  \item the vectors at neighbouring $\mathbf{k}$ differ slightly through
+  \item the vectors at neighboring $\mathbf{k}$ differ slightly through
         $T(\mathbf{k})$; harmless for small steps.
 \end{itemize}
 
@@ -557,7 +731,7 @@ the resonator lattice moves the bands by an amount scaling like $\mu^2$, and
 why is the mass-limit deviation of about $2\mu$ (first order) found in the
 stage~4 validation still consistent with that?}
 
-\emph{Answer.} The maths of the regimes was answered correctly: for
+\emph{Answer.} The math of the regimes was answered correctly: for
 $|\Delta\lambda| \gg |c|$ the square root reduces to $|\Delta\lambda|/2$ plus
 a term in $|c|^2$; for $\Delta\lambda \to 0$ the square root tends to $|c|$.
 One wording fix: near a crossing $|c|$ does not grow; $c$ stays the same and

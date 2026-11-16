@@ -100,7 +100,7 @@ The two sides have separate origins:
 
 \paragraph{$P$ has a pole at every distinct bare value.}
 Just below $\lambda_n^0$ the denominator is small and positive, so
-$P \to +\infty$. Just above it, $P \to -\infty$. Between two neighbouring bare
+$P \to +\infty$. Just above it, $P \to -\infty$. Between two neighboring bare
 values, $P$ therefore climbs from $-\infty$ to $+\infty$.
 
 The dots of the diagram at this $\mathbf{k}$ are the intersections of a falling
@@ -109,13 +109,13 @@ line with these rising branches.
 % ---------------------------------------------------------------------
 \section{What follows from that picture}
 
-Consider $Y - P$ between two neighbouring bare values. It is a falling function
+Consider $Y - P$ between two neighboring bare values. It is a falling function
 minus a rising one, so it falls strictly, from $+\infty$ to $-\infty$, and
 crosses zero \emph{exactly once}. The same holds below the lowest bare value,
 where $Y - P$ starts positive.
 
 \paragraph{Consequence 1: bands are trapped.}
-There is exactly one root between neighbouring bare frequencies. A single point
+There is exactly one root between neighboring bare frequencies. A single point
 resonator cannot push a band past a bare frequency. Example at $X$:
 \begin{center}
 \begin{tabular}{|p{0.5\textwidth}|p{0.33\textwidth}|}
@@ -209,6 +209,36 @@ under mesh refinement ($1273.5$ / $1271.7$ / $1270.5\,\mathrm{Hz}$ for $10$/$20$
 elements). It is about $0.1\,\%$ per doubling, so small in practice. The upper
 gap edge at $X$ is not affected, because the sin pattern does not feel the point
 force.
+
+\paragraph{Which RM effect makes the map depend on $h/a$?} Normalized to $f_X$, the gap
+map of a cell with $h/a = 0.1$ (Cool's cell) differs from ours ($h/a = 0.05$) above
+$\tau \approx 0.9$. Reissner--Mindlin enters the sum in two places: the \emph{band terms}
+(the few waves whose poles lie in or near the computed range; RM makes
+$\lambda_M/\lambda_X = 3.964$ for $h/a = 0.05$ and $3.866$ for $h/a = 0.1$, against $4$
+for Kirchhoff) and the \emph{local terms} (all far waves, which add up to the
+quasi-static compliance of the attachment point, the sum $S$, with its RM logarithm).
+Four hybrid models separate them: bands Kirchhoff or RM ($|\mathbf{k}+\mathbf{G}| <
+2.5\pi/a$) times local terms Kirchhoff or RM (all others), each normalized to its own
+$f_X$. Lower gap edge for $\tau \ge 0.95$, $\mu = 1$, shift against pure Kirchhoff in
+units of $f_X$, averaged over $\tau$:
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+Cell & RM bands only & RM local terms only & both & local share \\
+\hline
+$0.1\,\mathrm{m}$, $h/a = 0.05$ & $-0.0010$ & $-0.0059$ & $-0.0069$ & $86\,\%$ \\
+Cool $0.05\,\mathrm{m}$, $h/a = 0.1$ & $-0.0041$ & $-0.0230$ & $-0.0258$ & $89\,\%$ \\
+\hline
+\end{tabular}
+\end{center}
+The two effects add (interaction below $0.0012$), and the local sum carries
+$85$--$90\,\%$: the thicker plate is softer \emph{at the attachment point} through
+shear, which raises $S$ and pulls band~1 at $M$ down. The band shape matters little.
+Checks: pure Kirchhoff gives identical normalized maps for both cells (difference
+$3 \times 10^{-12}$), the pure RM model reproduces the stage~7 study, and moving the
+split from $2.5\pi/a$ to $3.5\pi/a$ changes the edges by at most $0.002\,f_X$. Since the
+local RM sum grows like $\log(\text{cutoff})$, its size depends on the attachment
+size; with the production cutoff it matches FE.
 
 % ---------------------------------------------------------------------
 \section{More resonators per cell}
@@ -308,8 +338,13 @@ the width shrinks.
 
 Identical resonators, $f_r = 1200\,\mathrm{Hz}$, plane-wave model on
 $\Gamma$--$X$--$M$--$Y$--$\Gamma$ with $15$ $\mathbf{k}$-points per segment. The
-model reproduces the one-resonator values to about $1\,\mathrm{Hz}$, but it is not
-FE. The path needs $Y$ because a resonator at $(a/2, 0)$ breaks the square
+model reproduces the one-resonator values to about $1\,\mathrm{Hz}$. FE confirms the
+$(0,0) + (a/2,0)$ row: $1136.5$--$1195.3\,\mathrm{Hz}$, and a grid over the quarter
+zone $[0,\pi/a]^2$ puts all band extremes on the path. Two resonators at general
+positions, $(0.02, 0.03)$ and $(0.07, 0.05)\,\mathrm{m}$, leave only the symmetry
+$\mathbf{k} \to -\mathbf{k}$; FE on the path gives $1126.5$--$1358.2\,\mathrm{Hz}$
+($18.7\,\%$, edges at $\Gamma$ and $Y$), and a grid over the half zone
+$[-\pi/a,\pi/a] \times [0,\pi/a]$ finds the same edges. The path needs $Y$ because a resonator at $(a/2, 0)$ breaks the square
 symmetry. The two-resonator gaps lie between bands 2 and 3, because each resonator
 adds a band.
 \begin{center}
@@ -424,5 +459,5 @@ gone from $X$.
 
 But $X$ is not the only point that matters. At $Y$ the pattern $\sin(\pi y/a)$ is
 zero at $y = 0$, where both resonators sit, so it stays at $1194.4\,\mathrm{Hz}$ and
-the upper edge stays pinned. Moving the second resonator to the cell centre removes
+the upper edge stays pinned. Moving the second resonator to the cell center removes
 the pinning at both $X$ and $Y$ (Section~\ref{sec:two_resonators}).

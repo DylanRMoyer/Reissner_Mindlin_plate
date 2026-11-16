@@ -265,7 +265,7 @@ Now the denominator decides:
         $q_n \approx -g/\lambda$. This is exactly the mass formula.
 \end{itemize}
 Physically, each wave is an oscillator with a stiffness part $\lambda_n^0$ and
-an inertia part $-\lambda$; the larger one decides its behaviour. For
+an inertia part $-\lambda$; the larger one decides its behavior. For
 $\lambda_n^0 = 0$ (no stiffness at all) the formula is exactly a mass.
 
 % ---------------------------------------------------------------------
@@ -593,7 +593,104 @@ A gap above $f_r$ could only be a higher one, between bands 2 and 3. That gap di
 not open for any tuning tested ($300$--$2000\,\mathrm{Hz}$), because band 2
 reaches $2378\,\mathrm{Hz}$ at $M$. The widest gap found was at
 $f_r = 1100\,\mathrm{Hz}$ ($201\,\mathrm{Hz}$), close to where the upper edge
-switches candidates (candidate for the stage~7 parameter study).
+switches candidates. The next section turns the switch and the end of regime~2 into
+formulas and checks them over the whole tuning range.
+
+% ---------------------------------------------------------------------
+\section{The whole tuning range: parameter study}
+\label{sec:parameter_study}
+
+\paragraph{Setup.} Reissner--Mindlin plane-wave model of the $0.1\,\mathrm{m}$ cell
+with one centered resonator, $\tau = f_r/f_X$ from $0.2$ to $2.5$ in steps of $0.05$,
+mass ratios $\mu = 0.05, 0.1, 0.25, 0.5, 1$, complete gaps wider than $0.5\,\%$ on
+$\Gamma$--$X$--$M$--$\Gamma$. Here $f_X = 1194.4\,\mathrm{Hz}$ is the lowest bare band
+at $X$, and $\tau$ is the natural variable: in units of $f_X$ the map depends only on
+$\mu$ and, weakly, on $h/a$. The model agrees with FE to $0.08\,\%$ at eight test
+points, and a zone-interior scan near $\tau = 1$ adds no extrema.
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+$\mu$ & widest gap & at $\tau$ & effective medium & last $\tau > 1$ with a gap \\
+\hline
+$0.05$ & $4.5\,\%$ & $0.95$ & $2.4\,\%$ & none (closes below $1.05$) \\
+$0.1$ & $8.6\,\%$ & $0.95$ & $4.8\,\%$ & $1.05$ \\
+$0.25$ & $18.6\,\%$ & $0.95$ & $11.1\,\%$ & $1.25$ \\
+$0.5$ & $31.6\,\%$ & $0.90$ & $20.2\,\%$ & $1.95$ \\
+$1$ & $49.3\,\%$ & $0.80$ & $34.3\,\%$ & never closes (up to $2.5$) \\
+\hline
+\end{tabular}
+\end{center}
+Effective medium: relative width of $f_r \dots f_r\sqrt{1+\mu}$,
+$2(s-1)/(s+1)$ with $s = \sqrt{1+\mu}$. The real gap is about $1.5$ times wider,
+because near the fold the lower edge is pulled down at $M$ by four waves at once.
+
+\paragraph{Where the maximum lies: $\tau_\text{switch}$.} Rule~2 says the upper edge is
+the lower of two candidates. The resonator band at $\Gamma$ sits at
+$f_r\sqrt{1 + \mu(1-S)}$ (Section on the upper edge, $\beta = 1 + \mu - \mu S$); the
+sin pattern at $X$ sits at $f_X$. Below the switch the upper edge rises with $f_r$,
+above it the upper edge is frozen while the lower edge keeps rising, so the width is
+largest at the switch:
+\begin{equation}
+  f_r\sqrt{1 + \mu(1-S)} = f_X
+  \quad\Longleftrightarrow\quad
+  \boxed{\;\tau_\text{switch} = \frac{1}{\sqrt{1 + \mu(1-S)}}\;}
+\end{equation}
+With $S \approx 0.45$--$0.5$ this gives $0.988, 0.976, 0.943, 0.894, 0.816$ for the five
+mass ratios; the study finds the maximum at $0.95, 0.95, 0.95, 0.90, 0.80$, the same
+values to within the step of $0.05$.
+
+\paragraph{Width at the maximum.} At $\tau_\text{switch}$ the upper edge is $f_X$ and
+the lower edge is band~1 at $M$. Eq.~\eqref{eq:d_waves} with $d = 4$ and, in units of
+$\lambda_X$, $\lambda_p = \lambda_M^0/\lambda_X = 3.964$ and
+$\lambda_r = \tau_\text{switch}^2$:
+\begin{equation}
+  \lambda^2 - \lambda\,(\lambda_p + \lambda_r + 4\mu\lambda_r) + \lambda_p\lambda_r = 0 .
+\end{equation}
+For $\mu = 0.25$, $S = 0.45$: $\lambda_r = 0.879$, the smaller root is
+$\lambda = 0.693$, i.e.\ $f/f_X = 0.832$, and the width
+$2(1 - 0.832)/(1 + 0.832) = 18.3\,\%$ (with $S = 0.5$: $17.9\,\%$), against
+$18.6\,\%$ from the full model. The four waves at $M$ carry almost the whole effect.
+
+\paragraph{Where the gap closes: $\tau_\text{close}$.} For $\tau > 1$ the upper edge is
+$f_X$ and the lower edge is band~1 at $M$. The gap closes when band~1 at $M$ reaches
+$f_X$. At that frequency the resonator acts on the plate exactly like a rigid mass of
+size $\mu_\mathrm{eff}$, because $Z(\omega)$ is just a number at a fixed $\omega$:
+\begin{equation}
+  \mu_\mathrm{eff}(f_X) = \frac{\mu}{1 - (f_X/f_r)^2} = \frac{\mu}{1 - 1/\tau^2} .
+\end{equation}
+So the gap closes when $\mu_\mathrm{eff}(f_X)$ equals the rigid-mass threshold $\mu^*$,
+the mass ratio at which band~1 at $M$ of a rigid-mass lattice reaches band~2 at $X$
+(Section~\ref{sec:bound_type}):
+\begin{equation}
+  \frac{\mu}{1 - 1/\tau^2} = \mu^*
+  \quad\Longleftrightarrow\quad
+  1 - \frac{1}{\tau^2} = \frac{\mu}{\mu^*}
+  \quad\Longleftrightarrow\quad
+  \boxed{\;\tau_\text{close} = \frac{1}{\sqrt{1 - \mu/\mu^*}}\;}
+\end{equation}
+For $\mu \ge \mu^*$ the gap never closes: the resonator mass alone already suffices
+for a Bragg gap. With the four-wave estimate $\mu^* = 0.741$ the formula gives $1.75$ for
+$\mu = 0.5$, too early. With the all-wave value $\mu^* = 0.663$ it gives
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+$\mu$ & $0.05$ & $0.1$ & $0.25$ & $0.5$ & $1$ \\
+\hline
+$\tau_\text{close}$ (formula, $\mu^* = 0.663$) & $1.04$ & $1.09$ & $1.27$ & $2.02$ & $\infty$ \\
+last open $\tau$ in the study (step $0.05$) & $< 1.05$ & $1.05$ & $1.25$ & $1.95$ & $\ge 2.5$ \\
+\hline
+\end{tabular}
+\end{center}
+All five agree within the step. For the production cell, $\tau_\text{close} = 1.267$,
+i.e.\ $f_r \approx 1513\,\mathrm{Hz}$: the end of regime~2 found above
+($1510\,\mathrm{Hz}$). The argument uses only the two path points $M$ and $X$; it is
+exact within the plane-wave model as long as band~1 peaks at $M$ and band~2 is lowest
+at $X$, which the zone scans confirm.
+
+\paragraph{Finite plate.} The $1 \times 1\,\mathrm{m}$ plate with $10 \times 10$
+resonators ($\mu = 0.25$) was swept at three tunings; Chapter~\ref{ch:complex_k}
+compares its insertion loss with these gaps.
 
 % ---------------------------------------------------------------------
 \section{Check questions with answers}

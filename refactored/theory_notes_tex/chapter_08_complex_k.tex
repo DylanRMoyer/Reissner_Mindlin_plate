@@ -70,10 +70,10 @@ In decibels, the decay per cell is
 
 Two special cases:
 \begin{itemize}
-  \item $k_\mathrm{re} = \pi/a$: $e^{i\pi} = -1$, so neighbouring cells move in
+  \item $k_\mathrm{re} = \pi/a$: $e^{i\pi} = -1$, so neighboring cells move in
         \emph{antiphase} while the amplitude shrinks: a Bragg-type decaying standing
         pattern;
-  \item $k_\mathrm{re} = 0$: neighbouring cells move \emph{in phase} while the amplitude
+  \item $k_\mathrm{re} = 0$: neighboring cells move \emph{in phase} while the amplitude
         shrinks.
 \end{itemize}
 
@@ -168,7 +168,7 @@ Squaring, $(\lambda - \bar{H})^2 = c^2 - s^2\sigma^2$, hence
           \sigma \approx \frac{\sqrt{2|c|\,\varepsilon}}{s} :
         \end{equation}
         $\sigma$ grows like the square root of the distance from the edge.
-  \item \emph{With constant coupling}, $\sigma$ is largest at the gap centre:
+  \item \emph{With constant coupling}, $\sigma$ is largest at the gap center:
         $\sigma_\mathrm{max} = |c|/s$, the gap half-width divided by how fast the two
         crossing bands separate in $k$.
 \end{itemize}
@@ -328,10 +328,18 @@ gap. Intermediate angles were not computed.
         moves, through the near field and the decaying wave. The drive-point mobility
         drops much less than the transfer mobility far away. Which insertion-loss
         definition is used (mobility, radiated power) decides how strongly the gap
-        shows; to be checked against the forced-response runs.
-  \item \emph{Prerequisite:} all of this applies to a finite plate with resonators on
-        the $0.1\,\mathrm{m}$ lattice (about 100 small resonators), not to the current
-        layouts with 1--6 large resonators.
+        shows. Computed for the radiated power (equal force, full $3\times 3$ shear
+        rule, $1 \times 1\,\mathrm{m}$ plate): mean IL $+9.4\,\mathrm{dB}$ inside the Bloch
+        gap $1031$--$1194\,\mathrm{Hz}$, peak $+13.0\,\mathrm{dB}$ at $1120\,\mathrm{Hz}$,
+        positive across the whole gap. Just above it the IL drops to
+        $-13.9\,\mathrm{dB}$ at $1267\,\mathrm{Hz}$, at the flat resonator branch; that dip
+        is a radiation effect, not a transmission effect (Chapter~\ref{ch:radiation}).
+  \item \emph{The finite plate used:} $1 \times 1\,\mathrm{m}$ with $10 \times 10$
+        resonators on the $0.1\,\mathrm{m}$ lattice ($\mu = 0.25$ each, $f_r$ at $600$,
+        $1200$ or $2000\,\mathrm{Hz}$), not the earlier layouts with 1--6 large
+        resonators. At $600\,\mathrm{Hz}$ the IL turns negative in the upper third of
+        the gap although the plate moves less there; the cause is again radiation
+        (Chapter~\ref{ch:radiation}).
 \end{enumerate}
 
 % ---------------------------------------------------------------------
@@ -356,7 +364,7 @@ optional later step (damped gap depth); it is not needed for the band positions.
 throughout the gap. What does the motion look like from one cell to the next, and why
 must $\sigma$ go to zero at both gap edges?}
 
-\emph{Answer.} Neighbouring cells move in antiphase ($e^{i\pi} = -1$), and the
+\emph{Answer.} Neighboring cells move in antiphase ($e^{i\pi} = -1$), and the
 amplitude shrinks by $e^{-\sigma a}$ per cell; at mid-gap, $\sigma a \approx 0.4$, so
 each cell has about $0.67$ of the amplitude of the previous one. Each gap edge is the
 flat extreme of a propagating band: the maximum of band 1 at $X$ below, the decoupled
@@ -377,6 +385,15 @@ energy away. A loss factor of $0.04$ adds about $2.6\,\mathrm{dB/m}$ everywhere.
 the gap that is small against $10$--$35\,\mathrm{dB/m}$ and only rounds off the edges;
 outside the gap it is the only decay and lowers the resonance peaks of the finite
 plate, which also enters an insertion loss measured against the bare plate.
+
+\emph{Comparison with the computed IL} (radiated power, equal force, $3\times 3$ shear
+rule): the IL exceeds $5\,\mathrm{dB}$ on $854$--$1175\,\mathrm{Hz}$ and $10\,\mathrm{dB}$
+on $1072$--$1147\,\mathrm{Hz}$, and stays positive up to $1199\,\mathrm{Hz}$. The
+prediction ``clearly visible on roughly $880$--$1180\,\mathrm{Hz}$'' fits the
+$5\,\mathrm{dB}$ range. The IL is also positive somewhat below the Bloch gap, where the
+resonators act as added mass ($\mu_\mathrm{eff} > 0$) and lower the response without a
+gap; the full $20\,\mathrm{dB}$ of the decay estimate is not reached, because the IL is
+a power summed over the whole plate, including the cells near the shaker.
 
 \paragraph{Question 3.} \emph{The diagonal decays about four times faster than $x$. A
 receiver sits on the finite plate at some angle from the shaker. Which direction

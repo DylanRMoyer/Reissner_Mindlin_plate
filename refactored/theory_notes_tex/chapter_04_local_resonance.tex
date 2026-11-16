@@ -115,6 +115,18 @@ The effective-medium gap is $f_r \dots f_r\sqrt{1+\mu} = 1200 \dots
 1342\,\mathrm{Hz}$. The FE result is $1031$--$1195\,\mathrm{Hz}$; the difference
 is the topic of the next chapter.
 
+\paragraph{How far the effective medium can be trusted.} It keeps only
+$\mathbf{G} = 0$, so it is exact only in the limit $f_r \ll f_X$
+($\tau = f_r/f_X \to 0$). Even at $\Gamma$, where the long-wave picture should work
+best, the upper edge $f_r\sqrt{1+\mu}$ is too high: the other waves add the local
+bending sum $S$ (Chapter~\ref{ch:gap_position}), and band~2 at $\Gamma$ lies below
+$f_r\sqrt{1+\mu}$ by about $0.051\,\tau^2$ (relative, $\mu = 0.25$); for Cool's
+Fig.~16c design that is already $2\,\%$. Its predicted width, $11\,\%$ at
+$\mu = 0.25$, is also well below the widest complete gap of the plane-wave model,
+$18.6\,\%$ near $\tau = 0.95$ (Section~\ref{sec:parameter_study}). The flat band and
+the radiation it causes on the finite plate are taken up in
+Chapter~\ref{ch:radiation}.
+
 % ---------------------------------------------------------------------
 \section{The two-level model with a resonator}
 
@@ -128,7 +140,7 @@ Keep one plate mode only, so the deflection is
 $q$ is the \emph{modal amplitude}: how strongly this mode is present. Since
 $\varphi$ has units $1/\sqrt{\mathrm{kg}}$, $q$ has units
 $\sqrt{\mathrm{kg}}\cdot\mathrm{m}$. If $W$ is the deflection amplitude in
-metres, $w = W e^{i(\mathbf{k}+\mathbf{G})\cdot\mathbf{x}}$ and
+meters, $w = W e^{i(\mathbf{k}+\mathbf{G})\cdot\mathbf{x}}$ and
 $q = W\sqrt{\rho h A}$. At the attachment point $w_0 = \varphi\, q$, where
 $\varphi$ without an argument means $\varphi(\mathbf{x}_0)$. The unknowns are
 collected in the vector $x = (q, u)^T$.
@@ -360,8 +372,8 @@ replaced by $2\mu$ and $4\mu$, and $\lambda_p$ by the bare value
   \caption{Dispersion diagram of the $0.1\,\mathrm{m}$ unit cell
     ($h = 5\,\mathrm{mm}$, steel) with one resonator per cell,
     $f_r = 1200\,\mathrm{Hz}$, $\mu = 0.25$, along
-    $\Gamma$--$X$--$M$--$\Gamma$. Blue dots: FE Bloch solution. Solid grey:
-    plane-wave expansion. Dashed grey: bare plate. Dotted red: resonator
+    $\Gamma$--$X$--$M$--$\Gamma$. Blue dots: FE Bloch solution. Solid gray:
+    plane-wave expansion. Dashed gray: bare plate. Dotted red: resonator
     frequency $f_r$. The complete gap runs from the maximum of band 1 at $M$
     ($1031\,\mathrm{Hz}$) to the minimum of band 2 at $X$
     ($1195\,\mathrm{Hz}$).}
@@ -371,8 +383,8 @@ replaced by $2\mu$ and $4\mu$, and $\lambda_p$ by the bare value
 The blue dots in Fig.~\ref{fig:dispersion_vamm_1200} are the actual modes. They
 come from three ingredients:
 \begin{enumerate}
-  \item the grey dashed rising curve: the plate wave going out from $\Gamma$;
-  \item the grey dashed falling curves: the folded plate waves coming down
+  \item the gray dashed rising curve: the plate wave going out from $\Gamma$;
+  \item the gray dashed falling curves: the folded plate waves coming down
         towards $X$ and $M$;
   \item the red dotted line: the resonator alone, at $1200\,\mathrm{Hz}$.
 \end{enumerate}
@@ -385,10 +397,10 @@ from $\Gamma$ to $M$ (at $\kappa = \pi/a$); the diagonal entries of $H$ are equa
 slightly earlier, at about two thirds of the way. Reading from $\Gamma$ towards
 $M$:
 \begin{itemize}
-  \item \textbf{Band 1} starts on the grey curve, bends away below the crossing
+  \item \textbf{Band 1} starts on the gray curve, bends away below the crossing
         and flattens out.
   \item \textbf{Band 2} starts flat at about $1270\,\mathrm{Hz}$, stays flat,
-        then bends upwards at the crossing and joins the grey curve.
+        then bends upwards at the crossing and joins the gray curve.
 \end{itemize}
 The two bands swap roles at the crossing: band 1 starts plate-like and ends
 resonator-like, band 2 does the opposite. This is the avoided crossing of the
@@ -401,9 +413,9 @@ plot at that position.
         ($20\,\%$ in the model) and the plate curve itself is nearly flat
         there. Both reasons work together.
   \item Band 1 near $\Gamma$: the share is high ($80\,\%$), so the band follows
-        the grey curve.
+        the gray curve.
   \item The bending part of band 2 on $M$--$\Gamma$: the share grows towards
-        $100\,\%$, and the band picks up the slope of the grey curve.
+        $100\,\%$, and the band picks up the slope of the gray curve.
 \end{itemize}
 
 \paragraph{Plate share at the landmarks.}
@@ -487,7 +499,7 @@ becomes resonator-dominated towards the end of band 1.
 
 \emph{MAC tracking:} band 1 goes from $80\,\%$ plate at $\Gamma$ to $5\,\%$ at
 $M$. That is a large change of character, but it happens gradually over many
-$\mathbf{k}$-points, so the MAC between neighbouring points stays high and
+$\mathbf{k}$-points, so the MAC between neighboring points stays high and
 tracking should follow the band without swapping labels. The MAC must use the
 \emph{full vector including the resonator DOF}, with the augmented mass matrix;
 on plate DOFs alone the comparison is somewhat weaker (lowest MAC of band 1:

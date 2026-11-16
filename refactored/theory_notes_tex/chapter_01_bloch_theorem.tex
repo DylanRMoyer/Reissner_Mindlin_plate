@@ -109,7 +109,7 @@ edge.
 Point & $\mathbf{k}$ & Phase per cell & Picture \\
 \hline
 $\Gamma$ & $(0,0)$ & $1,\ 1$ & all cells move identically \\
-$X$ & $(\pi/L_x, 0)$ & $-1$ in $x$ & neighbours in $x$ move oppositely \\
+$X$ & $(\pi/L_x, 0)$ & $-1$ in $x$ & neighbors in $x$ move oppositely \\
 $M$ & $(\pi/L_x, \pi/L_y)$ & $-1,\ -1$ & checkerboard \\
 $Y$ & $(0, \pi/L_y)$ & $-1$ in $y$ & only needed for rectangular cells \\
 \hline
@@ -130,7 +130,7 @@ Thin-plate (Kirchhoff) estimate for the $5\,\mathrm{mm}$ plate:
 Described with cells of size $a$, the Bloch wavevector only sees
 $\boldsymbol{\kappa}$ modulo $\mathbf{G}$. At a fixed $\mathbf{k}$ the cell
 therefore carries all waves $\boldsymbol{\kappa} = \mathbf{k} + \mathbf{G}$,
-each with its own frequency. Folding is a relabelling, nothing physical
+each with its own frequency. Folding is a relabeling, nothing physical
 changes.
 
 \begin{center}
@@ -189,8 +189,10 @@ physically?}
 
 \emph{Answer.} Step 1 already fails: a shifted solution no longer satisfies
 the edge conditions, so the operators no longer commute. Physically, waves
-reflect at the free edges, travelling waves become standing waves, and the
-finite plate has discrete modes. Two consequences (treated later):
+reflect at the free edges, traveling waves become standing waves, and the
+finite plate has discrete modes. Two consequences (for the $1 \times 1\,\mathrm{m}$
+plate with $10 \times 10$ resonators: Chapter~\ref{ch:complex_k} for the insertion loss
+inside the gap, Chapter~\ref{ch:radiation} for what the plate radiates):
 \begin{itemize}
   \item the modes of the finite plate roughly \emph{sample} the bands at
         discrete wavenumbers, about $n\pi/L$;

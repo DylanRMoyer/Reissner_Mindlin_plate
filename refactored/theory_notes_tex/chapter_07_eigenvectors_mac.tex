@@ -10,10 +10,10 @@
 
 So far only the eigenvalues of the Bloch problem were used. This chapter looks at
 the eigenvectors: what they contain, how much of a mode sits in the resonator, how
-two modes at neighbouring wavevectors are compared with the Modal Assurance
+two modes at neighboring wavevectors are compared with the Modal Assurance
 Criterion (MAC), and which situations a mode tracker has to handle. All FE numbers
 are measured on the production cell: $a = 0.1\,\mathrm{m}$, $h = 5\,\mathrm{mm}$,
-steel, $10\times 10$ Lagrange degree 2 elements, one resonator at the cell centre
+steel, $10\times 10$ Lagrange degree 2 elements, one resonator at the cell center
 with $f_r = 1200\,\mathrm{Hz}$ and $\mu = 0.25$.
 
 \begin{center}
@@ -162,7 +162,7 @@ and phase. With $\langle \psi_1, \psi_2\rangle = \psi_1^H M_r \psi_2$,
         Section~\ref{sec:orthogonality} holds for two different bands at the same
         $\mathbf{k}$.
 \end{itemize}
-Two vectors at neighbouring $\mathbf{k}$ come with two slightly different $M_r$. The
+Two vectors at neighboring $\mathbf{k}$ come with two slightly different $M_r$. The
 measurements below use $M_r$ of the first of the two points; the difference
 vanishes as the step shrinks.
 
@@ -206,15 +206,15 @@ The ratios are $3.7$ and $3.9$, as expected. At 20 points per segment this worst
 step lies just before $X$ on $\Gamma$--$X$, not at the resonator crossing on
 $M$--$\Gamma$.
 
-\subsection{Why only neighbours are compared}
+\subsection{Why only neighbors are compared}
 Band 1 at $\Gamma$ against band 1 at $M$ has $\mathrm{MAC} = 0.35$, because the mode
 legitimately changes from $80\,\%$ plate to $5\,\%$ plate. A low value over a long
-distance means nothing. Between neighbouring points on $M$--$\Gamma$ the same band
+distance means nothing. Between neighboring points on $M$--$\Gamma$ the same band
 never drops below $0.9974$ at 40 points per segment, even though it changes its
 character completely along that path.
 
 \subsection{Which vector and which weighting}
-Lowest neighbouring MAC of band 1 at 40 points per segment:
+Lowest neighboring MAC of band 1 at 40 points per segment:
 
 \begin{center}
 \begin{tabular}{|l|l|}
@@ -278,7 +278,7 @@ $c$ & off-diagonal entry & $-\sqrt{\mu}\,\lambda_r$ \\
 $Hz = \bar{H}z + Bz = (\bar{H} + r)z$. The part $\bar{H}I$ only shifts the
 eigenvalues. \emph{The eigenvectors depend on $B$ alone}, so only $\Delta$ and $c$
 matter. $\Delta = 0$ at $\lambda_p = \lambda_r(1-\mu)$, where the diagonal entries
-are equal: the centre of the avoided crossing.
+are equal: the center of the avoided crossing.
 
 \subsection{Eigenvalues}
 \begin{align}
@@ -427,7 +427,7 @@ the change from $80\,\%$ to $5\,\%$ takes practically all 57.
 \paragraph{The baseline of the FE value.}
 Close to $\Gamma$ the FE MAC stays at $0.99961$ while the model gives $1.00000$. The
 model uses ``the plate wave at this $\mathbf{k}$'' as a basis vector, so it cannot see
-that the pattern $e^{i\mathbf{k}\cdot\mathbf{x}}$ itself changes between neighbouring
+that the pattern $e^{i\mathbf{k}\cdot\mathbf{x}}$ itself changes between neighboring
 points. One step changes the phase at $\mathbf{x}$ by $\theta(\mathbf{x}) =
 \delta\mathbf{k}\cdot\mathbf{x}$, and $1 - \mathrm{MAC}$ is approximately the variance
 of $\theta$ over the mass of the mode. With $\delta k_x = \delta k_y = 0.0175\,\pi/a$,
@@ -454,7 +454,7 @@ $b_H = c$.
 % ---------------------------------------------------------------------
 \section{The three situations a tracker meets}
 
-Lowest neighbouring MAC between \emph{sorted} bands along the whole path:
+Lowest neighboring MAC between \emph{sorted} bands along the whole path:
 
 \begin{center}
 \begin{tabular}{|l|l|l|l|p{0.32\textwidth}|}
@@ -477,7 +477,7 @@ finer step.
 step. That is the signature of a degeneracy and not of a coarse step. At the
 degenerate point the solver picks an arbitrary basis of the group
 (Section~\ref{sec:orthogonality}), while just beside it the modes are distinct. Near
-$M$, MAC of the three neighbouring modes against the three modes at $M$ (40 points per
+$M$, MAC of the three neighboring modes against the three modes at $M$ (40 points per
 segment):
 
 \begin{center}
@@ -500,7 +500,7 @@ with $\langle\psi,\psi\rangle = 1$. Then
 \end{equation}
 which by Pythagoras is the squared length of the part of $\psi$ that lies inside the
 group. It equals 1 exactly if $\psi$ lies entirely in the group, and it does not depend
-on which basis the solver chose. The neighbouring mode sits at a slightly different
+on which basis the solver chose. The neighboring mode sits at a slightly different
 $\mathbf{k}$, so the sum is only approximately 1. Degenerate groups therefore have to
 be compared as a whole, and all members of the group must have been computed.
 
@@ -514,7 +514,7 @@ about the diagonal, which have $c = 0$; the symmetry itself was not checked.
 \section{Tracking and gap finding are different tasks}
 
 \emph{Tracking} follows a mode's identity from one $\mathbf{k}$ to the next, using the
-MAC between neighbours. It answers ``which curve is this dot on?''
+MAC between neighbors. It answers ``which curve is this dot on?''
 
 \emph{Gap finding} asks whether any dot lies in a frequency interval. It needs only the
 frequencies sorted at each $\mathbf{k}$: the gap between sorted bands $n$ and $n+1$
@@ -528,10 +528,33 @@ curve $B$ alone when $A$ rises higher later on the path gives a value that is to
 the reported gap starts too low and contains dots of $A$. Stage 5 therefore keeps plain
 sorting available.
 
+\paragraph{Plan and implementation compared.} What this chapter asks of a tracker, and
+what stage~5 (\texttt{band\_tracking.py}) does:
+\begin{center}
+\begin{tabular}{|p{0.38\textwidth}|p{0.52\textwidth}|}
+\hline
+Requirement from this chapter & Implementation \\
+\hline
+compare neighbors only, small step & MAC between $\mathbf{k}_{j-1}$ and $\mathbf{k}_j$; $40$ points per segment \\
+which vector and weighting & the full vector including the resonator DOF, $M_r$ of the later wavevector \\
+degenerate groups as a whole & groups within $10^{-6}$ relative or $1\,\mathrm{mHz}$; compared as subspaces (Cholesky-orthonormalized; the summed MAC counts the shared dimensions, the row-sum argument above) \\
+true crossings & optimal one-to-one assignment (\texttt{linear\_sum\_assignment}) with a $10^{-9}$ tie-breaker towards sorted order \\
+all group members computed & bands tracked $10\,\%$ above the plotted limit \\
+\hline
+\end{tabular}
+\end{center}
+Two additions not foreseen here: a \emph{bridge} $\mathbf{k}_{j-2} \to \mathbf{k}_j$
+where several groups merge at $\mathbf{k}_{j-1}$ (a crossing exactly on a $k$-point,
+pairs merging at $M$), and a minimum match quality of $0.5$ below which the tracker
+falls back to sorting. Gap finding (stage~6) uses the sorted bands, as argued above.
+Below $5\,\mathrm{kHz}$ neither the bare nor the resonator cell has a true crossing,
+so the tracked and sorted bands coincide there; the first bare crossings lie near
+$6.5\,\mathrm{kHz}$ ($M$--$\Gamma$) and $7.3\,\mathrm{kHz}$ ($\Gamma$--$X$).
+
 % ---------------------------------------------------------------------
 \section{Check questions with answers}
 
-\paragraph{Question 1.} \emph{Band 3 near $\Gamma$ has a neighbouring MAC of about 0.2,
+\paragraph{Question 1.} \emph{Band 3 near $\Gamma$ has a neighboring MAC of about 0.2,
 and it stays there when the number of $\mathbf{k}$-points is doubled. What do you
 conclude, and what would you do differently for that step?}
 
@@ -542,14 +565,14 @@ between two sampled points: there the continuation is well defined, the MAC with
 partner band is about 1 and the sorted labels simply swap. Here the MAC is about 0.2,
 neither 0 nor 1, and refining the step does not change it, which points to a degenerate
 point where individual vectors mean nothing. The sum is only approximately 1 because the
-neighbouring vector sits at a slightly different $\mathbf{k}$ (measured: $0.97$ to
+neighboring vector sits at a slightly different $\mathbf{k}$ (measured: $0.97$ to
 $1.00$), and it needs every member of the group, which is why the solver uses guard
 eigenpairs. For that step: match the group as a whole instead of one vector to one
 vector. At the degenerate dot all members have the same frequency, so the plotted
 curve does not depend on which label goes where.
 
 \paragraph{Question 2.} \emph{Band 1 changes from $80\,\%$ plate to $5\,\%$ plate along
-$M$--$\Gamma$, yet the neighbouring MAC stays close to 1 there. Why is this not a
+$M$--$\Gamma$, yet the neighboring MAC stays close to 1 there. Why is this not a
 contradiction, and which change in the unit cell would make this crossing harder to
 track?}
 
