@@ -1,0 +1,23 @@
+% Build file for the transcribed gap-mechanisms notes (1. Bragg gaps, 2. Local resonator gap).
+% Compile from this folder with: latexmk -pdf gap_mechanisms_main.tex
+\documentclass[11pt]{report}
+\usepackage[a4paper, left=2.5cm, right=4.8cm, marginparwidth=3.6cm, marginparsep=0.4cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\graphicspath{{../../results/}}
+
+% Corrections of the handwritten text: corrected text in blue, explanation in a red margin note
+\providecommand{\fixed}[1]{{\color{blue!70!black}#1}}
+\providecommand{\corr}[1]{\marginpar{\raggedright\footnotesize\color{red!70!black}#1}}
+
+\title{Concepts of band gaps}
+\author{Project notes, dispersion branch}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+\include{gap_mechanisms_bragg}
+\include{gap_mechanisms_local_resonance}
+\end{document}

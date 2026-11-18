@@ -1,0 +1,39 @@
+% Combined build of the theory notes (Chapters 1-9 + hourglass note as appendix).
+% Compile from this folder with: latexmk -pdf theory_notes_complete.tex
+% appendix_hourglass_body.tex = lines 20-449 of ../hourglass_mode.tex (body only).
+\documentclass[11pt]{report}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\usepackage[hidelinks]{hyperref}
+\graphicspath{{../../results/}}
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+
+\title{Dispersion diagrams of a Reissner--Mindlin plate with resonators:\\ theory notes}
+\author{Project notes, dispersion branch}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\include{chapter_01_bloch_theorem}
+\include{chapter_02_two_level_model}
+\include{chapter_03_bragg_gaps_2d}
+\include{chapter_04_local_resonance}
+\include{chapter_05_gap_position}
+\include{chapter_06_pwe_general}
+\include{chapter_07_eigenvectors_mac}
+\include{chapter_08_complex_k}
+\include{chapter_09_radiation}
+
+\appendix
+\chapter{The hourglass mode of the Q2 plate element: origin, consequences, fix and caveats}
+\label{app:hourglass}
+\input{appendix_hourglass_body}
+
+\end{document}
