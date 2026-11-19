@@ -2,8 +2,7 @@
 % Gap mechanisms, Section 2: the local resonator gap
 % Transcription of Dylan's handwritten notes (dispersion_theory_page1.pdf,
 % dispersion_theory_page2.pdf, dispersion_theory_pages3-4.pdf), Nov 2026.
-% Corrections of the handwritten text are set in blue (\fixed{...}) and
-% explained in a red margin note (\corr{...}).
+% Corrections of the handwritten text are integrated into the text.
 % Requires: amsmath, amssymb, graphicx, xcolor. The macros \fixed and \corr are
 % defined below with \providecommand, so this file works in any main file that
 % loads xcolor (a main file may define its own versions first).
@@ -16,27 +15,31 @@
 \chapter{Local resonator gap}
 \label{ch:local_resonator_gap}
 
+\section{Resonator as a frequency-dependent mass}
+\label{sec:resonator_effective_mass}
+
 Let $m$ be the point mass, connected at $\mathbf{x}_0$ to the plate by a spring
 of stiffness $k_s$. Write the plate deflection at the attachment point as
 $w_0 := w(\mathbf{x}_0)$ and the displacement of the resonator mass as $u$.
 The spring is stretched by $w_0 - u \Rightarrow m\ddot{u} = k_s(w_0 - u)$.
 Assuming a harmonic motion $\ddot{u} = -\omega^2 u$, we obtain
-\begin{equation*}
+\begin{equation}
   -m\omega^2 u = k_s(w_0 - u)
   \;\Rightarrow\;
   u = \frac{k_s w_0}{k_s - m\omega^2}
   \;\overset{\cdot\frac{1/m}{1/m},\ \omega_r^2 = \frac{k_s}{m}}{=}\;
   \frac{\omega_r^2 w_0}{\omega_r^2 - \omega^2} .
-\end{equation*}
+\end{equation}
 The spring pulls on the plate with $F = k_s(u - w_0)$ according to Newton~III.
 We find
-\begin{equation*}
+\begin{equation}
   F = k_s(u - w_0)
   \overset{k_s = m\omega_r^2}{=}
   m\omega_r^2\left(\frac{\omega_r^2}{\omega_r^2 - \omega^2} - 1\right) w_0
   = m\omega_r^2 \cdot \frac{\omega^2}{\omega_r^2 - \omega^2}\, w_0
   =: m_\mathrm{eff}(\omega)\,\omega^2 w_0 ,
-\end{equation*}
+  \label{eq:resonator_force}
+\end{equation}
 where we have defined the \underline{effective mass}
 $m_\mathrm{eff}(\omega) := m\,\dfrac{\omega_r^2}{\omega_r^2 - \omega^2}$.
 Everything from Section~1, \emph{Bragg gaps}, now carries over by making the
@@ -55,43 +58,39 @@ We discuss different cases:
         $u \approx 0$, $F \to -k_s w_0 \mathrel{\widehat{=}}$ a spring to a fixed point.
 \end{enumerate}
 
+\section{Effective-medium gap}
+
 When considering \underline{waves much larger than the unit cell dimension $a$},
 $m_\mathrm{eff}$ can be considered spread over the entire cell area:
 $\rho h \to \rho h + m_\mathrm{eff}/A$.
 Consider the Kirchhoff relation
-\begin{equation*}
+\begin{equation}
   D k^4 = \rho h\,(1 + \mu_\mathrm{eff})\,\omega^2
   = \rho h\left(1 + \mu\,\frac{\omega_r^2}{\omega_r^2 - \omega^2}\right)\omega^2
   = \rho h\,\frac{\omega_r^2(1+\mu) - \omega^2}{\omega_r^2 - \omega^2}\,\omega^2 .
-\end{equation*}
+\end{equation}
 A real solution needs a positive RHS, meaning that a negative RHS corresponds to
 a band gap. As $\rho h, \omega^2 > 0$, consider the fraction: It is negative if
-both the numerator $> 0$ and the denominator $< 0$ \fixed{(the opposite
+both the numerator $> 0$ and the denominator $< 0$ (the opposite
 combination, numerator $< 0$ and denominator $> 0$, would need
-$\omega_r\sqrt{1+\mu} < \omega < \omega_r$, which is impossible)},%
-\corr{Added: the second sign combination and why it is excluded.}
+$\omega_r\sqrt{1+\mu} < \omega < \omega_r$, which is impossible),
 namely
-\begin{equation*}
+\begin{equation}
   \omega_r^2(1+\mu) - \omega^2 \overset{!}{>} 0
   \;\Rightarrow\; \omega < \omega_r\sqrt{1+\mu}
   \quad\text{and}\quad
   \omega_r \overset{!}{<} \omega ,
   \quad\text{thus}
-\end{equation*}
-\corr{Handwritten box: $\omega_r < \omega < \omega_r(1+\mu)$; the square root
-was missing.}%
+\end{equation}
 \begin{equation}
-  \boxed{\;\omega_r < \omega < \fixed{\omega_r\sqrt{1+\mu}}\;}
+  \boxed{\;\omega_r < \omega < \omega_r\sqrt{1+\mu}}\;
   \label{eq:effective_medium_gap}
 \end{equation}
 This is limited by the fact that only $\mathbf{G} = 0$ is kept (i.e.,
 $\tau = f_r/f_X \to 0$) and even at $\Gamma$ (small $\mathbf{k} \Rightarrow$
 long waves) the upper edge is too high, as other waves add a local bending sum
-$S$, lowering the upper edge by about $0.051\,\tau^2$\fixed{$\,f_X$ (fit for
-$\mu = 0.25$)}.%
-\corr{The $0.051\,\tau^2$ fit holds for $\mu = 0.25$ only and is in units
-of $f_X$. Exact at $f_r = 1200\,\mathrm{Hz}$: $0.056\,f_X$
-($1341.6 \to 1274.7\,\mathrm{Hz}$).}
+$S$, lowering the upper edge by about $0.051\,\tau^2$$\,f_X$ (fit for
+$\mu = 0.25$).
 Figure~\ref{fig:dispersion_with_il} shows how far the effective-medium band
 \eqref{eq:effective_medium_gap} is off for the production design.
 
@@ -120,6 +119,8 @@ Figure~\ref{fig:dispersion_with_il} shows how far the effective-medium band
   \label{fig:dispersion_with_il}
 \end{figure}
 
+\section{Two-level model: one plate mode and the resonator}
+
 Keeping only one plate mode we obtain $w(\mathbf{x}) = q\,\varphi(\mathbf{x})$,
 where $q$ is the modal amplitude. Let $u$ be the resonator's displacement and
 $k_s$ its stiffness. Again assuming a harmonic response, i.e.,
@@ -129,10 +130,10 @@ $\ddot{u} = -\omega^2 u = -\lambda u$, we find
   \label{eq:resonator_row}
 \end{equation}
 for the resonator. For the plate mode we find in analogy to the rigid mass
-\begin{equation*}
+\begin{equation}
   (\mathcal{L} - \lambda\rho h)\, w = f(\mathbf{x}) ,
   \qquad f(\mathbf{x}) = F\,\delta(\mathbf{x} - \mathbf{x}_0) .
-\end{equation*}
+\end{equation}
 Inserting $w = q\varphi$, multiplying by $\varphi^*$ and integrating over the
 cell we again obtain (omission of the argument $\mathrel{\widehat{=}}$ evaluated
 at $\mathbf{x}_0$)
@@ -144,71 +145,73 @@ at $\mathbf{x}_0$)
 \end{equation}
 Writing \eqref{eq:resonator_row} and \eqref{eq:plate_row} into matrix form
 $K\mathbf{x} = \lambda M\mathbf{x}$, $\mathbf{x} := (q, u)^T$ we find
-\begin{equation*}
+\begin{equation}
   K = \begin{pmatrix}
         \lambda_p + k_s|\varphi|^2 & -k_s\varphi^* \\
         -k_s\varphi & k_s
       \end{pmatrix} ,
   \qquad
   M = \operatorname{diag}(1, m) .
-\end{equation*}
+\end{equation}
 Transforming the resonator coordinate into a mass-normalized coordinate, i.e.,
 $v := \sqrt{m}\,u$ and identifying
-\begin{gather*}
+\begin{equation}
+\begin{gathered}
   k_s|\varphi|^2 = \frac{k_s}{\rho h A} = \frac{k_s}{m}\cdot\frac{m}{\rho h A}
   = \mu\lambda_r ; \qquad \frac{k_s}{m} = \lambda_r ; \\
   \frac{k_s\varphi}{\sqrt{m}} = \frac{k_s}{\sqrt{m\rho h A}}
   = \frac{k_s}{m}\sqrt{\frac{m}{\rho h A}} = \sqrt{\mu}\,\lambda_r
-\end{gather*}
+\end{gathered}
+\end{equation}
 we see that $K$ becomes a Hermitian matrix $H$
-\begin{equation*}
+\begin{equation}
   H = \begin{pmatrix}
         \lambda_p + \mu\lambda_r & -\sqrt{\mu}\,\lambda_r \\
         -\sqrt{\mu}\,\lambda_r & \lambda_r
       \end{pmatrix}
-\end{equation*}
+\end{equation}
 and $M$ becomes the identity. The eigenvalues at equal diagonals, i.e.,
 $\lambda_p = (1-\mu)\lambda_r$, are
-\begin{equation*}
+\begin{equation}
   \lambda_{1,2} = (1 \pm \sqrt{\mu})\,\lambda_r .
-\end{equation*}
+\end{equation}
+
+\section{Plane-wave expansion condition}
+\label{sec:pwe_condition}
 
 Now we want to consider the influence of other modes. For this, we rewrite
 \eqref{eq:resonator_row} using
 $\dfrac{m\omega^2}{k_s} = \dfrac{\omega^2}{\omega_r^2} =: \beta$ to find
-\begin{equation*}
+\begin{equation}
   u = \frac{w_0}{1 - \beta} .
-\end{equation*}
+\end{equation}
 Newton~III then gives us for the force on the
-\fixed{plate}\corr{Handwritten: ``force on the mass''. $F = m\omega^2 u$ is
-the force the mass exerts on the plate; the force on the mass is
-$-m\omega^2 u$.}
-\begin{equation*}
+plate
+\begin{equation}
   F = m\omega^2 u = m\omega^2\,\frac{w_0}{1-\beta} = m_\mathrm{eff}\,\omega^2 w_0
   \qquad (\mu_\mathrm{eff}\text{ analogous}) .
-\end{equation*}
+\end{equation}
 
 As before, we find in our known notation
-\begin{equation*}
+\begin{equation}
   (\lambda_n^0 - \lambda)\, q_n = F\varphi_n^*(\mathbf{x}_0)
   \;\Rightarrow\;
   q_n = F\,\frac{\varphi_n^*(\mathbf{x}_0)}{\lambda_n^0 - \lambda} ,
-\end{equation*}
+\end{equation}
 i.e., how strongly each wave responds to the point force. We then find
-\begin{equation*}
+\begin{equation}
   w_0 = \sum_n \varphi_n(\mathbf{x}_0)\, q_n
   = F \sum_n \frac{|\varphi_n(\mathbf{x}_0)|^2}{\lambda_n^0 - \lambda}
   =: C F ,
-\end{equation*}
+\end{equation}
 where we have defined the compliance $C$, the
-\fixed{deflection per unit force}.%
-\corr{Handwritten: ``the force per unit deflection''. That is $Z$;
-$C = w_0/F$ is the deflection per unit force.}
+deflection per unit force.
 Defining $Z := m_\mathrm{eff}\lambda$, the force per unit deflection, we finally
 obtain
-\begin{equation*}
+\begin{equation}
   w_0 = w_0 Z C \;\Rightarrow\; \boxed{1 = ZC} \qquad (w_0 \neq 0) .
-\end{equation*}
+  \label{eq:zc_condition}
+\end{equation}
 Using $|\varphi(\mathbf{x}_0)|^2 = \dfrac{1}{\rho h A}$ we get
 \begin{equation}
   \boxed{\;1 = \mu_\mathrm{eff}\sum_n \frac{\lambda}{\lambda_n^0 - \lambda}\;}
@@ -216,65 +219,65 @@ Using $|\varphi(\mathbf{x}_0)|^2 = \dfrac{1}{\rho h A}$ we get
 \end{equation}
 the plane-wave expansion (PWE) condition. At every $\mathbf{k}$, every
 $\lambda$ satisfying it is one dot in the diagram. For $w_0 = 0$ we find
-\begin{equation*}
+\begin{equation}
   (\lambda_n^0 - \lambda)\, q_n = 0 \;\Rightarrow\; \lambda_n^0 = \lambda ,
-\end{equation*}
+\end{equation}
 thus, these modes keep their bare frequencies.
 
+\section{Single-wave limit and the other waves}
+
 With this, we may find the upper edge of the band gap. First, writing out the
-PWE for one \fixed{single}%
-\corr{Handwritten: ``singular''.}
-plate frequency $\lambda_p$, using
-\begin{equation*}
+PWE for one single plate frequency $\lambda_p$, using
+\begin{equation}
   1 - \beta = 1 - \frac{\lambda}{\lambda_r} = \frac{\lambda_r - \lambda}{\lambda_r}
-\end{equation*}
+\end{equation}
 we get
-\begin{equation*}
+\begin{equation}
   1 = \mu\,\frac{\lambda_r}{\lambda_r - \lambda}\cdot\frac{\lambda}{\lambda_p - \lambda}
   \;\Rightarrow\;
   (\lambda_p - \lambda)(\lambda_r - \lambda) = \mu\lambda_r\lambda
-\end{equation*}
+\end{equation}
 and computing the characteristic polynomial of $H$ we find
-\begin{align*}
+\begin{equation}
+\begin{aligned}
   (\lambda_p + \mu\lambda_r - \lambda)(\lambda_r - \lambda) - \mu\lambda_r^2
   &= \bigl[(\lambda_p - \lambda) + \mu\lambda_r\bigr](\lambda_r - \lambda) - \mu\lambda_r^2 \\
-  &= (\lambda_p - \lambda)(\lambda_r - \lambda) + \mu\lambda_r(\lambda_r - \lambda) - \mu\lambda_r^2
-   = (\lambda_p - \lambda)(\lambda_r - \lambda) - \mu\lambda_r\lambda \overset{!}{=} 0 \\
+  &= (\lambda_p - \lambda)(\lambda_r - \lambda) + \mu\lambda_r(\lambda_r - \lambda) - \mu\lambda_r^2 \\
+   & = (\lambda_p - \lambda)(\lambda_r - \lambda) - \mu\lambda_r\lambda \overset{!}{=} 0 \\
   \Rightarrow\; (\lambda_p - \lambda)(\lambda_r - \lambda) &= \mu\lambda_r\lambda ,
-\end{align*}
+\end{aligned}
+\end{equation}
 exactly the PWE. However, we have disregarded the influence of the other waves.
 Their contribution is given by
-\begin{equation*}
-  S_p := \sum_{n \neq p} \frac{\lambda}{\lambda_n^0 - \lambda} ,
-\end{equation*}
-leading to
-\corr{Handwritten ending: ``$\ldots = 1 - \mu_\mathrm{eff} + \mu S_p$'', with
-``$= \mu_\mathrm{eff}$'' over $\mu\,\lambda/(\lambda_p - \lambda)$. Removed:
-$\mu\lambda/(\lambda_p - \lambda) \neq \mu_\mathrm{eff}$ (by the first relation
-$\mu_\mathrm{eff} = 1/(\lambda/(\lambda_p-\lambda) + S_p)$), and the $S_p$
-term has the wrong sign.}
 \begin{equation}
-  1 = \mu_\mathrm{eff}\left(\frac{\lambda}{\lambda_p - \lambda} + S_p\right)
+  S_p := \sum_{n \neq p} \frac{\lambda}{\lambda_n^0 - \lambda} ,
+\end{equation}
+leading to
+\begin{equation}
+\begin{split}
+  1 &= \mu_\mathrm{eff}\left(\frac{\lambda}{\lambda_p - \lambda} + S_p\right) \\
   \;\Rightarrow\;
-  1 - \beta = \mu\left(\frac{\lambda}{\lambda_p - \lambda} + S_p\right)
+  1 - \beta &= \mu\left(\frac{\lambda}{\lambda_p - \lambda} + S_p\right) \\
   \;\Rightarrow\;
-  \beta = 1 - \mu\left(\frac{\lambda}{\lambda_p - \lambda} + S_p\right)
+  \beta &= 1 - \mu\left(\frac{\lambda}{\lambda_p - \lambda} + S_p\right)
   \label{eq:beta_general}
+  \end{split}
 \end{equation}
 modifying the PWE.
+
+\section{Upper-edge estimate}
 
 As we are interested in an estimate for the upper edge of the gap, we consider
 $\Gamma$, as in the effective medium picture ($S_p = 0$, only uniform wave)
 band~2 starts at $f_r\sqrt{1+\mu}$ at $\mathbf{k} = 0$ and rises from there, so
-$\Gamma$ is its minimum \fixed{in that picture. With $S$ included, $\Gamma$ is
+$\Gamma$ is its minimum in that picture. With $S$ included, $\Gamma$ is
 a shallow local \emph{maximum} of band~2: moving off $\Gamma$, $S_p$ grows like
 $|\mathbf{k}|^2$ while the uniform-wave term changes only like
 $|\mathbf{k}|^4$, so the true minimum lies off $\Gamma$, $0.02$--$0.6\,\%$
-lower, and the $\Gamma$ value is an upper bound for the edge}.%
-\corr{Handwritten: ``so $\Gamma$ is its minimum''; true only for $S = 0$.}
+lower, and the $\Gamma$ value is an upper bound for the edge.
 Also, it makes our computation simpler. In the PWE, only terms close to or below
 $\lambda$ have a significant contribution to the sum:
-\begin{equation*}
+\begin{equation}
   \frac{\lambda}{\lambda_n^0 - \lambda}
   \overset{x := \lambda_n^0/\lambda}{=}
   \frac{1}{x - 1}
@@ -293,17 +296,17 @@ $\lambda$ have a significant contribution to the sum:
     \end{array}
   \end{array}
   \right.
-\end{equation*}
-For a plate whose\corr{Handwritten: ``who's''.} bare second band lies far above
+\end{equation}
+For a plate whose bare second band lies far above
 the resonator's frequency at $\Gamma$, the only significant single contribution
 is $\lambda_0^0 = 0$. We then have
-\begin{equation*}
+\begin{equation}
   \beta = 1 - \mu\left(\frac{\lambda}{0 - \lambda} + S_0\right)
   \equiv 1 - \mu(S - 1) = 1 + \mu(1 - S) \overset{!}{=} \frac{f^2}{f_r^2}
-\end{equation*}
-\begin{equation*}
+\end{equation}
+\begin{equation}
   \Rightarrow\; f = f_r\sqrt{1 + \mu(1 - S)}
-\end{equation*}
+\end{equation}
 So the upper edge is estimated as the lower of two candidates:
 \begin{itemize}
   \item The resonator band at about
@@ -314,8 +317,6 @@ So the upper edge is estimated as the lower of two candidates:
   f_\text{upper} \approx \min\bigl(f_r\sqrt{1 + \mu(1 - S)},\; f_X\bigr)
   \label{eq:upper_edge_candidates}
 \end{equation}
-\corr{Equation~\eqref{eq:upper_edge_candidates} only restates the two bullet
-points as a formula, so that the figures can refer to it.}
 
 \begin{figure}[htbp]
   \centering

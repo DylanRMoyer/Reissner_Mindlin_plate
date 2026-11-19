@@ -1,8 +1,7 @@
 % =====================================================================
 % Gap mechanisms, Section 1: Bragg gaps
 % Transcription of Dylan's handwritten notes (dispersion_theory_ch1), Nov 2026.
-% Corrections of the handwritten text are set in blue (\fixed{...}) and
-% explained in a red margin note (\corr{...}).
+% Corrections of the handwritten text are integrated into the text.
 % Requires: amsmath, amssymb, xcolor. The macros \fixed and \corr are defined
 % below with \providecommand, so this file works in any main file that loads
 % xcolor (a main file may define its own versions first).
@@ -15,20 +14,23 @@
 \chapter{Bragg gaps}
 \label{ch:bragg_gaps}
 
+\section{Bare plate modes}
+
 Consider $K_r(\mathbf{k})\,q = \lambda M_r(\mathbf{k})\,q$,
 $\lambda = \omega^2 = (2\pi f)^2$.
 Use superscript ${}^0$ for bare plate modes. For it, for a fixed $\mathbf{k}$ we
 have the (folded) plane waves as mode functions
-\begin{equation*}
+\begin{equation}
   \varphi_n(\mathbf{x}) = \frac{1}{\sqrt{\rho h A}}\,
   \exp\bigl\{i(\mathbf{k} + \mathbf{G}_n)\cdot\mathbf{x}\bigr\} .
-\end{equation*}
-In the dispersion diagram\fixed{, each} is one bare band.%
-\corr{Handwritten: ``In the dispersion diagram is one bare band''.}
+\end{equation}
+In the dispersion diagram each is one bare band.
 The prefactor causes the modes to be mass-normalized:
-\begin{equation*}
+\begin{equation}
   \int_\text{cell} \rho h\, \varphi_n^* \varphi_j \, dA = \delta_{nj} .
-\end{equation*}
+\end{equation}
+
+\section{Point mass projected onto the modes}
 
 Let $w(\mathbf{x}) = \sum_j q_j \varphi_j(\mathbf{x})$. Adding a point mass $m$
 at $\mathbf{x}_0$ to the cell causes the cell to feel an external force per
@@ -36,39 +38,44 @@ area $f(\mathbf{x})$. As the mass is rigidly attached to the plate, its
 displacement is $w(\mathbf{x}_0)$ and thus, its acceleration
 $-\omega^2 w(\mathbf{x}_0)$. Newton~III then tells us that the force with which
 the mass acts upon the cell is
-\begin{equation*}
+\begin{equation}
   f(\mathbf{x}) = \underbrace{m\omega^2 w(\mathbf{x}_0)}_{= -m\cdot a}\,
   \underbrace{\delta(\mathbf{x} - \mathbf{x}_0)}_{\text{point mass} \Rightarrow \text{point force}} .
-\end{equation*}
+\end{equation}
 At a frequency $\omega = \sqrt{\lambda}$, the bare plate satisfies
-\begin{equation*}
+\begin{equation}
   (\mathcal{L} - \lambda\rho h)\, w = f(\mathbf{x}) ,
-\end{equation*}
+\end{equation}
 where $\mathcal{L}$ is the stiffness operator of the plate. It holds that
-\begin{equation*}
+\begin{equation}
   \mathcal{L}\varphi_j = \lambda_j^0 \underbrace{\rho h}_{\text{mass operator}} \varphi_j .
-\end{equation*}
+\end{equation}
 Rewriting yields
-\begin{equation*}
+\begin{equation}
   \mathcal{L} w = \lambda\bigl[\rho h\, w + m\, w(\mathbf{x}_0)\,\delta(\mathbf{x} - \mathbf{x}_0)\bigr] .
-\end{equation*}
+\end{equation}
 Multiplying by $\varphi_n^*(\mathbf{x})$ and integrating over the cell yields for
 each term ($\mathrel{\widehat{=}}$ projecting on mode $n$)
-\begin{align*}
+\begin{equation}
+\begin{aligned}
   \text{LHS:}\quad & \int \varphi_n^* \mathcal{L} w \, dA
     = \sum_j q_j \lambda_j^0 \int \rho h\, \varphi_n^* \varphi_j \, dA = \lambda_n^0 q_n \\
   \text{RHS, plate term:}\quad & \lambda \sum_j q_j \int \rho h\, \varphi_n^* \varphi_j \, dA = \lambda q_n \\
   \text{mass term:}\quad & \lambda m\, w(\mathbf{x}_0) \int \varphi_n^* \delta(\mathbf{x} - \mathbf{x}_0)\, dA
     = \lambda m\, \varphi_n^*(\mathbf{x}_0) \overbrace{\sum_j q_j \varphi_j(\mathbf{x}_0)}^{= w(\mathbf{x}_0)}
     = \lambda m\, \varphi_n^*(\mathbf{x}_0)\, w(\mathbf{x}_0)
-\end{align*}
-\begin{equation*}
+\end{aligned}
+\end{equation}
+\begin{equation}
   \Rightarrow\; \lambda_n^0 q_n - \lambda m\, \varphi_n^* w(\mathbf{x}_0) = \lambda q_n
-\end{equation*}
+  \label{eq:modal_projection}
+\end{equation}
+
+\section{Two-mode model}
 
 Consider only \underline{two} modes. Writing $q := (q_1, q_2)^T$ this equation
 can be written as
-\begin{equation*}
+\begin{equation}
   H q = \lambda q , \quad\text{where}\quad
   H = \begin{pmatrix}
         \lambda_1^0 - \mu\lambda & -\mu\lambda \\
@@ -79,78 +86,71 @@ can be written as
     \lambda_1^0 & 0 \\
     0 & \lambda_2^0
   \end{pmatrix} \ \checkmark
-\end{equation*}
-I set $\mathbf{x}_0 = 0$ here to disregard the phase. One could in theory keep
+\end{equation}
+We set $\mathbf{x}_0 = 0$ here to disregard the phase. One could in theory keep
 it, though. In this case:
-$\fixed{-\lambda}\, m\,\varphi_i^*(\mathbf{x}_0)\,\varphi_j(\mathbf{x}_0)
+$-\lambda\, m\,\varphi_i^*(\mathbf{x}_0)\,\varphi_j(\mathbf{x}_0)
 \overset{\mathbf{x}_0 = 0}{=} -\mu\lambda$.%
-\corr{Handwritten: $m\varphi_i^*(\mathbf{x}_0)\varphi_j(\mathbf{x}_0) = -\mu\lambda$.
-The factor $-\lambda$ was missing: $m\varphi_i^*\varphi_j = m/(\rho h A) = \mu$
-at $\mathbf{x}_0 = 0$.}
 On the diagonal we see \underline{uniform mass loading}: Each mode is shifted
 down. Also, we see a \underline{coupling term} emerging, meaning that inertia
-forces from mode~1 \fixed{drive}\corr{Handwritten: ``drives''.} mode~2 and vice
+forces from mode~1 drive mode~2 and vice
 versa. Defining $d_n := \lambda_n^0 - \mu\lambda$ and $c := -\mu\lambda$, the
 eigenvalues read
-\begin{equation*}
+\begin{equation}
   \lambda = \frac{d_1 + d_2}{2} \pm \sqrt{\left(\frac{d_1 - d_2}{2}\right)^2 + |c|^2}
-\end{equation*}
+\end{equation}
 Implicit equation in $\lambda$, must generally be solved numerically.
+
+\section{Degenerate crossing at $X$}
 
 Consider a crossing at $X$ (multiplicity~2, $(\pm\frac{\pi}{a}, 0)$) of two
 bands. Here, $\lambda_1^0 = \lambda_2^0 = \lambda^0$. With
 $a_H := \lambda^0 + b_H$, $b_H := c = -\mu\lambda$ we find the two eigenvectors
 $(1, \pm 1)^T$ with eigenvalues $(a_H \pm b_H)$. Solving for $\lambda$ gives us
-\begin{align*}
+\begin{equation}
+\begin{aligned}
   \text{``$+$'':}\quad & \lambda = a_H + b_H = \lambda^0 + (-\mu\lambda) + (-\mu\lambda)
     = \lambda^0 - 2\mu\lambda
-    \;\Rightarrow\; (1 + 2\mu)\lambda = \lambda^0
-    \;\Rightarrow\; \lambda = \frac{\lambda^0}{1 + 2\mu}
+    \;\Rightarrow\; (1 + 2\mu)\lambda = \lambda^0 \\
+    \;\Rightarrow\; & \lambda = \frac{\lambda^0}{1 + 2\mu}
     \;\Rightarrow\; f = \frac{f^0}{\sqrt{1 + 2\mu}} \\
   \text{``$-$'':}\quad & \lambda = a_H - b_H = \lambda^0 + (-\mu\lambda) - (-\mu\lambda)
     = \lambda^0 \;\Rightarrow\; \lambda = \lambda^0 \;\Rightarrow\; f = f^0
-\end{align*}
-Thus, the \fixed{symmetric} mode has an antinode at $\mathbf{x}_0$%
-\corr{Handwritten: ``the antisymmetric mode has an antinode''. The symmetric
-mode $(1, 1)^T$ has the antinode and is shifted down; the antisymmetric mode
-$(1, -1)^T$ has a node at $\mathbf{x}_0$ and keeps $f^0$.}%
-\fixed{, the antisymmetric mode a node}. One frequency becomes two, opening up
+\end{aligned}
+\end{equation}
+Thus, the symmetric mode has an antinode at $\mathbf{x}_0$, the antisymmetric mode a node. One frequency becomes two, opening up
 a (directional) band gap.
+
+\section{Crossing at $M$ and complete gap condition}
 
 For a meeting of four modes like in $M$ (multiplicity~4,
 $(\pm\frac{\pi}{a}, \pm\frac{\pi}{a})$), we find
-\begin{equation*}
+\begin{equation}
   \lambda = \frac{\lambda^0}{1 + 4\mu} .
-\end{equation*}
+\end{equation}
 For a complete gap one needs to consider the fact that the lowest point of
 band~2 must be larger than the highest point of band~1.
 At $X$, all participating modes have $|\mathbf{k}| = \frac{\pi}{a}$, at $M$ it
-is $|\mathbf{k}| = \frac{\sqrt{2}\,\pi}{a}$.%
-\corr{The denominator at $M$ carries an extra mark in the scan; read as $a$,
-as the next equation uses.}
-The \fixed{respective}\corr{Handwritten: ``respecting''.} crossing happens at
+is $|\mathbf{k}| = \frac{\sqrt{2}\,\pi}{a}$.
+The respective crossing happens at
 $\lambda_X^0$ and $\lambda_M^0$ respectively. For a Kirchhoff plate we have a
 dispersion relation of $\omega \propto k^2$, thus $\lambda \propto k^4$. So we
 find
-\begin{equation*}
-  \frac{\lambda_M^0}{\lambda_X^0} \fixed{=} \frac{|\mathbf{k}_M|^4}{|\mathbf{k}_X|^4}
+\begin{equation}
+  \frac{\lambda_M^0}{\lambda_X^0} = \frac{|\mathbf{k}_M|^4}{|\mathbf{k}_X|^4}
   = \frac{\bigl(2\frac{\pi^2}{a^2}\bigr)^2}{\bigl(\frac{\pi^2}{a^2}\bigr)^2} = 4
-\end{equation*}
-\corr{Handwritten: $\propto$. The prefactor cancels in the ratio, so it is an
-equality.}%
+\end{equation}
 $\Rightarrow$ The crossing at $M$ lies 4 times higher in $\lambda$ or 2 times
 higher in frequency.
 We can conclude that band~1 is highest at $M$ and band~2 is lowest at $X$.
 The condition for a complete band gap becomes
-\begin{equation*}
-  \frac{\lambda_M^0}{1 + 4\mu} \overset{!}{<} \lambda_X\fixed{^0}
+\begin{equation}
+  \frac{\lambda_M^0}{1 + 4\mu} \overset{!}{<} \lambda_X^0
   \;\Rightarrow\;
   4 = \frac{\lambda_M^0}{\lambda_X^0} \overset{!}{<} 1 + 4\mu
   \;\Rightarrow\;
   \boxed{\mu \overset{!}{>} \frac{3}{4}}
-\end{equation*}
-\corr{Handwritten: $\lambda_X$. Band~2 at $X$ is the bare value
-$\lambda_X^0$ (antisymmetric mode).}%
+\end{equation}
 A complete Bragg gap therefore requires additional mass roughly on the scale of
 the plate's mass. Note that this is an \underline{estimated necessary
 requirement}.

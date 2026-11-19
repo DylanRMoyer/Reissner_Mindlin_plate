@@ -1,0 +1,124 @@
+% =====================================================================
+% Gap mechanisms, Chapter 3: The finite plate
+% Transcription of Dylan's handwritten notes (two pages), Nov 2026.
+% Corrections of the handwritten text are integrated into the text.
+% Equation and section numbers of the handwritten notes are replaced by
+% \eqref / \ref to labels in Chapters 1 and 2.
+% Requires: amsmath, amssymb, xcolor. The macros \fixed and \corr are defined
+% below with \providecommand, so this file works in any main file that loads
+% xcolor (a main file may define its own versions first).
+% Include in the main file with  \include{gap_mechanisms_finite_plate}
+% =====================================================================
+
+\providecommand{\fixed}[1]{{\color{blue!70!black}#1}}
+\providecommand{\corr}[1]{\marginpar{\raggedright\footnotesize\color{red!70!black}#1}}
+
+\chapter{The finite plate}
+\label{ch:finite_plate}
+
+\section{Resonator force and damping}
+
+From equations~\eqref{eq:resonator_force} and~\eqref{eq:zc_condition} we know
+that for a resonator with mass $m$ and spring $k_{sp}$ at $\mathbf{x}_0$
+($w_0 := w(\mathbf{x}_0)$, $\lambda_r := \frac{k_{sp}}{m}$,
+$\beta := \frac{\lambda}{\lambda_r}$)
+\begin{equation}
+  F = k_{sp}(u - w_0) = m_\mathrm{eff}\lambda w_0 = Z w_0 ,
+  \quad\text{where}\quad
+  Z := m_\mathrm{eff}\lambda = \frac{m\lambda}{1 - \beta} .
+\end{equation}
+Here, $F$ is the force the resonator puts on the plate. Damping enters through
+complex stiffness, so the equations stay as they are, what changes is:
+\begin{itemize}
+  \item resonator: $k_{sp} \to k_{sp}(1 + i\gamma_r)
+        \Rightarrow \lambda_r \to \tilde{\lambda}_r := \lambda_r(1 + i\gamma_r)$,
+        $\tilde{\beta} = \frac{\lambda}{\tilde{\lambda}_r}$.%
+        
+        Cases~2 and~3 from Section~\ref{sec:resonator_effective_mass}
+        ($m_\mathrm{eff} \to \pm\infty$) turn into a large but finite
+        peak.
+  \item plate: $\lambda_n^0 \to \lambda_n^0(1 + i\gamma_p)$
+\end{itemize}
+
+\section{Superposition on the finite plate}
+
+In Section~\ref{sec:pwe_condition}, $Z$ and $C$ belong to an unforced cell with
+one resonator. We now consider the finite plate which includes
+\begin{itemize}
+  \item the shaker force $F_s$ at $\mathbf{x}_s$
+  \item resonators at ``active'' positions $\mathbf{x}_k$, $k \in A$ (the 1's in
+        the bitstring)
+\end{itemize}
+Let $g_k(\mathbf{x})$ be the bare plate's deflection under a unit force at
+$\mathbf{x}_k$, i.e., $(\mathcal{L} - \lambda\rho h)\, g_k = \delta(\mathbf{x} - \mathbf{x}_k)$.
+Analogous to equ.~\eqref{eq:modal_projection} we get
+\begin{equation}
+  q_n = \frac{\varphi_n(\mathbf{x}_k)}{\lambda_n^0(1 + i\gamma_p) - \lambda}
+  \;\Rightarrow\;
+  g_k(\mathbf{x}) = \sum_n q_n \varphi_n(\mathbf{x})
+  = \sum_n \frac{\varphi_n(\mathbf{x}_k)\,\varphi_n(\mathbf{x})}{\lambda_n^0(1 + i\gamma_p) - \lambda}
+\end{equation}
+As the plate is linear, we may split the motion of the plate into a response to
+the shaker and to all the resonators in $A$:
+\begin{equation}
+  \boxed{\;w(\mathbf{x}) = \underbrace{F_s\, g_s(\mathbf{x})}_{= w^0(\mathbf{x}),\ \text{bare response}}
+  + \sum_{k \in A} F_k\, g_k(\mathbf{x})\;}
+  \label{eq:finite_plate_superposition}
+\end{equation}
+
+\section{Compliance matrix and attachment-point system}
+
+Evaluating the bare plate's deflection
+under a unit force at $\mathbf{x}_k$ at position $\mathbf{x}_j$ for each pair
+$(j, k)$ gives us the compliance matrix
+\begin{equation}
+  C_{jk} := g_k(\mathbf{x}_j)
+  = \sum_n \frac{\varphi_n(\mathbf{x}_j)\,\varphi_n(\mathbf{x}_k)}{\lambda_n^0(1 + i\gamma_p) - \lambda}
+\end{equation}
+%
+This is the deflection at $\mathbf{x}_j$ per unit force
+at $\mathbf{x}_k$.
+One can directly see that $C_{jk} = C_{kj}$.
+Evaluating the superposition at $\mathbf{x}_j$ then gives us
+\begin{equation}
+  w_j = w_j^0 + \sum_{k \in A} C_{jk} F_k
+\end{equation}
+Insert $F_k = Z_k w_k$ (see equ.~\eqref{eq:zc_condition}) to find
+\begin{equation}
+  \boxed{\;(I - CZ)\,\mathbf{w} = \mathbf{w}^0\;}
+  \label{eq:attachment_point_system}
+\end{equation}
+where $\mathbf{w} := (w_k)_{k \in A}$ collects the plate deflections at the
+attachment points, $\mathbf{w}^0$ the bare deflections there,
+$Z := \operatorname{diag}(Z_k)$ holds the resonator impedances, and all indices
+$j, k$ run over $A$.
+
+\section{Comparison with the unit cell}
+
+Thus, the same physics applies for the finite plate. Three differences:
+\begin{itemize}
+  \item We consider finite-plate modes instead of plane waves
+  \item A shaker as an additional force
+  \item an arbitrary subset $A$ instead of a full lattice
+\end{itemize}
+Plugging the solutions of equ.~\eqref{eq:attachment_point_system} into
+\eqref{eq:finite_plate_superposition} we obtain the deflection of the entire
+plate. Changing the resonator design requires only a resolve of
+equ.~\eqref{eq:attachment_point_system}, not of the whole simulation.
+
+\section{Radiated power}
+
+We now assume $w$ is known. For a given frequency $\omega$, we can compute the
+radiated power with velocity $v = i\omega w$ and radiation resistance matrix $R$
+as
+\begin{equation}
+  P = \operatorname{Re}(v^\dagger R v) , \qquad
+  v = v^0 + \sum_{k \in A} F_k \hat{v}_k ,
+\end{equation}
+where $v^0 = i\omega w^0$ and $\hat{v}_k = i\omega g_k$, both evaluated at the
+radiation points. Define $r_k := \hat{v}_k^\dagger R v^0$,
+$Q_{jk} := \hat{v}_j^\dagger R \hat{v}_k$ and expand to obtain
+\begin{equation}
+  P = v^{0\dagger} R v^0 + 2\operatorname{Re}\Bigl(\sum_{k \in A} F_k^* r_k\Bigr)
+  + \sum_{j, k \in A} F_j^* Q_{jk} F_k
+\end{equation}
